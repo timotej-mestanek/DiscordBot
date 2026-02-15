@@ -1,0 +1,119 @@
+// This is your Prisma schema file,
+// learn more about it in the docs: https://pris.ly/d/prisma-schema
+
+// Looking for ways to speed up your queries, or scale easily with your serverless or edge functions?
+// Try Prisma Accelerate: https://pris.ly/cli/accelerate-init
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+enum Platform {
+  twitch
+  discord
+}
+
+//////////////////////////////////////////////////
+// USERS (admin / auth – bokem)
+//////////////////////////////////////////////////
+
+model User {
+  id         Int     @id @default(autoincrement())
+  name       String  
+  password   String
+
+  spotify_rt String?
+  twitch_rt  String?
+  discord_rt String?
+  spotify_at String?
+  twitch_at  String?
+  discord_at String?
+  twitch_exp DateTime?
+  spotify_exp DateTime?
+  discord_exp DateTime?
+
+}
+
+//////////////////////////////////////////////////
+// ENTITIES (nick / človek / cieľ štatistiky)
+//////////////////////////////////////////////////
+
+model Entity {
+  id         Int      @id @default(autoincrement())
+  name       String   @unique
+
+  twitch_id  String?  @unique
+  discord_id String?  @unique
+
+  created_at DateTime @default(now())
+}
+
+model TwitchEntity {
+  id        Int     @id @default(autoincrement())
+  twitch_id String  @unique
+  name      String
+  created_at DateTime @default(now())
+
+  stats TwitchStatisticEvent[]
+}
+
+model TwitchStatistic {
+  id       Int      @id @default(autoincrement())
+  name     String   
+
+  events   TwitchStatisticEvent[]
+}
+
+model TwitchStatisticEvent {
+  id           Int          @id @default(autoincrement())
+  twitchEntityId Int
+  statisticId  Int
+  value        Int
+  created_at   DateTime     @default(now())
+  season       String?
+
+  twitchEntity TwitchEntity  @relation(fields: [twitchEntityId], references: [id])
+  statistic    TwitchStatistic @relation(fields: [statisticId], references: [id])
+
+  @@index([twitchEntityId])
+  @@index([statisticId])
+  @@index([created_at])
+}
+
+model DiscordEntity {
+  id         Int      @id @default(autoincrement())
+  discord_id String   @unique
+  name       String
+  points     Int      @default(0) 
+  created_at DateTime @default(now())
+
+  stats DiscordStatisticEvent[]
+}
+
+model DiscordStatistic {
+  id       Int      @id @default(autoincrement())
+  name     String   
+
+  events   DiscordStatisticEvent[]
+}
+
+model DiscordStatisticEvent {
+  id             Int           @id @default(autoincrement())
+  discordEntityId Int
+  statisticId    Int
+  value          Int
+  created_at     DateTime      @default(now())
+  season         String?
+
+  discordEntity  DiscordEntity  @relation(fields: [discordEntityId], references: [id])
+  statistic      DiscordStatistic @relation(fields: [statisticId], references: [id])
+
+  @@index([discordEntityId])
+  @@index([statisticId])
+  @@index([created_at])
+}
