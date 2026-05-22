@@ -1,11 +1,11 @@
-import { client } from "../bot";
-import { getTableFromPoints } from "../services/pointsService";
-import { TopPoints } from "../types/types";
-import { writeTable } from "../utils/logger";
+import { client } from "../../bot";
+import { getTopUsers } from "../points";
+import { TopPoints } from "../../types/types";
+import { writeTable } from "../../shared/utils/logger";
 
 export const createOrUpdatePointsTable = async() =>{
     const channelId = "1460758971013923011";
-    const table = await getTableFromPoints();
+    const table = await getTopUsers();
     
   const tableWithNames: TopPoints[] = await Promise.all(
   table.map(async (item, index) => {
@@ -29,5 +29,6 @@ export const createOrUpdatePointsTable = async() =>{
 );
     const result = await writeTable(channelId, "Top players in points", tableWithNames);
 }
+
 
 

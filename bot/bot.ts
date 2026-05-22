@@ -3,10 +3,10 @@ import {
   GatewayIntentBits,
 } from "discord.js"
 import dotenv from "dotenv";
-import sort_messages from "./lib/messages";
-import { addPoints } from "./services/pointsService";
-import { getUser, createUser } from "./services/userService";
-import { createOrUpdatePointsTable } from "./lib/tables";
+import sort_messages from "./discord/events/messageHandler";
+import { addPointsToUser } from "./modules/points/pointsService";
+import { getUser, createUser } from "./modules/user/userRespository";
+import { createOrUpdatePointsTable } from "./modules/leaderboard/tables";
 dotenv.config();
 
 
@@ -35,7 +35,7 @@ client.on("guildMemberAdd", async (member) => {
   if (!user) {
     await createUser(member.id);
   }
-  await addPoints(member.id, 100);
+  await addPointsToUser(member.id, 100);
 })
 
 client.login(process.env.DISCORD_BOT_TOKEN)

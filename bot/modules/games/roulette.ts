@@ -1,7 +1,7 @@
 import { Message, OmitPartialGroupDMChannel } from "discord.js";
-import { generateResponse } from "../lib/messages";
-import { createUser, getUser } from "../services/userService";
-import getUserPoints, { addPoints, removePoints } from "../services/pointsService";
+import { generateResponse } from "../../discord/events/messageHandler";
+import { createUser, getUser } from "../user/userRespository";
+import  {getUserPoints, decrementPoints, incrementPoints } from "../points/";
 
 type Selection = number | "red" | "black" | "green";
 
@@ -47,10 +47,10 @@ export default async function GamblingGame(message: OmitPartialGroupDMChannel<Me
             }else{
                 pointsChange = value * 2;
             }
-            await addPoints(message.author.id, pointsChange);            
+            await incrementPoints(message.author.id, pointsChange);            
         }else{
             pointsChange = -value;
-            await removePoints(message.author.id, pointsChange);
+            await decrementPoints(message.author.id, pointsChange);
         }
         await message.channel.send(`${dropSymbol.repeat(4)} ${messageToSend} ${dropSymbol.repeat(4)}. ${winResult? "Vyhrál jsi ":"Prohrál jsi "}${pointsChange} bodů teď máš ${await getUserPoints(message.author.id)} bodů`);
 

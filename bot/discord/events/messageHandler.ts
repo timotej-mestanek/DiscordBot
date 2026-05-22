@@ -1,9 +1,9 @@
 import { Message, OmitPartialGroupDMChannel } from "discord.js";
-import GamblingGame from "../games/roulette";
-import { commands } from "./commands";
-import { lossMessages, winMessages } from "./ruletteMessages";
-import { writeMessage, writeReply } from "../utils/logger";
-import { DMes } from "../types/types";
+import GamblingGame from "../../modules/games/roulette";
+import { commands } from "../commands/registry";
+import { lossMessages, winMessages } from "../../shared/data/ruletteMessages";
+import { writeMessage, writeReply } from "../../shared/utils/logger";
+import { DMes } from "../../types/types";
 
 export default async function sort_messages(message: DMes) {
   if (!message.guild) return; 

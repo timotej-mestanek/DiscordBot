@@ -1,7 +1,7 @@
 import { EmbedBuilder, NewsChannel, TextChannel } from "discord.js";
-import { DMes, TopPoints } from "../types/types";
+import { DMes, TopPoints } from "../../types/types";
 import { Channel } from "discord.js";
-import { client } from "../bot";
+import { client } from "./../../bot";
 
 
 
