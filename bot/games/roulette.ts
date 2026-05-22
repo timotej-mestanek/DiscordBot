@@ -24,7 +24,7 @@ export default async function GamblingGame(message: OmitPartialGroupDMChannel<Me
 
         const userPoints = await getUserPoints(message.author.id);
         if ((userPoints ?? 0) < value) {
-            await message.channel.send("Co su to body kurva");
+            await message.channel.send(`Co jsou to body kurva (Nemáš dost bodů, pouze ${userPoints}) `);
             return;
         }
 
@@ -52,7 +52,7 @@ export default async function GamblingGame(message: OmitPartialGroupDMChannel<Me
             pointsChange = -value;
             await removePoints(message.author.id, pointsChange);
         }
-        await message.channel.send(`${dropSymbol.repeat(4)} ${messageToSend} ${dropSymbol.repeat(4)} ${pointsChange}`);
+        await message.channel.send(`${dropSymbol.repeat(4)} ${messageToSend} ${dropSymbol.repeat(4)}. ${winResult? "Vyhrál jsi ":"Prohrál jsi "}${pointsChange} bodů teď máš ${await getUserPoints(message.author.id)} bodů`);
 
     } catch (err) {
         console.error(err);
@@ -60,7 +60,6 @@ export default async function GamblingGame(message: OmitPartialGroupDMChannel<Me
     }
 }
 
-// PREVOD VÝBERU NA INTERNÝ TYP
 function convertChoice(s: string): Selection | null {
     s = s.toLowerCase();
 

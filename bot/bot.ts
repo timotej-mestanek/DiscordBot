@@ -25,7 +25,7 @@ client.once("ready", async() => {
 })
 
 client.on("messageCreate", async (message) => {
-  console.log("aaa: ",message.channelId);
+  console.log(message);
   if (message.author.bot) return
   sort_messages(message);
 })

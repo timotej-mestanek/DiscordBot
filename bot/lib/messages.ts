@@ -21,6 +21,8 @@ export default async function sort_messages(message: DMes) {
         writeReply(message, result);
       }
       break;
+    }else{
+      continue;
     }
   }
 }
