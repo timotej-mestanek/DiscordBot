@@ -1,2 +1,2 @@
-export * from "./shopRepository";
-export * from "./shopService";
+export * from "./repository";
+export * from "./service";

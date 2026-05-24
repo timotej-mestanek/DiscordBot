@@ -13,7 +13,7 @@ export const writeReply = (message: DMes, text:string) => {
     message.reply(text); 
 }
 
-export const writeTable = async (channelId: string,title:string, table:TopPoints[]) => {
+export const writeTable = async (channelId: string,title:string, table:TopPoints[]) => { // REFACTOR
     const embed = new EmbedBuilder()
     .setTitle(title)
     .setColor('Random');
