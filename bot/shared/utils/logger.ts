@@ -29,10 +29,10 @@ export const writeTable = async (channelId: string,title:string, table:TopPoints
     const message = await channel.messages.fetch("1465839306248814637");
     if(message){
         const data = await message.edit({ embeds: [embed], allowedMentions: {users:[]} });
-        console.log("bylo to updatnuto nehehe");
+        
     }else{
         const data = await channel.send({ embeds: [embed], allowedMentions: {users:[]} });
-        console.log(data);
+   
     }
 }
 
