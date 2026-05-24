@@ -1,21 +1,24 @@
+import { getWritableChannelById } from "../../discord/services/channel";
 import { createShopLayout } from "./layout";
 
-
+ 
 
 const channelId = 1507479631266189472;
 
 
-const renderShop = async(channelId:number) =>{
+export const renderShop = async(channelId:string) =>{
     const elements = [
         {
-            name:"Premena 1 000 000 DCC za 1000 STC",
+            name:"1000 TWITCH POINTS",
             price:1000000,
         },
         {
-            name:"Premena 10 000 000 DCC za 10 250STC",
+            name:"10 250TWITCH POINTS",
             price:10000000,
         }
-    ]
-    const embed = await createShopLayout(elements);
-    // RENDER TO CHANNEL
+    ];
+    const layout = createShopLayout(elements);
+    const channel = await getWritableChannelById(channelId);
+    if (!channel) return;
+    await channel.send(layout);
 }

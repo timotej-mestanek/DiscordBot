@@ -7,6 +7,7 @@ import sort_messages from "./discord/events/messageHandler";
 import { addPointsToUser } from "./modules/points/pointsService";
 import { getUser, createUser } from "./modules/user/userRespository";
 import { createOrUpdatePointsTable } from "./modules/leaderboard/tables";
+import {renderShop} from "@modules/shop";
 dotenv.config();
 
 
@@ -21,6 +22,7 @@ export const client = new Client({
 client.once("ready", async() => {
   console.log(`🤖 Bot ready as ${client.user?.tag}`)
     await createOrUpdatePointsTable();
+    await renderShop("1507479631266189472");
   setInterval(async () => await createOrUpdatePointsTable(), 180000);
 })
 

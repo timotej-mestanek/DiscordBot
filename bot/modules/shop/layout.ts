@@ -8,19 +8,9 @@ import { ShopItem } from './types';
 
 export function createShopLayout(items:ShopItem[]) {
   const embed = new EmbedBuilder()
-    .setTitle('Shop')
-    .setDescription(
-      items.map(i => `• ${i.name} - ${i.price}$`).join('\n')
-    );
-
-  const row = new ActionRowBuilder<ButtonBuilder>()
-    .addComponents(
-      new ButtonBuilder()
-        .setCustomId('buy')
-        .setLabel('Buy')
-        .setStyle(ButtonStyle.Success)
-    );
-
+    .setTitle('Shop');
+  const buttons = items.map((i,key) => new ButtonBuilder().setCustomId(key.toString()).setLabel(`${i.name} - ${i.price}`).setStyle(ButtonStyle.Primary))
+  const row = new ActionRowBuilder<ButtonBuilder>().addComponents(...buttons);
   return {
     embeds: [embed],
     components: [row]
