@@ -8,6 +8,7 @@ import { addPointsToUser } from "./modules/points/pointsService";
 import { getUser, createUser } from "./modules/user/userRespository";
 import { createOrUpdatePointsTable } from "./modules/leaderboard/tables";
 import {renderShop} from "@modules/shop";
+import { InteractionResolver } from "discord/resolvers/interaction.resolver";
 dotenv.config();
 
 
@@ -31,6 +32,8 @@ client.on("messageCreate", async (message) => {
   if (message.author.bot) return
   sort_messages(message);
 })
+
+client.on("interactionCreate", InteractionResolver)
 
 client.on("guildMemberAdd", async (member) => {
   const user = await getUser(member.id);

@@ -11,10 +11,12 @@ export const renderShop = async(channelId:string) =>{
         {
             name:"1000 TWITCH POINTS",
             price:1000000,
+            id:"buy_1000_tp"
         },
         {
             name:"10 250TWITCH POINTS",
             price:10000000,
+            id:"buy_10250_tp"
         }
     ];
     const layout = createShopLayout(elements);

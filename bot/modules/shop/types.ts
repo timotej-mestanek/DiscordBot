@@ -1,4 +1,5 @@
 export type ShopItem = { 
     name:string,
-    price:number
+    price:number,
+    id:string,
 }
