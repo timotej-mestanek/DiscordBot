@@ -1,4 +1,4 @@
-# Discord Bot
+# Discord Bot - For dev
 
 A simple Discord bot built with TypeScript.
 
@@ -39,3 +39,18 @@ Running the bot via tsx
 ```bash
 tsx bot.ts
 ```
+# Discord bot - for usage
+
+Clone repository 
+```bash
+git clone https://github.com/timotej-mestanek/DiscordBot
+```
+Build and start the bot using Docker compose 
+```bash
+docker compose up --build
+```
+To stop the bot 
+```bash
+docker compose down
+```
+
