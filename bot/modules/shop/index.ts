@@ -1,3 +1,1 @@
-export * from "./repository";
-export * from "./service";
-export * from "./controller";
+export { renderShop } from "./controller";

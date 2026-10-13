@@ -1,43 +1,37 @@
 import { EmbedBuilder, NewsChannel, TextChannel } from "discord.js";
-import { DMes, TopPoints } from "../../types/types";
-import { Channel } from "discord.js";
-import { client } from "./../../bot";
+import { TopPoints } from "../../types/types";
+import { client } from "../../discord/client";
 
+export const writeTable = async (
+  channelId: string,
+  title: string,
+  table: TopPoints[],
+) => {
+  const embed = new EmbedBuilder().setTitle(title).setColor("Random");
+  table.forEach((item, index) => {
+    embed.addFields({
+      name: `${index + 1}. ${item.name} — ${item.points} bodů`,
+      value: "\u200B",
+      inline: false,
+    });
+  });
 
+  const channel = await client.channels.fetch(channelId);
+  if (!(channel instanceof TextChannel || channel instanceof NewsChannel)) {
+    throw new Error(`Kanál ${channelId} neexistuje nebo do něj bot nemůže psát.`);
+  }
 
-export const writeMessage = (message: DMes, text:string) => {
-    message.channel.send(text); 
-}
+  const messages = await channel.messages.fetch({ limit: 50 });
+  const message = messages.find(
+    (candidate) =>
+      candidate.author.id === client.user?.id &&
+      candidate.embeds[0]?.title === title,
+  );
+  const payload = { embeds: [embed], allowedMentions: { users: [] } };
 
-export const writeReply = (message: DMes, text:string) => {
-    message.reply(text); 
-}
-
-export const writeTable = async (channelId: string,title:string, table:TopPoints[]) => { // REFACTOR
-    const embed = new EmbedBuilder()
-    .setTitle(title)
-    .setColor('Random');
-
-
-    table.forEach((item,index) => {
-        embed.addFields({name:`${index+1}. \u200B \u200B ${item.name.padEnd(10," ")} ${item.points.toString().padStart(10," ")}`,value:"\u200B",inline:false});
-    })
-
-    const channel = await client.channels.cache.get(channelId);
-    
-    if(channel instanceof TextChannel || channel instanceof NewsChannel) {
-    const message = await channel.messages.fetch("1465839306248814637");
-    if(message){
-        const data = await message.edit({ embeds: [embed], allowedMentions: {users:[]} });
-        
-    }else{
-        const data = await channel.send({ embeds: [embed], allowedMentions: {users:[]} });
-   
-    }
-}
-
-}
-
-
-
-
+  if (message) {
+    await message.edit(payload);
+  } else {
+    await channel.send(payload);
+  }
+};

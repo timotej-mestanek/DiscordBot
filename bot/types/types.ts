@@ -6,5 +6,4 @@ export type TopPoints = {
     discord_id:string;
     name:string;
     points:number;
-    line_space:string;
 }

@@ -1,8 +1,8 @@
 import { NewsChannel, TextChannel } from "discord.js";
-import { client } from "./../../bot";
+import { client } from "../client";
 
 export const getWritableChannelById = async(channelId:string)=>{
-    const channel = client.channels.cache.get(channelId);
+    const channel = await client.channels.fetch(channelId);
     if(channel instanceof TextChannel || channel instanceof NewsChannel){
         return channel;
     }

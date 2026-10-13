@@ -1,33 +1,45 @@
-import { Message, OmitPartialGroupDMChannel } from "discord.js";
-import GamblingGame from "../../modules/games/roulette";
-import { commands } from "../commands/registry";
-import { lossMessages, winMessages } from "../../shared/data/ruletteMessages";
-import { writeMessage, writeReply } from "../../shared/utils/logger";
 import { DMes } from "../../types/types";
+import { commands } from "../commands/registry";
+import { recordMessageProfanity } from "../../modules/profanity/chatMetrics";
 
-export default async function sort_messages(message: DMes) {
-  if (!message.guild) return; 
+export default async function sort_messages(message: DMes): Promise<void> {
+  if (!message.inGuild() || message.author.bot) return;
 
-  for (const cmd of commands) {
-    if (Array.isArray(cmd.allowedChannels) && !cmd.allowedChannels.includes(message.channel.id)) {
-      if (message.content.startsWith(cmd.keyword)) {
-        writeReply(message, "Tento příkaz tu nemůžeš použít");
-      }
-      continue; 
-    }
-    if (message.content.startsWith(cmd.keyword)) {
-      const result = await cmd.action(message);
-      if (typeof result === "string") {
-        writeReply(message, result);
-      }
-      break;
-    }else{
-      continue;
-    }
+  try {
+    await recordMessageProfanity(message);
+  } catch (error) {
+    console.error(
+      `Nepodařilo se uložit vulgarismy ze zprávy ${message.id}:`,
+      error,
+    );
   }
-}
 
-export const generateResponse = (s:"win" | "lose") => {
-    const number = Math.floor(Math.random()*40);
-    return s == "win" ? winMessages[number] : lossMessages[number];
+  const [keyword, ...args] = message.content.trim().split(/\s+/);
+  const command = commands.find(
+    (candidate) => candidate.keyword === keyword?.toLowerCase(),
+  );
+  if (!command) return;
+
+  if (command.allowedChannelId && message.channel.id !== command.allowedChannelId) {
+    await message.reply("Tento příkaz můžeš použít jen v určeném kanálu.");
+    return;
+  }
+
+  if (
+    ["!ruleta", "!kostky", "!mince"].includes(command.keyword) &&
+    !command.allowedChannelId
+  ) {
+    await message.reply(
+      `Příkaz ${command.keyword} není nakonfigurován; doplň jeho ID kanálu do \`.env\`.`,
+    );
+    return;
+  }
+
+  try {
+    const response = await command.action(message, args);
+    if (response) await message.reply(response);
+  } catch (error) {
+    console.error(`Chyba při zpracování příkazu ${command.keyword}:`, error);
+    await message.reply("Příkaz se nepodařilo dokončit. Zkus to později.");
+  }
 }

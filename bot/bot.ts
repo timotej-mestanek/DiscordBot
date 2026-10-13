@@ -1,45 +1,59 @@
-import {
-  Client,
-  GatewayIntentBits,
-} from "discord.js"
-import dotenv from "dotenv";
+import "dotenv/config";
+import { client } from "./discord/client";
 import sort_messages from "./discord/events/messageHandler";
-import { addPointsToUser } from "./modules/points/pointsService";
-import { getUser, createUser } from "./modules/user/userRespository";
+import { incrementPoints } from "./modules/points/pointsRepository";
 import { createOrUpdatePointsTable } from "./modules/leaderboard/tables";
-import {renderShop} from "@modules/shop";
 import { InteractionResolver } from "discord/resolvers/interaction.resolver";
-dotenv.config();
+import {
+  getRequiredEnv,
+  leaderboardChannelId,
+  welcomeBonus,
+} from "./config";
+import {
+  syncMemberNickname,
+} from "./discord/services/nickname";
+import { syncAuthPanel } from "./discord/services/authPanel";
 
+client.once("clientReady", async () => {
+  console.log(`🤖 Bot ready as ${client.user?.tag}`);
+  try {
+    await syncAuthPanel();
+  } catch (error) {
+    console.error("Nepodařilo se připravit Discord autorizační panel:", error);
+  }
+  if (leaderboardChannelId) {
+    const updateLeaderboard = () =>
+      createOrUpdatePointsTable().catch((error) => {
+        console.error("Nepodařilo se aktualizovat žebříček:", error);
+      });
+    await updateLeaderboard();
+    setInterval(() => void updateLeaderboard(), 180_000);
+  } else {
+    console.error("Žebříček je vypnutý; nastav DISCORD_LEADERBOARD_CHANNEL_ID.");
+  }
 
-export const client = new Client({
-  intents: [
-    GatewayIntentBits.Guilds,
-    GatewayIntentBits.GuildMessages,
-    GatewayIntentBits.MessageContent
-  ]
-})
+});
 
-client.once("ready", async() => {
-  console.log(`🤖 Bot ready as ${client.user?.tag}`)
-    await createOrUpdatePointsTable();
-    await renderShop("1507479631266189472");
-  setInterval(async () => await createOrUpdatePointsTable(), 180000);
-})
+client.on("messageCreate", (message) => {
+  void sort_messages(message);
+});
 
-client.on("messageCreate", async (message) => {
-  if (message.author.bot) return
-  sort_messages(message);
-})
-
-client.on("interactionCreate", InteractionResolver)
+client.on("interactionCreate", (interaction) => {
+  void InteractionResolver(interaction);
+});
 
 client.on("guildMemberAdd", async (member) => {
-  const user = await getUser(member.id);
-  if (!user) {
-    await createUser(member.id);
+  try {
+    const created = await syncMemberNickname(member);
+    if (created && welcomeBonus > 0) {
+      await incrementPoints(member.id, welcomeBonus);
+    }
+  } catch (error) {
+    console.error(
+      `Nepodařilo se zpracovat nového člena ${member.id} na serveru ${member.guild.id}:`,
+      error,
+    );
   }
-  await addPointsToUser(member.id, 100);
-})
+});
 
-client.login(process.env.DISCORD_BOT_TOKEN)
+client.login(getRequiredEnv("DISCORD_BOT_TOKEN"));

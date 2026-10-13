@@ -1,11 +1,10 @@
-import { ButtonInteraction, Interaction } from "discord.js";
-import { ModalWindow } from "@shared/ui";
-export const buttonResolver = async(interaction:ButtonInteraction) =>{ 
-   
+import { ButtonInteraction, MessageFlags } from "discord.js";
 
-    switch(interaction.customId){
-        case "buy_1000_tp":
-            await interaction.showModal(ModalWindow())
-            break;
-    }
-}
+export const buttonResolver = async (interaction: ButtonInteraction) => {
+  if (interaction.customId.startsWith("buy_")) {
+    await interaction.reply({
+      content: "Obchod je dočasně vypnutý; položky budou doplněny při konverzi.",
+      flags: MessageFlags.Ephemeral,
+    });
+  }
+};

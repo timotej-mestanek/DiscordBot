@@ -1,0 +1,70 @@
+<!doctype html>
+<html lang="cs">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <meta name="color-scheme" content="dark" />
+    <title>PUBG statistiky</title>
+    <link rel="stylesheet" href="./panel.css" />
+    <script src="https://extension-files.twitch.tv/helper/v1/twitch-ext.min.js"></script>
+    <script src="./panel.js" defer></script>
+  </head>
+  <body>
+    <main class="panel" aria-live="polite">
+      <header class="panel-header">
+        <div>
+          <p class="eyebrow">Dnešné ranked zápasy</p>
+          <h1>PUBG statistiky</h1>
+        </div>
+        <span id="connection" class="connection" role="status">Pripájam…</span>
+      </header>
+
+      <section id="empty-state" class="empty-state">
+        <p>Čakám na PUBG štatistiky…</p>
+        <span>Údaje sa zobrazia po ich odoslaniu cez PubSub.</span>
+      </section>
+
+      <section id="stats" class="stats" hidden aria-label="PUBG štatistiky">
+        <div class="player-row">
+          <h2 id="player">—</h2>
+          <span id="matches" class="matches">0 zápasov</span>
+        </div>
+        <div class="stat-grid">
+          <article class="stat stat-primary">
+            <span class="stat-label">K/D</span>
+            <strong id="kd" class="stat-value">—</strong>
+          </article>
+          <article class="stat">
+            <span class="stat-label">Kills</span>
+            <strong id="kills" class="stat-value">—</strong>
+          </article>
+          <article class="stat">
+            <span class="stat-label">Deaths</span>
+            <strong id="deaths" class="stat-value">—</strong>
+          </article>
+          <article class="stat">
+            <span class="stat-label">Longest kill</span>
+            <strong id="longest-kill" class="stat-value">—</strong>
+            <span class="stat-unit">m</span>
+          </article>
+          <article class="stat">
+            <span class="stat-label">Headshot rate</span>
+            <strong id="headshot-rate" class="stat-value">—</strong>
+            <span class="stat-unit">%</span>
+          </article>
+          <article class="stat">
+            <span class="stat-label">Najvyšší damage / zápas</span>
+            <strong id="most-damage" class="stat-value">—</strong>
+          </article>
+        </div>
+        <footer class="panel-footer">
+          <span>Priemerný damage na zápas</span>
+          <strong id="average-damage">—</strong>
+        </footer>
+      </section>
+
+      <p id="error" class="error" hidden role="alert"></p>
+      <p id="updated-at" class="updated-at" hidden></p>
+    </main>
+  </body>
+</html>
