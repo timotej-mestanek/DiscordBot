@@ -1,0 +1,359 @@
+// This is your Prisma schema file,
+// learn more about it in the docs: https://pris.ly/d/prisma-schema
+
+// Looking for ways to speed up your queries, or scale easily with your serverless or edge functions?
+// Try Prisma Accelerate: https://pris.ly/cli/accelerate-init
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+//////////////////////////////////////////////////
+// ENUMS
+//////////////////////////////////////////////////
+
+enum Platform {
+  twitch
+  discord
+}
+
+enum WebRole {
+  user
+  admin
+}
+
+enum PointCurrency {
+  discord
+  twitch_custom
+}
+
+//////////////////////////////////////////////////
+// USERS (admin / auth – bokem)
+//////////////////////////////////////////////////
+
+model User {
+  id         Int     @id @default(autoincrement())
+  name       String  
+  password   String
+
+  spotify_rt String?
+  twitch_rt  String?
+  discord_rt String?
+  spotify_at String?
+  twitch_at  String?
+  discord_at String?
+  twitch_exp DateTime?
+  spotify_exp DateTime?
+  discord_exp DateTime?
+
+}
+
+//////////////////////////////////////////////////
+// ENTITIES (nick / človek / cieľ štatistiky)
+//////////////////////////////////////////////////
+
+model Entity {
+  id         Int      @id @default(autoincrement())
+  name       String   @unique
+
+  twitch_id  String?  @unique
+  discord_id String?  @unique
+
+  created_at DateTime @default(now())
+  stats      StatisticEvent[]
+}
+
+model Statistic {
+  id     Int               @id @default(autoincrement())
+  name   String
+  events StatisticEvent[]
+}
+
+model StatisticEvent {
+  id           Int        @id @default(autoincrement())
+  statistic_id Int
+  entity_id    Int
+  value        Int
+  created_at   DateTime   @default(now())
+  entity       Entity     @relation(fields: [entity_id], references: [id])
+  statistic    Statistic  @relation(fields: [statistic_id], references: [id])
+
+  @@index([entity_id])
+  @@index([statistic_id])
+  @@index([created_at])
+}
+
+model DiscordTwitchConnection {
+  discord_id  String   @id
+  twitch_id   String?  @unique
+  twitch_name String?
+  verification_method String @default("discord_connection")
+  linked_at   DateTime @default(now())
+  updated_at  DateTime @updatedAt
+}
+
+model WebAccount {
+  id           String             @id @default(cuid())
+  display_name String
+  role         WebRole            @default(user)
+  created_at   DateTime           @default(now())
+  identities   OAuthIdentity[]
+  sessions     WebSession[]
+  audit_events AdminAuditLog[]    @relation("AuditActor")
+  target_events AdminAuditLog[]   @relation("AuditTarget")
+  point_events PointLedgerEntry[]
+  spotify_oauth_states SpotifyOAuthState[]
+  shop_inventory ShopInventory[]
+  shop_redemptions ShopRedemption[]
+}
+
+model OAuthIdentity {
+  id               String     @id @default(cuid())
+  provider         String
+  provider_user_id String
+  display_name     String
+  account_id       String
+  created_at       DateTime   @default(now())
+  account          WebAccount @relation(fields: [account_id], references: [id], onDelete: Cascade)
+
+  @@unique([provider, provider_user_id])
+  @@unique([account_id, provider])
+  @@index([account_id])
+}
+
+model WebSession {
+  id         String     @id @default(cuid())
+  token_hash String     @unique
+  account_id String
+  expires_at DateTime
+  created_at DateTime   @default(now())
+  account    WebAccount @relation(fields: [account_id], references: [id], onDelete: Cascade)
+
+  @@index([account_id])
+  @@index([expires_at])
+}
+
+model TwitchCustomPointBalance {
+  twitch_user_id String   @id
+  points         Int      @default(0)
+  updated_at     DateTime @updatedAt
+}
+
+model PointLedgerEntry {
+  id               String        @id @default(cuid())
+  currency         PointCurrency
+  provider_user_id String
+  delta            Int
+  reason           String
+  source_event_id  String?       @unique
+  actor_account_id String?
+  created_at       DateTime      @default(now())
+  actor            WebAccount?   @relation(fields: [actor_account_id], references: [id], onDelete: SetNull)
+
+  @@index([currency, provider_user_id, created_at])
+}
+
+model PointConversionRate {
+  source_currency PointCurrency
+  target_currency PointCurrency
+  source_amount   Int
+  target_amount   Int
+  enabled         Boolean       @default(false)
+  updated_at      DateTime      @updatedAt
+
+  @@id([source_currency, target_currency])
+}
+
+model AdminAuditLog {
+  id                String      @id @default(cuid())
+  reverted_log_id   String?     @unique
+  actor_account_id  String?
+  target_account_id String?
+  action            String
+  details           Json
+  created_at        DateTime    @default(now())
+  actor             WebAccount? @relation("AuditActor", fields: [actor_account_id], references: [id], onDelete: SetNull)
+  target            WebAccount? @relation("AuditTarget", fields: [target_account_id], references: [id], onDelete: SetNull)
+
+  @@index([created_at])
+  @@index([target_account_id, created_at])
+}
+
+model StreamOverlayIntegration {
+  id         String   @id
+  spotify_rt String?
+  spotify_at String?
+  spotify_exp DateTime?
+  updated_at DateTime @updatedAt
+}
+
+model StreamEvent {
+  id         String   @id @default(cuid())
+  title      String
+  starts_at  DateTime
+  ends_at    DateTime?
+  created_at DateTime @default(now())
+
+  @@index([starts_at])
+}
+
+model ShopProduct {
+  id              String          @id @default(cuid())
+  name            String
+  description     String
+  discord_price   Int?
+  twitch_price    Int?
+  active          Boolean         @default(false)
+  add_to_inventory Boolean        @default(false)
+  updated_at      DateTime        @updatedAt
+  inventory       ShopInventory[]
+  redemptions     ShopRedemption[]
+}
+
+model ShopInventory {
+  account_id String
+  product_id String
+  quantity   Int         @default(0)
+  updated_at DateTime    @updatedAt
+  account    WebAccount  @relation(fields: [account_id], references: [id], onDelete: Cascade)
+  product    ShopProduct @relation(fields: [product_id], references: [id], onDelete: Cascade)
+
+  @@id([account_id, product_id])
+  @@index([product_id, quantity])
+}
+
+model ShopRedemption {
+  id         String      @id @default(cuid())
+  account_id String
+  product_id String
+  effect     Json
+  created_at DateTime    @default(now())
+  account    WebAccount  @relation(fields: [account_id], references: [id], onDelete: Cascade)
+  product    ShopProduct @relation(fields: [product_id], references: [id], onDelete: Restrict)
+
+  @@index([account_id, created_at])
+}
+
+model SpotifyOAuthState {
+  nonce      String      @id
+  account_id String
+  expires_at DateTime
+  created_at DateTime    @default(now())
+  account    WebAccount  @relation(fields: [account_id], references: [id], onDelete: Cascade)
+
+  @@index([expires_at])
+}
+
+model TwitchEntity {
+  id        Int     @id @default(autoincrement())
+  twitch_id String  @unique
+  name      String
+  created_at DateTime @default(now())
+
+  stats TwitchStatisticEvent[]
+}
+
+model TwitchStatistic {
+  id       Int      @id @default(autoincrement())
+  name     String   
+
+  events   TwitchStatisticEvent[]
+}
+
+model TwitchStatisticEvent {
+  id           Int          @id @default(autoincrement())
+  twitchEntityId Int
+  statisticId  Int
+  value        Int
+  created_at   DateTime     @default(now())
+  season       String?
+
+  twitchEntity TwitchEntity  @relation(fields: [twitchEntityId], references: [id])
+  statistic    TwitchStatistic @relation(fields: [statisticId], references: [id])
+
+  @@index([twitchEntityId])
+  @@index([statisticId])
+  @@index([created_at])
+}
+
+model DiscordEntity {
+  id         Int      @id @default(autoincrement())
+  discord_id String   @unique
+  name       String
+  points     Int      @default(0) 
+  created_at DateTime @default(now())
+
+  stats DiscordStatisticEvent[]
+}
+
+model DiscordStatistic {
+  id       Int      @id @default(autoincrement())
+  name     String   
+
+  events   DiscordStatisticEvent[]
+}
+
+model DiscordStatisticEvent {
+  id             Int           @id @default(autoincrement())
+  discordEntityId Int
+  statisticId    Int
+  value          Int
+  created_at     DateTime      @default(now())
+  season         String?
+
+  discordEntity  DiscordEntity  @relation(fields: [discordEntityId], references: [id])
+  statistic      DiscordStatistic @relation(fields: [statisticId], references: [id])
+
+  @@index([discordEntityId])
+  @@index([statisticId])
+  @@index([created_at])
+}
+
+model StreamerBotChatMetricEvent {
+  id               String   @id @default(cuid())
+  source_event_id  String   @unique
+  platform         Platform
+  provider_user_id String
+  display_name     String
+  profanity_count  Int      @default(0)
+  message_count    Int      @default(0)
+  created_at       DateTime @default(now())
+
+  @@index([platform, provider_user_id, created_at])
+}
+
+model ProfanityCategoryEvent {
+  id               String   @id @default(cuid())
+  source_event_id  String
+  platform         Platform
+  provider_user_id String
+  display_name     String
+  category         String
+  occurrence_count Int
+  weighted_score   Int
+  created_at       DateTime @default(now())
+
+  @@unique([source_event_id, category])
+  @@index([category, platform, provider_user_id, created_at])
+}
+
+model GamblingEvent {
+  id               String   @id @default(cuid())
+  source_event_id  String   @unique
+  platform         Platform
+  provider_user_id String
+  display_name     String
+  activity         String
+  amount           Int
+  payout           Int?
+  won              Boolean?
+  outcome          String?
+  created_at       DateTime @default(now())
+
+  @@index([platform, provider_user_id, created_at])
+}

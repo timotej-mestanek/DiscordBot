@@ -1,0 +1,4 @@
+ALTER TABLE "GamblingEvent"
+ADD COLUMN "payout" INTEGER,
+ADD COLUMN "won" BOOLEAN,
+ADD COLUMN "outcome" TEXT;

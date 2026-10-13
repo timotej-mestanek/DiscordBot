@@ -1,0 +1,17 @@
+import { getCurrentAccount } from "@/lib/auth/session";
+
+export async function getCurrentAdmin() {
+  const account = await getCurrentAccount();
+  return account?.role === "admin" ? account : null;
+}
+
+export function isSameOriginRequest(request: Request): boolean {
+  const origin = request.headers.get("origin");
+  if (!origin) return false;
+
+  try {
+    return new URL(origin).origin === new URL(request.url).origin;
+  } catch {
+    return false;
+  }
+}
