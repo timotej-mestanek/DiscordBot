@@ -1,22 +1,39 @@
 import { createHash, randomBytes } from "node:crypto";
 import { cookies } from "next/headers";
+import type { Prisma } from "@prisma/client";
 import { prisma } from "@/lib/prisma";
 
 export const SESSION_COOKIE = "app_session";
 const SESSION_LIFETIME_SECONDS = 60 * 60 * 24 * 30;
 
+type CurrentAccount = Prisma.WebAccountGetPayload<{
+  include: {
+    identities: {
+      select: {
+        provider: true;
+        provider_user_id: true;
+        display_name: true;
+      };
+    };
+  };
+}> & {
+  sessionId: string;
+};
+
 function hashToken(token: string): string {
   return createHash("sha256").update(token).digest("hex");
 }
 
-export async function getCurrentAccount() {
+export async function getCurrentAccount(): Promise<CurrentAccount | null> {
   const token = (await cookies()).get(SESSION_COOKIE)?.value;
   if (!token) return null;
 
   return getAccountForToken(token);
 }
 
-export async function getAccountForToken(token: string) {
+export async function getAccountForToken(
+  token: string,
+): Promise<CurrentAccount | null> {
   const session = await prisma.webSession.findUnique({
     where: { token_hash: hashToken(token) },
     include: {

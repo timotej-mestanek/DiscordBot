@@ -6,6 +6,7 @@ import {
   matchesDiscordOAuthState,
 } from "@/lib/oauth/discordState";
 import { syncDiscordNickname } from "@/lib/discord/syncNickname";
+import { getAppUrl } from "@/lib/app-url";
 
 type DiscordConnection = {
   id: string;
@@ -159,7 +160,7 @@ export async function GET(request: NextRequest) {
   }
   if (isLocalTwitchFlow) {
     const response = NextResponse.redirect(
-      new URL("/api/auth/twitch/link", request.url),
+      new URL("/api/auth/twitch/link", getAppUrl(request.url)),
     );
     return clearStateCookie(response, userBody.id);
   }

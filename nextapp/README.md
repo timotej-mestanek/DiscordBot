@@ -33,6 +33,8 @@ You can check out [the Next.js GitHub repository](https://github.com/vercel/next
 
 Copy the new integration settings from `.env.example` into `.env` and configure:
 
+- `APP_URL` as the public site origin (defaults to `https://najtik.stream` in the production container). Set it to your site's origin if your domain differs; for local development use `http://localhost:3000` (or `http://localhost:3001` through Docker Compose). This must be the browser-facing site URL, never the container bind address `0.0.0.0`.
+- Set `DISCORD_LOGIN_REDIRECT_URI`, `TWITCH_LOGIN_REDIRECT_URI`, `DISCORD_OAUTH_REDIRECT_URI`, `TWITCH_LINK_REDIRECT_URI`, and `SPOTIFY_REDIRECT_URI` to callback URLs on that public domain and register the exact values with each provider. Use localhost callback URLs only for local development.
 - `INITIAL_ADMIN_TWITCH_LOGIN` (lowercase Twitch login) or `INITIAL_ADMIN_TWITCH_ID` to grant the first admin role when that Twitch account logs in.
 - `STREAMERBOT_INGEST_TOKEN` with a long random secret. Streamer.bot must call `POST /api/integrations/streamerbot/points` over HTTPS with `Authorization: Bearer <token>` and JSON such as `{"eventId":"unique-event-id","twitchUserId":"123456","delta":25}`. Use a unique event ID for each change; retries are idempotent, and a delta cannot make the balance negative.
 - Streamer.bot can send aggregate chat counts to `POST /api/integrations/streamerbot/chat-metrics` with the same bearer token and JSON `{"eventId":"unique-id","platform":"twitch","userId":"123456","displayName":"viewer","profanityCount":1,"messageCount":1}`. Send counts only (not raw chat messages); use a unique event ID so retries do not double-count.

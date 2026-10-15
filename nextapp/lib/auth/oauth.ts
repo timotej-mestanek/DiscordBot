@@ -12,6 +12,7 @@ import {
   matchesDiscordOAuthState,
 } from "@/lib/oauth/discordState";
 import { syncDiscordNickname } from "@/lib/discord/syncNickname";
+import { getAppUrl } from "@/lib/app-url";
 
 export type OAuthProvider = "discord" | "twitch";
 
@@ -407,7 +408,7 @@ export async function completeOAuth(
       if (!merged) {
         return finishResponse(
           NextResponse.redirect(
-            new URL("/dashboard?error=identity-in-use", request.url),
+            new URL("/dashboard?error=identity-in-use", getAppUrl(request.url)),
           ),
           provider,
         );
@@ -425,7 +426,10 @@ export async function completeOAuth(
       await syncLinkedDiscordTwitch(activeAccount.id);
       return finishResponse(
         NextResponse.redirect(
-          new URL(`/dashboard?linked=${provider}&merged=true`, request.url),
+          new URL(
+            `/dashboard?linked=${provider}&merged=true`,
+            getAppUrl(request.url),
+          ),
         ),
         provider,
       );
@@ -453,7 +457,10 @@ export async function completeOAuth(
         ) {
           return finishResponse(
             NextResponse.redirect(
-              new URL("/dashboard?error=identity-in-use", request.url),
+              new URL(
+                "/dashboard?error=identity-in-use",
+                getAppUrl(request.url),
+              ),
             ),
             provider,
           );
@@ -470,7 +477,7 @@ export async function completeOAuth(
     await syncLinkedDiscordTwitch(activeAccount.id);
     return finishResponse(
       NextResponse.redirect(
-        new URL(`/dashboard?linked=${provider}`, request.url),
+        new URL(`/dashboard?linked=${provider}`, getAppUrl(request.url)),
       ),
       provider,
     );
@@ -527,7 +534,9 @@ export async function completeOAuth(
   await grantConfiguredInitialAdmin(provider, profile, accountId);
   await syncLinkedDiscordTwitch(accountId);
   const token = await createSession(accountId);
-  const response = NextResponse.redirect(new URL("/dashboard", request.url));
+  const response = NextResponse.redirect(
+    new URL("/dashboard", getAppUrl(request.url)),
+  );
   response.cookies.set(SESSION_COOKIE, token, sessionCookieOptions());
   return finishResponse(response, provider);
 }
@@ -541,7 +550,7 @@ async function callbackErrorRedirect(
   const destination = account
     ? `/dashboard?error=${error}`
     : `/login?error=${error}`;
-  return NextResponse.redirect(new URL(destination, request.url));
+  return NextResponse.redirect(new URL(destination, getAppUrl(request.url)));
 }
 
 function finishResponse(

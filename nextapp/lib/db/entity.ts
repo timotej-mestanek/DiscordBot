@@ -1,5 +1,4 @@
 import { prisma } from '@/lib/prisma'
-import { Entity } from '@prisma/client';
 
 export const loadEntityByName = async(name:string)=>{ 
     return await prisma.entity.findFirst({
@@ -45,5 +44,4 @@ export const updateEntity = async(name:string,twitch_id:string)=>{
    }
    return null;
 }
-
 

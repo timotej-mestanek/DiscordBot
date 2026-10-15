@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { saveSpotifyTokens } from "@/lib/db/user";
 import { prisma } from "@/lib/prisma";
 import { readSpotifyOAuthState } from "@/lib/oauth/spotifyState";
+import { getAppUrl } from "@/lib/app-url";
 
 export async function GET(request: NextRequest) {
   const params = request.nextUrl.searchParams;
@@ -79,6 +80,8 @@ export async function GET(request: NextRequest) {
     expires_in: tokens.expires_in,
   });
 
-  const result = NextResponse.redirect(new URL("/?spotify=connected", request.url));
+  const result = NextResponse.redirect(
+    new URL("/?spotify=connected", getAppUrl(request.url)),
+  );
   return result;
 }

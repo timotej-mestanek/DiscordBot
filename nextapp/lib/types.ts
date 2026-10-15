@@ -31,5 +31,4 @@ export type UserResult =
 export type GetStatsParams = {
   mode: StatsMode;
   limit?: number;
-  isActive?:[];
 };

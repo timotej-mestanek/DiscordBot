@@ -17,7 +17,7 @@ export const createStat = async (entity_id: number, value: number) => {
   }
 };
 
-export async function get_stats({ mode, limit = 5, isActive}: GetStatsParams) {
+export async function get_stats({ mode, limit = 5 }: GetStatsParams) {
   const where: Prisma.StatisticEventWhereInput = {};
 
   if (mode === "daily") {

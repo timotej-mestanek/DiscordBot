@@ -24,6 +24,7 @@ FROM base AS runner
 ENV NODE_ENV=production \
     NEXT_TELEMETRY_DISABLED=1 \
     PORT=3000 \
+    APP_URL=https://najtik.stream \
     HOSTNAME=0.0.0.0
 
 RUN addgroup --system --gid 1001 nodejs \

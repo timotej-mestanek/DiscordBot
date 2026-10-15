@@ -1,5 +1,6 @@
 import { saveTwitchTokens } from "@/lib/db/user"
 import { NextRequest, NextResponse } from "next/server"
+import { getAppUrl } from "@/lib/app-url";
 
 export async function GET(req: NextRequest) {
   const { searchParams } = new URL(req.url)
@@ -9,7 +10,7 @@ export async function GET(req: NextRequest) {
     return NextResponse.json({ error: "neco se dojebalo " }, { status: 400 })
   }
 
-  console.log("toto je url: ",process.env.NEXTAUTH_URL);
+  const appUrl = getAppUrl(req.url);
   const tokenRes = await fetch("https://id.twitch.tv/oauth2/token", {
     method: "POST",
     headers: { "Content-Type": "application/x-www-form-urlencoded" },
@@ -18,7 +19,7 @@ export async function GET(req: NextRequest) {
       client_secret: process.env.TWITCH_CLIENT_SECRET!,
       code,
       grant_type: "authorization_code",
-      redirect_uri: `${process.env.NEXTAUTH_URL}/api/auth/twitch`
+      redirect_uri: new URL("/api/auth/twitch", appUrl).toString()
     })
   })
 
@@ -36,5 +37,5 @@ export async function GET(req: NextRequest) {
   }) 
 
   // Redirect späť do frontendu
-  return NextResponse.redirect(new URL("/settings/integrations", req.url))
+  return NextResponse.redirect(new URL("/settings/integrations", appUrl))
 }
