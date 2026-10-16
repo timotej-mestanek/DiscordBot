@@ -93,7 +93,7 @@ export default function WheelSpinsSinceResetOverlay() {
         ? "border-violet-300"
         : rarity <= 0.2
           ? "border-sky-300"
-          : "border-white/50";
+          : "border-white/60";
 
   return (
     <main className="wheel-history-canvas pointer-events-none fixed inset-0 flex items-end justify-center overflow-hidden p-6 text-white sm:p-10">
@@ -106,9 +106,19 @@ export default function WheelSpinsSinceResetOverlay() {
             <article
               key={spin.id}
               aria-live="polite"
-              className={`wheel-result-card-visible rounded-lg border-2 px-4 py-2 text-center ${rarityBorder(spin.rarity)}`}
+              className={`wheel-result-card-visible flex items-center justify-between gap-4 rounded-xl border-2 bg-zinc-950/90 px-5 py-3 text-left backdrop-blur-sm ${rarityBorder(spin.rarity)}`}
             >
-              <h2 className="break-words text-2xl font-black sm:text-3xl">{spin.result}</h2>
+              <div className="min-w-0">
+                <p className="text-[10px] font-black uppercase tracking-[0.2em] text-zinc-300">
+                  Wheel win
+                </p>
+                <h2 className="break-words text-2xl font-black leading-tight text-white sm:text-3xl">
+                  {spin.result}
+                </h2>
+              </div>
+              <span className="hidden max-w-32 shrink-0 truncate text-sm font-bold text-zinc-200 sm:block">
+                {spin.displayName}
+              </span>
             </article>
           ))}
           {loadError && (

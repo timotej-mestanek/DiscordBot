@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useRef, useState, type CSSProperties } from "react";
 import type { WheelSpinSegment } from "@/lib/wheels";
 
 type OverlaySpin = {
@@ -9,6 +9,24 @@ type OverlaySpin = {
   display_name: string;
   sequence: WheelSpinSegment[];
 };
+
+type WheelAnimation = {
+  key: string;
+  from: number;
+  to: number;
+  durationMs: number;
+};
+
+const WHEEL_CENTER = 300;
+const WHEEL_RADIUS = 282;
+
+function polarPoint(angle: number, radius: number) {
+  const radians = (angle * Math.PI) / 180;
+  return {
+    x: WHEEL_CENTER + Math.sin(radians) * radius,
+    y: WHEEL_CENTER - Math.cos(radians) * radius,
+  };
+}
 
 function isOverlaySpin(value: unknown): value is OverlaySpin {
   if (typeof value !== "object" || value === null || Array.isArray(value)) return false;
@@ -47,6 +65,7 @@ export default function WheelOverlay() {
   const [queue, setQueue] = useState<OverlaySpin[]>([]);
   const [activeStep, setActiveStep] = useState(0);
   const [rotation, setRotation] = useState(0);
+  const [animation, setAnimation] = useState<WheelAnimation | null>(null);
   const [revealedKey, setRevealedKey] = useState("");
   const cursor = useRef<string | null>(null);
   const rotationRef = useRef(0);
@@ -107,10 +126,19 @@ export default function WheelOverlay() {
     const selectedAngle = (selectedIndex + 0.5) * sectorSize;
     const currentAngle = ((rotationRef.current % 360) + 360) % 360;
     const delta = 360 * 3 + ((360 - selectedAngle - currentAngle + 360) % 360);
-    rotationRef.current += delta;
-    setRotation(rotationRef.current);
+    const from = rotationRef.current;
+    const to = from + delta;
+    setAnimation({
+      key: `${activeSpin.id}:${activeStep}`,
+      from,
+      to,
+      durationMs: segment.durationMs,
+    });
 
     const timer = window.setTimeout(() => {
+      rotationRef.current = to;
+      setRotation(to);
+      setAnimation(null);
       setRevealedKey(`${activeSpin.id}:${activeStep}`);
       if (activeStep + 1 < activeSpin.sequence.length) {
         setActiveStep(activeStep + 1);
@@ -122,54 +150,112 @@ export default function WheelOverlay() {
     return () => window.clearTimeout(timer);
   }, [activeSpin, activeStep, segment]);
 
-  const background = segment
-    ? `conic-gradient(${segment.slices
-        .map((slice, index) => {
-          const start = (index / segment.slices.length) * 360;
-          const end = ((index + 1) / segment.slices.length) * 360;
-          return `${slice.color} ${start}deg ${end}deg`;
-        })
-        .join(", ")})`
-    : "conic-gradient(#7c3aed 0deg 90deg, #312e81 90deg 180deg, #db2777 180deg 270deg, #4338ca 270deg 360deg)";
-
   return (
-    <main className="wheel-overlay-canvas pointer-events-none fixed inset-0 flex items-end justify-center overflow-hidden p-6 text-white sm:p-10">
+    <main className="wheel-overlay-canvas pointer-events-none fixed inset-0 flex items-end justify-center overflow-hidden p-5 text-white sm:p-8">
       {activeSpin && segment && (
-        <div className="wheel-overlay-enter relative mb-2 h-[min(80vw,28rem)] w-[min(80vw,28rem)]">
-          <div className="absolute -top-1 left-1/2 z-10 h-0 w-0 -translate-x-1/2 border-x-[14px] border-t-[25px] border-x-transparent border-t-white drop-shadow-lg" />
-          <div
-            role="group"
+        <div className="wheel-overlay-enter relative mb-2 w-[min(92vw,76vh,40rem)]">
+          <div className="absolute left-1/2 top-0 z-10 h-0 w-0 -translate-x-1/2 border-x-[18px] border-t-[32px] border-x-transparent border-t-white drop-shadow-[0_2px_4px_rgba(0,0,0,0.9)]" />
+          <svg
+            viewBox="0 0 600 600"
+            role="img"
             aria-label={`Koleso ${segment.title}`}
-            className="relative h-full w-full rounded-full border-[8px] border-zinc-100 shadow-[0_0_35px_rgba(139,92,246,0.6)]"
-            style={{
-              background,
-              transform: `rotate(${rotation}deg)`,
-              transition: `transform ${segment.durationMs}ms cubic-bezier(0.08, 0.62, 0.12, 1)`,
-            }}
+            className="block h-auto w-full overflow-visible"
           >
-            {segment.slices.map((slice, index) => {
-              const angle = (index + 0.5) * (360 / segment.slices.length);
-              const width = Math.max(52, Math.min(128, (360 / segment.slices.length) * 1.8));
-              return (
-                <span
-                  key={slice.id}
-                  className="absolute left-1/2 top-1/2 truncate text-center text-xs font-black leading-tight text-white drop-shadow-[0_1px_3px_rgba(0,0,0,1)] sm:text-sm"
-                  style={{
-                    width: `${width}px`,
-                    transform: `rotate(${angle}deg) translateY(clamp(-10rem, -29vw, -4rem)) rotate(90deg)`,
-                  }}
-                  title={slice.label}
-                >
-                  {slice.label}
-                </span>
-              );
-            })}
-            <div className="absolute left-1/2 top-1/2 flex h-20 w-20 -translate-x-1/2 -translate-y-1/2 items-center justify-center rounded-full border-4 border-white/70 bg-zinc-950 px-2 text-center text-xs font-black shadow-xl sm:h-24 sm:w-24">
-              {revealedKey === `${activeSpin.id}:${activeStep}`
-                ? segment.selectedLabel
-                : "N4JT"}
-            </div>
-          </div>
+            <g
+              className={animation ? "wheel-spin-animation" : undefined}
+              key={animation?.key ?? "idle"}
+              style={
+                animation
+                  ? ({
+                      "--wheel-start": `${animation.from}deg`,
+                      "--wheel-end": `${animation.to}deg`,
+                      animationDuration: `${animation.durationMs}ms`,
+                    } as CSSProperties)
+                  : {
+                      transform: `rotate(${rotation}deg)`,
+                      transformBox: "view-box",
+                      transformOrigin: "center",
+                    }
+              }
+            >
+              <circle
+                cx={WHEEL_CENTER}
+                cy={WHEEL_CENTER}
+                r={WHEEL_RADIUS + 9}
+                fill="#09090b"
+                stroke="#f4f4f5"
+                strokeWidth="8"
+              />
+              {segment.slices.map((slice, index) => {
+                const sectorSize = 360 / segment.slices.length;
+                const start = polarPoint(index * sectorSize, WHEEL_RADIUS);
+                const end = polarPoint((index + 1) * sectorSize, WHEEL_RADIUS);
+                const middleAngle = (index + 0.5) * sectorSize;
+                const labelPosition = polarPoint(middleAngle, WHEEL_RADIUS * 0.69);
+                const arcWidth =
+                  (2 * Math.PI * WHEEL_RADIUS * 0.69) / segment.slices.length;
+                const fontSize = Math.max(16, Math.min(32, arcWidth * 0.55));
+                const visibleLabel =
+                  slice.label.length > 24 ? `${slice.label.slice(0, 23)}…` : slice.label;
+                const labelWidth = Math.min(
+                  200,
+                  Math.max(50, visibleLabel.length * fontSize * 0.6),
+                );
+                return (
+                  <g key={slice.id}>
+                    <path
+                      d={`M ${WHEEL_CENTER} ${WHEEL_CENTER} L ${start.x} ${start.y} A ${WHEEL_RADIUS} ${WHEEL_RADIUS} 0 0 1 ${end.x} ${end.y} Z`}
+                      fill={slice.color}
+                      stroke="#ffffff"
+                      strokeOpacity="0.7"
+                      strokeWidth="2"
+                    />
+                    <text
+                      x={labelPosition.x}
+                      y={labelPosition.y}
+                      textAnchor="middle"
+                      dominantBaseline="middle"
+                      transform={`rotate(${middleAngle - 90} ${labelPosition.x} ${labelPosition.y})`}
+                      fill="#ffffff"
+                      stroke="#09090b"
+                      strokeWidth="3"
+                      strokeLinejoin="round"
+                      paintOrder="stroke"
+                      fontSize={fontSize}
+                      fontWeight="900"
+                      letterSpacing="0.3"
+                      textLength={labelWidth}
+                      lengthAdjust="spacingAndGlyphs"
+                    >
+                      {visibleLabel}
+                    </text>
+                  </g>
+                );
+              })}
+              <circle
+                cx={WHEEL_CENTER}
+                cy={WHEEL_CENTER}
+                r="65"
+                fill="#09090b"
+                stroke="#ffffff"
+                strokeWidth="7"
+              />
+              <text
+                x={WHEEL_CENTER}
+                y={WHEEL_CENTER + 1}
+                textAnchor="middle"
+                dominantBaseline="middle"
+                fill="#ffffff"
+                fontSize="25"
+                fontWeight="900"
+                letterSpacing="2"
+              >
+                {revealedKey === `${activeSpin.id}:${activeStep}`
+                  ? segment.selectedLabel
+                  : "N4JT"}
+              </text>
+            </g>
+          </svg>
         </div>
       )}
     </main>
