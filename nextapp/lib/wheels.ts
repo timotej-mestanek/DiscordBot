@@ -3,6 +3,10 @@ import { randomInt } from "node:crypto";
 export type WheelKind = "main" | "vip" | "game";
 export type WheelPointMode = "channel_points" | "n4jt_points";
 
+export function isWheelTestMode(): boolean {
+  return process.env.WHEEL_MODE === "test";
+}
+
 export type WheelSlice = {
   id: string;
   label: string;

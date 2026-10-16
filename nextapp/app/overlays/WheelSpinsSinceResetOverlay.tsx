@@ -13,9 +13,11 @@ type SpinCard = {
 };
 
 type SpinsSinceResetResponse = {
-  profileId: string | null;
-  gameName: string | null;
-  spins: SpinCard[] | null;
+  profiles: {
+    profileId: string;
+    gameName: string;
+    spins: SpinCard[];
+  }[] | null;
   error?: string;
 };
 
@@ -39,23 +41,25 @@ export default function WheelSpinsSinceResetOverlay() {
         }
         if (!mounted) return;
         setLoadError("");
-        if (result.spins !== null) {
-          if (!result.profileId) {
-            throw new Error("Overlay nevrátil identifikátor herného profilu.");
-          }
-          const profileId = result.profileId;
+        if (result.profiles !== null) {
           const now = Date.now();
-          const revealedSpins = result.spins.filter((spin) => {
-            const revealAt = Date.parse(spin.revealAt);
-            if (!Number.isFinite(revealAt)) {
-              throw new Error("Overlay vrátil neplatný čas žrebovania.");
-            }
-            return now >= revealAt;
-          });
-          setSpinsByProfile((current) => ({
-            ...current,
-            [profileId]: revealedSpins,
+          const updatedProfiles = result.profiles.map((profile) => ({
+            profileId: profile.profileId,
+            spins: profile.spins.filter((spin) => {
+              const revealAt = Date.parse(spin.revealAt);
+              if (!Number.isFinite(revealAt)) {
+                throw new Error("Overlay vrátil neplatný čas žrebovania.");
+              }
+              return now >= revealAt;
+            }),
           }));
+          setSpinsByProfile((current) => {
+            const updated = { ...current };
+            for (const profile of updatedProfiles) {
+              updated[profile.profileId] = profile.spins;
+            }
+            return updated;
+          });
         }
       } catch (error) {
         console.error("Wheel spins since reset overlay refresh failed:", error);

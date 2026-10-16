@@ -9,6 +9,7 @@ import {
   selectWeightedSlice,
   WheelItemsExhaustedError,
   WheelSpinLimitReachedError,
+  isWheelTestMode,
   type WheelKind,
   type WheelConfig,
   type WheelProfileData,
@@ -163,7 +164,9 @@ export async function POST(request: Request) {
       body.source !== "donation") ||
     (body.wheel === "game" &&
       body.source !== "channel_points" &&
-      body.source !== "n4jt_points")
+      body.source !== "n4jt_points") ||
+    (body.gameId !== undefined &&
+      (typeof body.gameId !== "string" || !/^\d{1,32}$/.test(body.gameId)))
   ) {
     return respond(400, { error: "Neplatná udalosť kolesa." });
   }
@@ -193,17 +196,30 @@ export async function POST(request: Request) {
       | Awaited<ReturnType<typeof prisma.wheelProfile.findUnique>>
       | null = null;
     let gameName: string | null = null;
+    const testMode = isWheelTestMode();
     if (body.wheel === "main") {
       profileRecord = await prisma.wheelProfile.findUnique({ where: { id: "main" } });
     } else {
-      const liveStatus = await getTwitchLiveStatus();
-      if (!liveStatus.isLive || !liveStatus.gameId || !liveStatus.gameName) {
-        return respond(409, { error: "Stream je offline alebo nemá aktívnu Twitch hru." });
+      let gameId: string | null = null;
+      if (testMode) {
+        if (typeof body.gameId !== "string") {
+          return respond(400, {
+            error: "V testovacom režime zadaj gameId herného profilu.",
+          });
+        }
+        gameId = body.gameId;
+      } else {
+        const liveStatus = await getTwitchLiveStatus();
+        if (!liveStatus.isLive || !liveStatus.gameId || !liveStatus.gameName) {
+          return respond(409, { error: "Stream je offline alebo nemá aktívnu Twitch hru." });
+        }
+        gameId = liveStatus.gameId;
+        gameName = liveStatus.gameName;
       }
-      gameName = liveStatus.gameName;
       profileRecord = await prisma.wheelProfile.findUnique({
-        where: { id: `game:${liveStatus.gameId}` },
+        where: { id: `game:${gameId}` },
       });
+      if (testMode) gameName = profileRecord?.game_name ?? null;
     }
 
     const profileKind = body.wheel as WheelKind;
@@ -308,7 +324,7 @@ export async function POST(request: Request) {
         const gameSlice = selectWeightedSlice(profile.config.slices, usedSliceIds);
         sequence = [makeSpinSegment(profile, gameSlice)];
       }
-      if (pointMode === "n4jt_points" && pointCost !== undefined) {
+      if (!testMode && pointMode === "n4jt_points" && pointCost !== undefined) {
         await changePointBalance(
           transaction,
           "twitch_custom",

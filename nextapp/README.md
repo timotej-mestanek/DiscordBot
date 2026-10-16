@@ -42,6 +42,11 @@ Copy the new integration settings from `.env.example` into `.env` and configure:
 - Twitch Extension PubSub requires `TWITCH_EXTENSION_ID`, the base64 Extension secret in `TWITCH_EXTENSION_SECRET_BASE64`, and the broadcaster's numeric `TWITCH_EXTENSION_BROADCASTER_ID`. The authenticated `POST /api/integrations/streamerbot/extensions/pubsub` endpoint publishes current snapshots to the Extension's `broadcast` target. Send one of `{"type":"leaderboards"}`, `{"type":"cs2"}`, `{"type":"pubg","player":"<nickname>"}`, or `{"type":"spotify"}`. Schedule calls or trigger them from Streamer.bot when relevant data changes. The Extension frontend should subscribe with `Twitch.ext.listen("broadcast", callback)` and parse the message JSON; each message has `type`, `updatedAt`, and `data`.
 - `SPOTIFY_CLIENT_ID`, `SPOTIFY_CLIENT_SECRET`, and `SPOTIFY_REDIRECT_URI`. Register the exact redirect URI in the Spotify application settings.
 - `NEXT_PUBLIC_DISCORD_URL` and `NEXT_PUBLIC_INSTAGRAM_URL` for the hero links.
+- `WHEEL_MODE` selects wheel behavior: use `production` for live Twitch game
+  selection and point deductions, or `test` to spin game wheels without a live
+  stream or charging N4JT points. Test mode is intended for a separate
+  development/staging database; game-wheel requests must include the profile's
+  Twitch `gameId`.
 
 The public Twitch Channel Points balance is not available through the supported Twitch API. Twitch CustomBody is the tracked Twitch currency; only Discord points and Twitch CustomBody can be converted. Admin conversion rates are configured in the dashboard.
 
@@ -66,6 +71,14 @@ Streamer.bot calls `POST /api/integrations/streamerbot/wheels/spin` with the con
 - Twitch Channel Points: `{"eventId":"<redemption-id>","wheel":"game","source":"channel_points","rewardId":"<configured-reward-id>","userId":"123456","displayName":"viewer"}`. Configure a dedicated Twitch reward and select the same reward ID in the game's Admin profile. Twitch charges the redemption itself. The displayed cost in Admin is a reminder and must match the price set on Twitch; the app cannot set or refund Twitch Channel Points.
 
 The endpoint returns the selected sequence (including the VIP result, when triggered) and records requests in Dashboard → Admin → **Streamer.bot API log**. It returns a conflict if the stream is offline, the active category has no enabled game profile, or the requested wheel is disabled; it returns `429` when the game spin cap has been reached. Imported spin actions announce the result or API rejection in Twitch chat and suppress duplicate-event announcements. See [the Streamer.bot setup guide](../streamerbot_plugin/README.md) for action setup and request examples.
+
+To test without a live stream, set `WHEEL_MODE=test` and send the game's
+`gameId` in each game-wheel request, for example
+`{"eventId":"test-spin-001","wheel":"game","source":"n4jt_points","userId":"123456","displayName":"Test viewer","gameId":"1234567"}`.
+The profile must already exist and be enabled. N4JT points are not charged in
+this mode. Test spins still count toward the profile's spin cap and unique-item
+selection until you reset that game's profile from the admin dashboard. In
+test mode, the history overlay lists cards for all configured game profiles.
 
 ## Streamer.bot Twitch currency commands
 
