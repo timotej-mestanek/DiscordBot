@@ -72,9 +72,11 @@ Streamer.bot calls `POST /api/integrations/streamerbot/wheels/spin` with the con
 
 The endpoint returns the selected sequence (including the VIP result, when triggered) and records requests in Dashboard → Admin → **Streamer.bot API log**. It returns a conflict if the stream is offline, the active category has no enabled game profile, or the requested wheel is disabled; it returns `429` when the game spin cap has been reached. Imported spin actions announce the result or API rejection in Twitch chat and suppress duplicate-event announcements. See [the Streamer.bot setup guide](../streamerbot_plugin/README.md) for action setup and request examples.
 
-To test without a live stream, set `WHEEL_MODE=test` and send the game's
-`gameId` in each game-wheel request, for example
-`{"eventId":"test-spin-001","wheel":"game","source":"n4jt_points","userId":"123456","displayName":"Test viewer","gameId":"1234567"}`.
+To test without a live stream, set `WHEEL_MODE=test`. Game-wheel requests can
+omit both `eventId` and `gameId`, for example
+`{"wheel":"game","source":"n4jt_points","userId":"123456","displayName":"Test viewer"}`.
+The server generates an event ID and selects the first enabled game profile in
+alphabetical order. Include `gameId` to select a particular profile.
 The profile must already exist and be enabled. N4JT points are not charged in
 this mode. Test spins still count toward the profile's spin cap and unique-item
 selection until you reset that game's profile from the admin dashboard. In

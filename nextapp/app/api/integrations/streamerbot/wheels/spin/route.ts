@@ -149,11 +149,14 @@ export async function POST(request: Request) {
     return respond(400, { error: "Neplatné dáta požiadavky." });
   }
 
+  const testMode = isWheelTestMode();
   if (
     !isRecord(body) ||
-    typeof body.eventId !== "string" ||
-    body.eventId.trim().length === 0 ||
-    body.eventId.length > 180 ||
+    (body.eventId === undefined
+      ? !testMode
+      : typeof body.eventId !== "string" ||
+        body.eventId.trim().length === 0 ||
+        body.eventId.length > 180) ||
     (body.wheel !== "main" && body.wheel !== "game") ||
     !isTwitchUserId(body.userId) ||
     typeof body.displayName !== "string" ||
@@ -171,10 +174,12 @@ export async function POST(request: Request) {
     return respond(400, { error: "Neplatná udalosť kolesa." });
   }
 
+  const eventId =
+    typeof body.eventId === "string" ? body.eventId : crypto.randomUUID();
   operation = `wheel.spin.${body.wheel}`;
   try {
     const existingSpin = await prisma.wheelSpin.findUnique({
-      where: { event_id: body.eventId },
+      where: { event_id: eventId },
     });
     if (existingSpin) {
       return respond(
@@ -202,12 +207,19 @@ export async function POST(request: Request) {
     } else {
       let gameId: string | null = null;
       if (testMode) {
-        if (typeof body.gameId !== "string") {
-          return respond(400, {
-            error: "V testovacom režime zadaj gameId herného profilu.",
+        if (typeof body.gameId === "string") {
+          gameId = body.gameId;
+          profileRecord = await prisma.wheelProfile.findUnique({
+            where: { id: `game:${gameId}` },
           });
+        } else {
+          const gameProfiles = await prisma.wheelProfile.findMany({
+            where: { kind: "game" },
+            orderBy: [{ game_name: "asc" }, { id: "asc" }],
+          });
+          profileRecord =
+            gameProfiles.find((candidate) => isWheelProfile(candidate, "game")) ?? null;
         }
-        gameId = body.gameId;
       } else {
         const liveStatus = await getTwitchLiveStatus();
         if (!liveStatus.isLive || !liveStatus.gameId || !liveStatus.gameName) {
@@ -215,10 +227,10 @@ export async function POST(request: Request) {
         }
         gameId = liveStatus.gameId;
         gameName = liveStatus.gameName;
+        profileRecord = await prisma.wheelProfile.findUnique({
+          where: { id: `game:${gameId}` },
+        });
       }
-      profileRecord = await prisma.wheelProfile.findUnique({
-        where: { id: `game:${gameId}` },
-      });
       if (testMode) gameName = profileRecord?.game_name ?? null;
     }
 
@@ -278,11 +290,10 @@ export async function POST(request: Request) {
       sequence.push(makeSpinSegment(vipProfile, selectWeightedSlice(vipProfile.config.slices)));
     }
 
-    const eventId = body.eventId;
     const userId = body.userId;
     const displayName = body.displayName.trim();
     const trigger = body.source;
-    if (typeof eventId !== "string" || typeof userId !== "string" || typeof trigger !== "string") {
+    if (typeof userId !== "string" || typeof trigger !== "string") {
       return respond(400, { error: "Neplatná udalosť kolesa." });
     }
     const pointMode = profile.kind === "game" ? profile.config.pointMode : undefined;
