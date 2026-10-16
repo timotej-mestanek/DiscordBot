@@ -7,6 +7,7 @@ type SpinCard = {
   displayName: string;
   gameName: string;
   result: string;
+  rarity: number;
   createdAt: string;
   revealAt: string;
 };
@@ -81,6 +82,14 @@ export default function WheelSpinsSinceResetOverlay() {
   const spins = Object.values(spinsByProfile)
     .flat()
     .sort((left, right) => right.createdAt.localeCompare(left.createdAt));
+  const rarityBorder = (rarity: number) =>
+    rarity <= 0.05
+      ? "border-fuchsia-300"
+      : rarity <= 0.1
+        ? "border-violet-300"
+        : rarity <= 0.2
+          ? "border-sky-300"
+          : "border-white/50";
 
   return (
     <main className="wheel-history-canvas pointer-events-none fixed inset-0 flex items-end justify-center overflow-hidden p-6 text-white sm:p-10">
@@ -93,25 +102,9 @@ export default function WheelSpinsSinceResetOverlay() {
             <article
               key={spin.id}
               aria-live="polite"
-              className="wheel-result-card-visible rounded-2xl border border-violet-300/30 bg-zinc-950/90 p-5 shadow-[0_20px_70px_rgba(0,0,0,0.65)] backdrop-blur-xl sm:p-6"
+              className={`wheel-result-card-visible rounded-lg border-2 px-4 py-2 text-center ${rarityBorder(spin.rarity)}`}
             >
-              <p className="text-[10px] font-bold uppercase tracking-[0.25em] text-violet-300">
-                {spin.gameName} · {new Date(spin.createdAt).toLocaleTimeString("sk-SK")}
-              </p>
-              <div className="mt-2 flex items-center justify-between gap-4">
-                <div className="min-w-0">
-                  <p className="truncate text-sm text-zinc-300">{spin.displayName}</p>
-                  <h2 className="mt-1 break-words text-2xl font-black sm:text-3xl">
-                    {spin.result}
-                  </h2>
-                </div>
-                <span
-                  aria-hidden="true"
-                  className="grid h-12 w-12 shrink-0 place-items-center rounded-full border border-violet-300/40 bg-violet-500/15 text-xl"
-                >
-                  ★
-                </span>
-              </div>
+              <h2 className="break-words text-2xl font-black sm:text-3xl">{spin.result}</h2>
             </article>
           ))}
           {loadError && (

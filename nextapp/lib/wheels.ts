@@ -47,6 +47,13 @@ export class WheelSpinLimitReachedError extends Error {
   }
 }
 
+export class WheelItemsExhaustedError extends Error {
+  constructor() {
+    super("All wheel items have already been selected since the last reset.");
+    this.name = "WheelItemsExhaustedError";
+  }
+}
+
 export function defaultWheelConfig(title: string): WheelConfig {
   return { title, enabled: false, durationMs: 8_000, slices: [] };
 }
@@ -128,10 +135,15 @@ export function isWheelConfig(value: unknown, kind: WheelKind): value is WheelCo
   );
 }
 
-export function selectWeightedSlice(slices: WheelSlice[]): WheelSlice {
-  const totalWeight = slices.reduce((total, slice) => total + slice.weight, 0);
+export function selectWeightedSlice(
+  slices: WheelSlice[],
+  excludedIds: ReadonlySet<string> = new Set(),
+): WheelSlice {
+  const availableSlices = slices.filter((slice) => !excludedIds.has(slice.id));
+  if (availableSlices.length === 0) throw new WheelItemsExhaustedError();
+  const totalWeight = availableSlices.reduce((total, slice) => total + slice.weight, 0);
   let remaining = randomInt(totalWeight);
-  for (const slice of slices) {
+  for (const slice of availableSlices) {
     if (remaining < slice.weight) return slice;
     remaining -= slice.weight;
   }

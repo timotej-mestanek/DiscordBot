@@ -7,6 +7,7 @@ import {
   isWheelConfig,
   makeSpinSegment,
   selectWeightedSlice,
+  WheelItemsExhaustedError,
   WheelSpinLimitReachedError,
   type WheelKind,
   type WheelConfig,
@@ -239,9 +240,13 @@ export async function POST(request: Request) {
       }
     }
 
-    const selected = selectWeightedSlice(profile.config.slices);
-    const sequence: WheelSpinSegment[] = [makeSpinSegment(profile, selected)];
-    if (profile.kind === "main" && selected.vipTrigger) {
+    const selected = profile.kind === "game"
+      ? null
+      : selectWeightedSlice(profile.config.slices);
+    let sequence: WheelSpinSegment[] = selected
+      ? [makeSpinSegment(profile, selected)]
+      : [];
+    if (profile.kind === "main" && selected?.vipTrigger) {
       const vipRecord = await prisma.wheelProfile.findUnique({ where: { id: "vip" } });
       if (!isWheelProfile(vipRecord, "vip")) {
         return respond(409, { error: "VIP segment je zapnutý, ale VIP koleso nemá platnú konfiguráciu." });
@@ -276,6 +281,32 @@ export async function POST(request: Request) {
           data: { spin_count: { increment: 1 } },
         });
         if (slot.count !== 1) throw new WheelSpinLimitReachedError();
+
+        const currentProfile = await transaction.wheelProfile.findUnique({
+          where: { id: profile.id },
+          select: { reset_at: true },
+        });
+        if (!currentProfile) throw new Error(`Wheel profile ${profile.id} disappeared during spin.`);
+        const previousSpins = await transaction.wheelSpin.findMany({
+          where: {
+            profile_id: profile.id,
+            ...(currentProfile.reset_at
+              ? { created_at: { gt: currentProfile.reset_at } }
+              : {}),
+          },
+          select: { sequence: true },
+        });
+        const usedSliceIds = new Set(
+          previousSpins.flatMap((previousSpin) => {
+            if (!Array.isArray(previousSpin.sequence)) return [];
+            const segment = previousSpin.sequence[0];
+            return isRecord(segment) && typeof segment.selectedSliceId === "string"
+              ? [segment.selectedSliceId]
+              : [];
+          }),
+        );
+        const gameSlice = selectWeightedSlice(profile.config.slices, usedSliceIds);
+        sequence = [makeSpinSegment(profile, gameSlice)];
       }
       if (pointMode === "n4jt_points" && pointCost !== undefined) {
         await changePointBalance(
@@ -315,6 +346,11 @@ export async function POST(request: Request) {
       true,
     );
   } catch (error) {
+    if (error instanceof WheelItemsExhaustedError) {
+      return respond(409, {
+        error: "Všetky položky herného kolesa už boli vyžrebované. Požiadaj o reset.",
+      });
+    }
     if (error instanceof InsufficientPointsError) {
       return respond(402, { error: "Nemáš dosť N4JT Twitch bodov na otočenie." });
     }

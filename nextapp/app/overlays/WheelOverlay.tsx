@@ -106,7 +106,7 @@ export default function WheelOverlay() {
     const sectorSize = 360 / segment.slices.length;
     const selectedAngle = (selectedIndex + 0.5) * sectorSize;
     const currentAngle = ((rotationRef.current % 360) + 360) % 360;
-    const delta = 360 * 6 + ((360 - selectedAngle - currentAngle + 360) % 360);
+    const delta = 360 * 3 + ((360 - selectedAngle - currentAngle + 360) % 360);
     rotationRef.current += delta;
     setRotation(rotationRef.current);
 
@@ -144,20 +144,21 @@ export default function WheelOverlay() {
             style={{
               background,
               transform: `rotate(${rotation}deg)`,
-              transition: `transform ${segment.durationMs}ms cubic-bezier(0.12, 0.72, 0.12, 1)`,
+              transition: `transform ${segment.durationMs}ms cubic-bezier(0.08, 0.62, 0.12, 1)`,
             }}
           >
             {segment.slices.map((slice, index) => {
               const angle = (index + 0.5) * (360 / segment.slices.length);
-              const width = Math.max(38, Math.min(112, (360 / segment.slices.length) * 0.7));
+              const width = Math.max(52, Math.min(128, (360 / segment.slices.length) * 1.8));
               return (
                 <span
                   key={slice.id}
-                  className="absolute left-1/2 top-1/2 -translate-x-1/2 truncate text-center text-[8px] font-extrabold leading-tight text-white drop-shadow-[0_1px_3px_rgba(0,0,0,1)] sm:text-[10px]"
+                  className="absolute left-1/2 top-1/2 truncate text-center text-xs font-black leading-tight text-white drop-shadow-[0_1px_3px_rgba(0,0,0,1)] sm:text-sm"
                   style={{
                     width: `${width}px`,
-                    transform: `rotate(${angle}deg) translateY(clamp(-11rem, -34vw, -5rem)) rotate(${-angle}deg)`,
+                    transform: `rotate(${angle}deg) translateY(clamp(-10rem, -29vw, -4rem)) rotate(90deg)`,
                   }}
+                  title={slice.label}
                 >
                   {slice.label}
                 </span>

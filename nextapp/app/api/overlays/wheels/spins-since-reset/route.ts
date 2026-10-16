@@ -6,18 +6,45 @@ function isRecord(value: unknown): value is Record<string, unknown> {
   return typeof value === "object" && value !== null && !Array.isArray(value);
 }
 
-function getResult(sequence: unknown): { label: string; durationMs: number } | null {
+function getResult(
+  sequence: unknown,
+): { label: string; durationMs: number; weight: number; totalWeight: number } | null {
   if (!Array.isArray(sequence)) return null;
   const segment = sequence[0];
   if (
     !isRecord(segment) ||
     typeof segment.selectedLabel !== "string" ||
+    typeof segment.selectedSliceId !== "string" ||
     typeof segment.durationMs !== "number" ||
-    !Number.isFinite(segment.durationMs)
+    !Number.isFinite(segment.durationMs) ||
+    !Array.isArray(segment.slices)
   ) {
     return null;
   }
-  return { label: segment.selectedLabel, durationMs: segment.durationMs };
+  const selectedSlice = segment.slices.find(
+    (slice) =>
+      isRecord(slice) &&
+      slice.id === segment.selectedSliceId &&
+      typeof slice.weight === "number",
+  );
+  const totalWeight = segment.slices.reduce(
+    (total, slice) =>
+      isRecord(slice) && typeof slice.weight === "number" ? total + slice.weight : total,
+    0,
+  );
+  if (
+    !isRecord(selectedSlice) ||
+    typeof selectedSlice.weight !== "number" ||
+    totalWeight <= 0
+  ) {
+    return null;
+  }
+  return {
+    label: segment.selectedLabel,
+    durationMs: segment.durationMs,
+    weight: selectedSlice.weight,
+    totalWeight,
+  };
 }
 
 export async function GET() {
@@ -66,6 +93,7 @@ export async function GET() {
         displayName: spin.display_name,
         gameName: spin.game_name ?? live.gameName ?? "Herná hra",
         result: result.label,
+        rarity: result.weight / result.totalWeight,
         createdAt: spin.created_at,
         revealAt: new Date(spin.created_at.getTime() + result.durationMs + 500),
       };
