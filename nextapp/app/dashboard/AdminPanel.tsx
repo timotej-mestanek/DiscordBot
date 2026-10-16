@@ -477,7 +477,7 @@ export default function AdminPanel() {
 
       <section className="rounded-xl border border-zinc-800 bg-zinc-900 p-6">
         <h2 className="text-xl font-semibold">Změny bodů</h2>
-        <div className="mt-4 max-h-[28rem] space-y-2 overflow-auto">
+        <div className="mt-4 h-72 space-y-2 overflow-y-auto overscroll-contain rounded-lg border border-zinc-800 p-2">
           {data.pointEvents.map((event) => (
             <article key={event.id} className="rounded-lg border border-zinc-800 p-3 text-sm">
               <p className="font-medium">
@@ -495,7 +495,7 @@ export default function AdminPanel() {
 
       <section className="rounded-xl border border-zinc-800 bg-zinc-900 p-6">
         <h2 className="text-xl font-semibold">Auditní log</h2>
-        <div className="mt-4 max-h-[24rem] space-y-2 overflow-y-auto overscroll-contain">
+        <div className="mt-4 h-96 space-y-2 overflow-y-auto overscroll-contain rounded-lg border border-zinc-800 p-2">
           {data.logs.map((log) => (
             <article key={log.id} className="rounded-lg border border-zinc-800 p-3 text-sm">
               <div className="flex flex-wrap items-start justify-between gap-3">
@@ -549,7 +549,7 @@ export default function AdminPanel() {
             {streamerBotLogError}
           </p>
         )}
-        <div className="mt-4 max-h-[36rem] space-y-2 overflow-auto">
+        <div className="mt-4 h-[36rem] space-y-2 overflow-y-auto overscroll-contain rounded-lg border border-zinc-800 p-2">
           {streamerBotLogs.map((entry) => (
             <article key={entry.id} className="rounded-lg border border-zinc-800 p-3 text-sm">
               <p className={entry.success ? "font-medium text-emerald-300" : "font-medium text-red-300"}>

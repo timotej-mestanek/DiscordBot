@@ -49,7 +49,7 @@ The public home page checks the broadcaster's current live status through the Tw
 
 ## Wheel of Fortune
 
-Dashboard → Admin → **Kolesá šťastia** configures the main subscription/donation wheel, its VIP follow-up wheel, and any number of game-specific wheels. Add game profiles by the Twitch Game ID; while spinning, the app chooses the profile matching the current live Twitch category. Each profile supports a title, enabled state, 3–30 second animation, 2–24 outcomes, an outcome color, and a positive integer weight. The server chooses the outcome using those weights. One outcome on the main wheel can be marked to trigger the VIP wheel.
+Dashboard → Admin → **Kolesá šťastia** configures the main subscription/donation wheel, its VIP follow-up wheel, and any number of game-specific wheels. Add game profiles by the Twitch Game ID; while spinning, the app chooses the profile matching the current live Twitch category. Each profile supports a title, enabled state, 3–30 second animation, 2–24 outcomes, an outcome color, and a positive integer weight. Game profiles also set a spin cap from 1 to 100 (default 2), shared across all viewers. Once reached, the cap must be reset by an admin in the dashboard or by a Twitch moderator/broadcaster using the Streamer.bot reset action. The server chooses the outcome using those weights. One outcome on the main wheel can be marked to trigger the VIP wheel.
 
 Add `https://<your-domain>/overlays/wheel` as an OBS Browser Source. Keep it open during the stream; it polls for new spins and animates each wheel result in order.
 
@@ -59,7 +59,7 @@ Streamer.bot calls `POST /api/integrations/streamerbot/wheels/spin` with the con
 - N4JT game-wheel points: `{"eventId":"<unique-redemption-or-command-id>","wheel":"game","source":"n4jt_points","userId":"123456","displayName":"viewer"}`. The active game's configured `pointCost` is deducted atomically from that Twitch user's N4JT CustomBody balance; the spin is rejected without a balance change if the user cannot pay.
 - Twitch Channel Points: `{"eventId":"<redemption-id>","wheel":"game","source":"channel_points","rewardId":"<configured-reward-id>","userId":"123456","displayName":"viewer"}`. Configure a dedicated Twitch reward and select the same reward ID in the game's Admin profile. Twitch charges the redemption itself. The displayed cost in Admin is a reminder and must match the price set on Twitch; the app cannot set or refund Twitch Channel Points.
 
-The endpoint returns the selected sequence (including the VIP result, when triggered) and records requests in Dashboard → Admin → **Streamer.bot API log**. It returns a conflict if the stream is offline, the active category has no enabled game profile, or the requested wheel is disabled. See [the Streamer.bot setup guide](../streamerbot_plugin/README.md) for action setup and request examples.
+The endpoint returns the selected sequence (including the VIP result, when triggered) and records requests in Dashboard → Admin → **Streamer.bot API log**. It returns a conflict if the stream is offline, the active category has no enabled game profile, or the requested wheel is disabled; it returns `429` when the game spin cap has been reached. See [the Streamer.bot setup guide](../streamerbot_plugin/README.md) for action setup and request examples.
 
 ## Streamer.bot Twitch currency commands
 

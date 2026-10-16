@@ -7,6 +7,7 @@ import {
   isWheelConfig,
   makeSpinSegment,
   selectWeightedSlice,
+  WheelSpinLimitReachedError,
   type WheelKind,
   type WheelConfig,
   type WheelProfileData,
@@ -45,11 +46,13 @@ function isWheelProfile(
     kind: string;
     game_id: string | null;
     game_name: string | null;
+    spin_count: number;
     config: unknown;
   } | null,
   kind: WheelKind,
 ): profile is NonNullable<typeof profile> & {
   kind: WheelKind;
+  spin_count: number;
   config: WheelConfig;
 } {
   return Boolean(
@@ -209,6 +212,7 @@ export async function POST(request: Request) {
       kind: profileKind,
       gameId: profileRecord.game_id,
       gameName: profileRecord.game_name,
+      spinCount: profileRecord.spin_count,
       config: profileRecord.config,
     };
 
@@ -237,6 +241,7 @@ export async function POST(request: Request) {
         kind: "vip",
         gameId: null,
         gameName: null,
+        spinCount: vipRecord.spin_count,
         config: vipRecord.config,
       };
       sequence.push(makeSpinSegment(vipProfile, selectWeightedSlice(vipProfile.config.slices)));
@@ -252,6 +257,16 @@ export async function POST(request: Request) {
     const pointMode = profile.kind === "game" ? profile.config.pointMode : undefined;
     const pointCost = profile.kind === "game" ? profile.config.pointCost : undefined;
     const spin = await prisma.$transaction(async (transaction) => {
+      if (profile.kind === "game") {
+        const slot = await transaction.wheelProfile.updateMany({
+          where: {
+            id: profile.id,
+            spin_count: { lt: profile.config.maxSpins },
+          },
+          data: { spin_count: { increment: 1 } },
+        });
+        if (slot.count !== 1) throw new WheelSpinLimitReachedError();
+      }
       if (pointMode === "n4jt_points" && pointCost !== undefined) {
         await changePointBalance(
           transaction,
@@ -284,6 +299,11 @@ export async function POST(request: Request) {
   } catch (error) {
     if (error instanceof InsufficientPointsError) {
       return respond(402, { error: "Nemáš dosť N4JT Twitch bodov na otočenie." });
+    }
+    if (error instanceof WheelSpinLimitReachedError) {
+      return respond(429, {
+        error: "Limit herného kolesa bol dosiahnutý. Požiadaj moderátora alebo streamera o reset.",
+      });
     }
     if (isDuplicate(error)) {
       const duplicate = await prisma.wheelSpin.findUnique({

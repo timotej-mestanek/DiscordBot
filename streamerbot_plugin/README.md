@@ -29,7 +29,7 @@ imported C# sub-action before enabling the commands.
 
 ## Wheels of Fortune
 
-Import `N4JT-Wheels.sb` as a separate package. It adds four actions under
+Import `N4JT-Wheels.sb` as a separate package. It adds five actions under
 **N4JT Wheels**; they have no triggers until you connect them, so importing the
 pack does not start any wheel. The actions use the same persistent
 `n4jtStreamerBotToken` global variable configured above.
@@ -42,6 +42,7 @@ Connect the actions to the events you want in Streamer.bot:
 | `N4JT Wheels - Main - Donation` | Your donation provider's event |
 | `N4JT Wheels - Game - N4JT Points` | A Twitch chat command such as `!wheel`; the app charges the active game's configured N4JT Twitch point cost |
 | `N4JT Wheels - Game - Twitch Channel Points` | The Twitch reward-redemption event for the dedicated wheel reward |
+| `N4JT Wheels - Reset active game limit` | A chat command such as `!wheelreset`; only moderators and the broadcaster can use it |
 
 The action reads Twitch user ID from `userId`, `twitchUserId`, or `user_id`;
 display name from `userName`, `displayName`, `user`, or `user_name`; and a
@@ -69,3 +70,13 @@ Add `https://najtik.stream/overlays/wheel` as an OBS Browser Source and keep it
 open while streaming. For another domain, replace `najtik.stream` with the
 public app host. Requests and errors are visible in Dashboard → Admin →
 **Streamer.bot API log**.
+
+Each game profile allows up to two spins by default (configurable from 1 to 100)
+across all viewers. Once the limit is reached, further game spins are rejected
+until an admin uses **Resetovať limit zatočení** in the dashboard or a Twitch
+moderator/broadcaster invokes the reset action. To set up the chat command,
+create `!wheelreset`, attach its trigger to the imported reset action, and make
+sure Streamer.bot provides `isModerator`/`isBroadcaster`, `userId`,
+`userName`, and `msgId` in that trigger's arguments. The API checks the
+moderator/broadcaster flags again, resets only the current live game's counter,
+and records the reset in the audit and Streamer.bot API logs.

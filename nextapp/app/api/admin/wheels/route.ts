@@ -43,6 +43,7 @@ function parseProfile(value: unknown): WheelProfileData | null {
     kind,
     gameId: isGame ? (value.gameId as string) : null,
     gameName: isGame ? (value.gameName as string).trim() : null,
+    spinCount: 0,
     config: value.config,
   };
 }
@@ -52,6 +53,7 @@ function profileFromDatabase(profile: {
   kind: string;
   game_id: string | null;
   game_name: string | null;
+  spin_count: number;
   config: unknown;
 }): WheelProfileData {
   if (
@@ -70,6 +72,7 @@ function profileFromDatabase(profile: {
     kind: profile.kind,
     gameId: profile.game_id,
     gameName: profile.game_name,
+    spinCount: profile.spin_count,
     config: profile.config,
   };
 }
@@ -111,6 +114,7 @@ export async function GET() {
           kind,
           gameId: null,
           gameName: null,
+          spinCount: 0,
           config: defaultWheelConfig(
             kind === "main" ? "Koleso šťastia" : "VIP koleso šťastia",
           ),
@@ -227,6 +231,66 @@ export async function PUT(request: Request) {
     console.error("Wheel admin configuration save failed:", error);
     return NextResponse.json(
       { error: "Konfiguráciu kolies sa nepodarilo uložiť." },
+      { status: 500 },
+    );
+  }
+}
+
+export async function POST(request: Request) {
+  if (!isSameOriginRequest(request)) {
+    return NextResponse.json({ error: "Neplatný požadavek." }, { status: 403 });
+  }
+  const { admin, response } = await requireAdmin();
+  if (response || !admin) return response;
+
+  let body: unknown;
+  try {
+    body = await request.json();
+  } catch {
+    return NextResponse.json({ error: "Neplatná data požadavku." }, { status: 400 });
+  }
+  if (
+    !isRecord(body) ||
+    body.action !== "reset-game-limit" ||
+    typeof body.gameId !== "string" ||
+    !/^\d{1,32}$/.test(body.gameId)
+  ) {
+    return NextResponse.json({ error: "Neplatný reset herného kolesa." }, { status: 400 });
+  }
+
+  const profileId = `game:${body.gameId}`;
+  try {
+    const reset = await prisma.$transaction(async (transaction) => {
+      const profile = await transaction.wheelProfile.findUnique({
+        where: { id: profileId },
+        select: { id: true, game_name: true, spin_count: true },
+      });
+      if (!profile) return null;
+      await transaction.wheelProfile.update({
+        where: { id: profile.id },
+        data: { spin_count: 0 },
+      });
+      await transaction.adminAuditLog.create({
+        data: {
+          actor_account_id: admin.id,
+          action: "wheel.game_limit_reset",
+          details: {
+            profileId,
+            gameName: profile.game_name,
+            previousSpinCount: profile.spin_count,
+          },
+        },
+      });
+      return profile;
+    });
+    if (!reset) {
+      return NextResponse.json({ error: "Profil hry sa nenašiel." }, { status: 404 });
+    }
+    return NextResponse.json({ ok: true });
+  } catch (error) {
+    console.error("Wheel game limit reset failed:", error);
+    return NextResponse.json(
+      { error: "Limit herného kolesa sa nepodarilo resetovať." },
       { status: 500 },
     );
   }

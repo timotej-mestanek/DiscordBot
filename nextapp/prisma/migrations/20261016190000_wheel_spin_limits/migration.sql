@@ -1,0 +1,2 @@
+ALTER TABLE "WheelProfile"
+ADD COLUMN "spin_count" INTEGER NOT NULL DEFAULT 0;

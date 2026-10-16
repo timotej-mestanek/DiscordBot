@@ -40,8 +40,10 @@ function createGameProfile(gameId: string, gameName: string): WheelProfileData {
       durationMs: 8_000,
       pointMode: "n4jt_points",
       pointCost: 100,
+      maxSpins: 2,
       slices: [],
     },
+    spinCount: 0,
   };
 }
 
@@ -162,6 +164,7 @@ export default function WheelAdminPanel() {
         setError(result.error ?? "Konfiguráciu kolies sa nepodarilo uložiť.");
         return;
       }
+
       setNotice("Konfigurácia kolies bola uložená.");
       await load();
     } catch (saveError) {
@@ -169,6 +172,29 @@ export default function WheelAdminPanel() {
       setError("Konfiguráciu kolies sa nepodarilo uložiť.");
     } finally {
       setSaving(false);
+    }
+  }
+
+  async function resetGameLimit(profile: WheelProfileData) {
+    if (!profile.gameId) return;
+    setError("");
+    setNotice("");
+    try {
+      const response = await fetch("/api/admin/wheels", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ action: "reset-game-limit", gameId: profile.gameId }),
+      });
+      const result = await response.json();
+      if (!response.ok) {
+        setError(result.error ?? "Limit herného kolesa sa nepodarilo resetovať.");
+        return;
+      }
+      setNotice(`Limit kolesa pre ${profile.gameName} bol resetovaný.`);
+      await load();
+    } catch (resetError) {
+      console.error("Wheel game limit reset failed:", resetError);
+      setError("Limit herného kolesa sa nepodarilo resetovať.");
     }
   }
 
@@ -324,6 +350,23 @@ export default function WheelAdminPanel() {
                 Odstrániť tento profil hry
               </button>
             )}
+            {selectedProfile?.kind === "game" && (
+              <div className="mt-4 rounded-lg border border-zinc-800 p-3">
+                <p className="text-sm font-medium">
+                  Zatočenia: {selectedProfile.spinCount}/{selectedProfile.config.maxSpins ?? 2}
+                </p>
+                <p className="mt-1 text-xs text-zinc-500">
+                  Po dosiahnutí limitu sa koleso zastaví, kým ho moderátor alebo streamer neresetuje.
+                </p>
+                <button
+                  type="button"
+                  onClick={() => void resetGameLimit(selectedProfile)}
+                  className="mt-3 w-full rounded-lg border border-amber-800 px-3 py-2 text-sm font-semibold text-amber-200 hover:bg-amber-950/50"
+                >
+                  Resetovať limit zatočení
+                </button>
+              </div>
+            )}
           </div>
         </div>
 
@@ -371,6 +414,22 @@ export default function WheelAdminPanel() {
 
             {selectedProfile.kind === "game" && (
               <div className="grid gap-3 rounded-lg border border-zinc-800 p-4 sm:grid-cols-2">
+                <label className="text-sm text-zinc-300">
+                  Maximálny počet zatočení pred resetom
+                  <input
+                    type="number"
+                    min={1}
+                    max={100}
+                    value={config.maxSpins ?? 2}
+                    onChange={(event) =>
+                      updateConfig((current) => ({
+                        ...current,
+                        maxSpins: Number(event.target.value),
+                      }))
+                    }
+                    className="mt-1 w-full rounded-lg border border-zinc-700 bg-zinc-950 px-3 py-2"
+                  />
+                </label>
                 <label className="text-sm text-zinc-300">
                   Mena za otočenie
                   <select

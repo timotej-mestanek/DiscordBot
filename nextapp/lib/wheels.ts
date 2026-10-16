@@ -16,6 +16,7 @@ export type WheelConfig = {
   enabled: boolean;
   durationMs: number;
   slices: WheelSlice[];
+  maxSpins?: number;
   pointMode?: WheelPointMode;
   pointCost?: number;
   channelRewardId?: string;
@@ -26,6 +27,7 @@ export type WheelProfileData = {
   kind: WheelKind;
   gameId: string | null;
   gameName: string | null;
+  spinCount: number;
   config: WheelConfig;
 };
 
@@ -37,6 +39,13 @@ export type WheelSpinSegment = {
   selectedSliceId: string;
   selectedLabel: string;
 };
+
+export class WheelSpinLimitReachedError extends Error {
+  constructor() {
+    super("Wheel spin limit reached.");
+    this.name = "WheelSpinLimitReachedError";
+  }
+}
 
 export function defaultWheelConfig(title: string): WheelConfig {
   return { title, enabled: false, durationMs: 8_000, slices: [] };
@@ -96,6 +105,10 @@ export function isWheelConfig(value: unknown, kind: WheelKind): value is WheelCo
     return (
       (config.pointMode === "channel_points" ||
         config.pointMode === "n4jt_points") &&
+      typeof config.maxSpins === "number" &&
+      Number.isSafeInteger(config.maxSpins) &&
+      config.maxSpins >= 1 &&
+      config.maxSpins <= 100 &&
       typeof config.pointCost === "number" &&
       Number.isSafeInteger(config.pointCost) &&
       config.pointCost > 0 &&
@@ -108,6 +121,7 @@ export function isWheelConfig(value: unknown, kind: WheelKind): value is WheelCo
   }
 
   return (
+    config.maxSpins === undefined &&
     config.pointMode === undefined &&
     config.pointCost === undefined &&
     config.channelRewardId === undefined
