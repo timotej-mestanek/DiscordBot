@@ -240,14 +240,24 @@ export default function WheelAdminPanel() {
             roztočí VIP koleso. Herný profil sa vyberie podľa aktuálnej Twitch hry.
           </p>
         </div>
-        <a
-          href="/overlays/wheel"
-          target="_blank"
-          rel="noreferrer"
-          className="rounded-lg border border-zinc-700 px-3 py-2 text-sm font-semibold hover:bg-zinc-800"
-        >
-          Náhľad OBS overlaye
-        </a>
+        <div className="flex flex-wrap gap-2">
+          <a
+            href="/overlays/wheel"
+            target="_blank"
+            rel="noreferrer"
+            className="rounded-lg border border-zinc-700 px-3 py-2 text-sm font-semibold hover:bg-zinc-800"
+          >
+            Náhľad animácie kolesa
+          </a>
+          <a
+            href="/overlays/wheel-history"
+            target="_blank"
+            rel="noreferrer"
+            className="rounded-lg border border-violet-800 px-3 py-2 text-sm font-semibold text-violet-200 hover:bg-violet-950/50"
+          >
+            Náhľad histórie výsledkov
+          </a>
+        </div>
       </div>
 
       {error && (
@@ -502,7 +512,8 @@ export default function WheelAdminPanel() {
               <div>
                 <h3 className="font-semibold">Výsledky kolieska</h3>
                 <p className="text-xs text-zinc-500">
-                  Váha určuje pravdepodobnosť výhry; výsledky sa vyžrebujú na serveri.
+                  Každý text je samostatná možnosť zobrazená aj vo farebnej legende
+                  overlayu. Váha určuje pravdepodobnosť; výsledok žrebuje server.
                 </p>
               </div>
               <button

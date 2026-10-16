@@ -204,6 +204,7 @@ model WheelProfile {
   game_id    String?  @unique
   game_name  String?
   spin_count Int      @default(0)
+  reset_at   DateTime?
   config     Json
   updated_at DateTime @updatedAt
 }

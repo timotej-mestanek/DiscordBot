@@ -268,7 +268,7 @@ export async function POST(request: Request) {
       if (!profile) return null;
       await transaction.wheelProfile.update({
         where: { id: profile.id },
-        data: { spin_count: 0 },
+        data: { spin_count: 0, reset_at: new Date() },
       });
       await transaction.adminAuditLog.create({
         data: {

@@ -48,7 +48,6 @@ export default function WheelOverlay() {
   const [activeStep, setActiveStep] = useState(0);
   const [rotation, setRotation] = useState(0);
   const [revealedKey, setRevealedKey] = useState("");
-  const [loadError, setLoadError] = useState("");
   const cursor = useRef<string | null>(null);
   const rotationRef = useRef(0);
 
@@ -78,10 +77,8 @@ export default function WheelOverlay() {
           }
           setQueue((current) => [...current, ...validSpins]);
         }
-        setLoadError("");
       } catch (error) {
         console.error("Wheel overlay polling failed:", error);
-        if (mounted) setLoadError("Spojenie s kolesom sa prerušilo.");
       } finally {
         loading = false;
       }
@@ -137,45 +134,42 @@ export default function WheelOverlay() {
 
   return (
     <main className="wheel-overlay-canvas pointer-events-none fixed inset-0 flex items-end justify-center overflow-hidden p-6 text-white sm:p-10">
-      {(activeSpin || loadError) && (
-        <section className="wheel-overlay-enter mb-2 flex w-[min(42rem,calc(100vw-2rem))] flex-col items-center rounded-3xl border border-violet-300/30 bg-zinc-950/90 px-6 py-5 text-center shadow-[0_20px_80px_rgba(0,0,0,0.7)] backdrop-blur-xl">
-          {activeSpin && segment ? (
-            <>
-              <p className="text-xs font-bold uppercase tracking-[0.25em] text-violet-300">
-                {segment.title} · {activeSpin.display_name}
-              </p>
-              <div className="relative mt-4 h-64 w-64 sm:h-80 sm:w-80">
-                <div className="absolute -top-1 left-1/2 z-10 h-0 w-0 -translate-x-1/2 border-x-[14px] border-t-[25px] border-x-transparent border-t-white drop-shadow-lg" />
-                <div
-                  className="h-full w-full rounded-full border-[8px] border-zinc-100 shadow-[0_0_35px_rgba(139,92,246,0.6)]"
+      {activeSpin && segment && (
+        <div className="wheel-overlay-enter relative mb-2 h-[min(80vw,28rem)] w-[min(80vw,28rem)]">
+          <div className="absolute -top-1 left-1/2 z-10 h-0 w-0 -translate-x-1/2 border-x-[14px] border-t-[25px] border-x-transparent border-t-white drop-shadow-lg" />
+          <div
+            role="group"
+            aria-label={`Koleso ${segment.title}`}
+            className="relative h-full w-full rounded-full border-[8px] border-zinc-100 shadow-[0_0_35px_rgba(139,92,246,0.6)]"
+            style={{
+              background,
+              transform: `rotate(${rotation}deg)`,
+              transition: `transform ${segment.durationMs}ms cubic-bezier(0.12, 0.72, 0.12, 1)`,
+            }}
+          >
+            {segment.slices.map((slice, index) => {
+              const angle = (index + 0.5) * (360 / segment.slices.length);
+              const width = Math.max(38, Math.min(112, (360 / segment.slices.length) * 0.7));
+              return (
+                <span
+                  key={slice.id}
+                  className="absolute left-1/2 top-1/2 -translate-x-1/2 truncate text-center text-[8px] font-extrabold leading-tight text-white drop-shadow-[0_1px_3px_rgba(0,0,0,1)] sm:text-[10px]"
                   style={{
-                    background,
-                    transform: `rotate(${rotation}deg)`,
-                    transition: `transform ${segment.durationMs}ms cubic-bezier(0.12, 0.72, 0.12, 1)`,
+                    width: `${width}px`,
+                    transform: `rotate(${angle}deg) translateY(clamp(-11rem, -34vw, -5rem)) rotate(${-angle}deg)`,
                   }}
                 >
-                  <div className="absolute left-1/2 top-1/2 flex h-24 w-24 -translate-x-1/2 -translate-y-1/2 items-center justify-center rounded-full border-4 border-white/70 bg-zinc-950 px-2 text-center text-xs font-black shadow-xl sm:h-28 sm:w-28">
-                    {revealedKey === `${activeSpin.id}:${activeStep}`
-                      ? segment.selectedLabel
-                      : "N4JT"}
-                  </div>
-                </div>
-              </div>
-              <p className="mt-4 text-2xl font-black">
-                {revealedKey === `${activeSpin.id}:${activeStep}`
-                  ? segment.selectedLabel
-                  : "Koleso sa točí…"}
-              </p>
-              {activeSpin.sequence.length > 1 && (
-                <p className="mt-1 text-xs text-amber-200">
-                  VIP kolo · {activeStep + 1}/{activeSpin.sequence.length}
-                </p>
-              )}
-            </>
-          ) : (
-            <p role="alert" className="text-sm text-red-200">{loadError}</p>
-          )}
-        </section>
+                  {slice.label}
+                </span>
+              );
+            })}
+            <div className="absolute left-1/2 top-1/2 flex h-20 w-20 -translate-x-1/2 -translate-y-1/2 items-center justify-center rounded-full border-4 border-white/70 bg-zinc-950 px-2 text-center text-xs font-black shadow-xl sm:h-24 sm:w-24">
+              {revealedKey === `${activeSpin.id}:${activeStep}`
+                ? segment.selectedLabel
+                : "N4JT"}
+            </div>
+          </div>
+        </div>
       )}
     </main>
   );

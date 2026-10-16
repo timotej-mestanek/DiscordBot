@@ -71,6 +71,13 @@ function isDuplicate(error: unknown): boolean {
   return error instanceof Prisma.PrismaClientKnownRequestError && error.code === "P2002";
 }
 
+function getSpinResult(sequence: unknown, index = 0): string | null {
+  if (!Array.isArray(sequence)) return null;
+  const segment = sequence[index];
+  if (!isRecord(segment) || typeof segment.selectedLabel !== "string") return null;
+  return segment.selectedLabel;
+}
+
 async function persistLog(input: {
   requestId: string;
   operation: string | null;
@@ -172,6 +179,9 @@ export async function POST(request: Request) {
           ok: true,
           duplicate: true,
           spinId: existingSpin.id,
+          gameName: existingSpin.game_name,
+          result: getSpinResult(existingSpin.sequence),
+          vipResult: getSpinResult(existingSpin.sequence, 1),
           sequence: existingSpin.sequence,
         },
         true,
@@ -293,7 +303,15 @@ export async function POST(request: Request) {
 
     return respond(
       200,
-      { ok: true, duplicate: false, spinId: spin.id, sequence: spin.sequence },
+      {
+        ok: true,
+        duplicate: false,
+        spinId: spin.id,
+        gameName,
+        result: getSpinResult(spin.sequence),
+        vipResult: getSpinResult(spin.sequence, 1),
+        sequence: spin.sequence,
+      },
       true,
     );
   } catch (error) {
@@ -312,7 +330,15 @@ export async function POST(request: Request) {
       if (duplicate) {
         return respond(
           200,
-          { ok: true, duplicate: true, spinId: duplicate.id, sequence: duplicate.sequence },
+          {
+            ok: true,
+            duplicate: true,
+            spinId: duplicate.id,
+            gameName: duplicate.game_name,
+            result: getSpinResult(duplicate.sequence),
+            vipResult: getSpinResult(duplicate.sequence, 1),
+            sequence: duplicate.sequence,
+          },
           true,
         );
       }

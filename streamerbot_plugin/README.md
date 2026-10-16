@@ -80,3 +80,15 @@ sure Streamer.bot provides `isModerator`/`isBroadcaster`, `userId`,
 `userName`, and `msgId` in that trigger's arguments. The API checks the
 moderator/broadcaster flags again, resets only the current live game's counter,
 and records the reset in the audit and Streamer.bot API logs.
+
+The spin actions post the result to Twitch chat after a successful spin, and
+post the API's error message if the spin is rejected. An idempotent duplicate
+event is not announced a second time. The main wheel message includes the VIP
+result too when that spin triggered the VIP wheel.
+
+For persistent cards showing each result since each game's latest reset, add
+`https://najtik.stream/overlays/wheel-history` as a second OBS Browser Source.
+Newly completed spins are added to the cards until an admin, moderator, or
+broadcaster resets that game's wheel limit; cards stay visible across game
+changes. The regular `/overlays/wheel` source shows the spinning wheel with
+each outcome's text on its colored segment.
