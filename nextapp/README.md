@@ -47,6 +47,20 @@ The public Twitch Channel Points balance is not available through the supported 
 
 The public home page checks the broadcaster's current live status through the Twitch Helix API (`TWITCH_BROADCASTER_LOGIN`) and refreshes it while open; Spotify playback and its overlay stay hidden when Twitch reports the channel offline. Upcoming stream times are managed in Dashboard → Admin. Admins manage all shop entries through one shared editor on `/shop`; each entry can be configured to be used immediately when purchased or added to the account inventory for later use. Shop purchases, uses, and configuration changes are recorded in the admin log and can be reverted there. LED editor access uses inventory purchases; keyframes snap to the 120 frames in a two-second timeline (1/60-second intervals). Effects are stored for future LED integration; physical lights are not connected yet. The editor is locked without an unspent shop purchase. Public point, chat profanity, gambling, and event-statistic rankings are available at `/leaderboards`.
 
+## Wheel of Fortune
+
+Dashboard → Admin → **Kolesá šťastia** configures the main subscription/donation wheel, its VIP follow-up wheel, and any number of game-specific wheels. Add game profiles by the Twitch Game ID; while spinning, the app chooses the profile matching the current live Twitch category. Each profile supports a title, enabled state, 3–30 second animation, 2–24 outcomes, an outcome color, and a positive integer weight. The server chooses the outcome using those weights. One outcome on the main wheel can be marked to trigger the VIP wheel.
+
+Add `https://<your-domain>/overlays/wheel` as an OBS Browser Source. Keep it open during the stream; it polls for new spins and animates each wheel result in order.
+
+Streamer.bot calls `POST /api/integrations/streamerbot/wheels/spin` with the configured `STREAMERBOT_INGEST_TOKEN` as a Bearer token. Use unique source event IDs; duplicate deliveries return the original spin and never charge N4JT points twice.
+
+- Subscription or donation: `{"eventId":"<unique-event-id>","wheel":"main","source":"subscription","userId":"123456","displayName":"viewer"}`. Set `source` to `donation` for a donation event. Each event starts exactly one main-wheel spin.
+- N4JT game-wheel points: `{"eventId":"<unique-redemption-or-command-id>","wheel":"game","source":"n4jt_points","userId":"123456","displayName":"viewer"}`. The active game's configured `pointCost` is deducted atomically from that Twitch user's N4JT CustomBody balance; the spin is rejected without a balance change if the user cannot pay.
+- Twitch Channel Points: `{"eventId":"<redemption-id>","wheel":"game","source":"channel_points","rewardId":"<configured-reward-id>","userId":"123456","displayName":"viewer"}`. Configure a dedicated Twitch reward and select the same reward ID in the game's Admin profile. Twitch charges the redemption itself. The displayed cost in Admin is a reminder and must match the price set on Twitch; the app cannot set or refund Twitch Channel Points.
+
+The endpoint returns the selected sequence (including the VIP result, when triggered) and records requests in Dashboard → Admin → **Streamer.bot API log**. It returns a conflict if the stream is offline, the active category has no enabled game profile, or the requested wheel is disabled. See [the Streamer.bot setup guide](../streamerbot_plugin/README.md) for action setup and request examples.
+
 ## Streamer.bot Twitch currency commands
 
 Import the ready-to-use Streamer.bot action pack from `../streamerbot_plugin/N4JT-Currency.sb`. It creates `!points`, `!addpoints`, `!removepoints`, and `!givepoints` using the app's Twitch CustomBody balance. Follow the one-time token setup and import instructions in `../streamerbot_plugin/README.md`. The app resolves Twitch logins to user IDs using its Twitch app credentials. Disable CurrencyCore's commands/actions after importing to prevent duplicate changes.

@@ -10,6 +10,8 @@ export type TwitchLiveStatus = {
   isLive: boolean;
   title: string | null;
   startedAt: string | null;
+  gameId: string | null;
+  gameName: string | null;
 };
 
 let cachedAppToken: { token: string; expiresAt: number } | null = null;
@@ -151,8 +153,16 @@ export async function getTwitchLiveStatus(): Promise<TwitchLiveStatus> {
           isLive: true,
           title: stream.title,
           startedAt: stream.started_at,
+          gameId: typeof stream.game_id === "string" ? stream.game_id : null,
+          gameName: typeof stream.game_name === "string" ? stream.game_name : null,
         }
-      : { isLive: false, title: null, startedAt: null };
+      : {
+          isLive: false,
+          title: null,
+          startedAt: null,
+          gameId: null,
+          gameName: null,
+        };
 
   cachedLiveStatus = { status, expiresAt: Date.now() + 30_000 };
   return status;

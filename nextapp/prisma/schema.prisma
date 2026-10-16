@@ -198,6 +198,30 @@ model StreamerBotIntegrationLog {
   @@index([success, created_at])
 }
 
+model WheelProfile {
+  id         String   @id
+  kind       String
+  game_id    String?  @unique
+  game_name  String?
+  config     Json
+  updated_at DateTime @updatedAt
+}
+
+model WheelSpin {
+  id           String   @id @default(cuid())
+  event_id     String   @unique
+  viewer_id    String
+  display_name String
+  profile_id   String
+  trigger      String
+  game_name    String?
+  sequence     Json
+  created_at   DateTime @default(now())
+
+  @@index([created_at, id])
+  @@index([profile_id, created_at])
+}
+
 model StreamOverlayIntegration {
   id         String   @id
   spotify_rt String?

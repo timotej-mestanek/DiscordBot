@@ -3,6 +3,7 @@
 import { useEffect, useState } from "react";
 import type { FormEvent } from "react";
 import Link from "next/link";
+import WheelAdminPanel from "@/app/dashboard/WheelAdminPanel";
 
 type Currency = "discord" | "twitch_custom";
 type Account = {
@@ -275,6 +276,8 @@ export default function AdminPanel() {
 
   return (
     <div className="space-y-8">
+      <WheelAdminPanel />
+
       {error && (
         <p role="alert" className="rounded-lg border border-red-900 bg-red-950/50 p-3 text-sm text-red-200">
           {error}
@@ -529,7 +532,7 @@ export default function AdminPanel() {
           <div>
             <h2 className="text-xl font-semibold">Streamer.bot API log</h2>
             <p className="mt-1 text-sm text-zinc-400">
-              Úspešné aj neúspešné požiadavky na Twitch menu endpoint.
+              Úspešné aj neúspešné požiadavky na Streamer.bot integrácie vrátane meny a kolies.
             </p>
           </div>
           <button
