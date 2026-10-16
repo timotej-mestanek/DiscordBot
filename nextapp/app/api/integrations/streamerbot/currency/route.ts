@@ -50,44 +50,128 @@ function isDuplicateEvent(error: unknown): boolean {
   );
 }
 
+function redactSensitiveFields(value: unknown): unknown {
+  if (Array.isArray(value)) return value.map(redactSensitiveFields);
+  if (!isRecord(value)) return value;
+  return Object.fromEntries(
+    Object.entries(value).map(([key, entry]) => [
+      key,
+      /token|authorization|secret|password/i.test(key)
+        ? "[REDACTED]"
+        : redactSensitiveFields(entry),
+    ]),
+  );
+}
+
+function stringifyDetails(value: unknown, maxLength: number): string {
+  const serialized = JSON.stringify(redactSensitiveFields(value));
+  return serialized.length > maxLength
+    ? `${serialized.slice(0, maxLength)}…[truncated]`
+    : serialized;
+}
+
+async function persistRequestLog(input: {
+  requestId: string;
+  operation: string | null;
+  success: boolean;
+  statusCode: number;
+  requestDetails: string | null;
+  responseDetails: string;
+}) {
+  try {
+    await prisma.streamerBotIntegrationLog.create({
+      data: {
+        request_id: input.requestId,
+        operation: input.operation,
+        success: input.success,
+        status_code: input.statusCode,
+        request_details: input.requestDetails,
+        response_details: input.responseDetails,
+      },
+    });
+  } catch (error) {
+    console.error("Failed to persist Streamer.bot currency request log:", input.requestId, error);
+  }
+}
+
 export async function POST(request: Request) {
+  const requestId = crypto.randomUUID();
+  let requestDetails: string | null = null;
+  let operation: string | null = null;
+  console.log("Streamer.bot currency request received:", requestId, request.method, request.url);
+  const respond = async (
+    statusCode: number,
+    responseBody: Record<string, unknown>,
+    success = false,
+  ) => {
+    const responseDetails = stringifyDetails(responseBody, 4_000);
+    await persistRequestLog({
+      requestId,
+      operation,
+      success,
+      statusCode,
+      requestDetails,
+      responseDetails,
+    });
+    if (success) {
+      console.log("Streamer.bot currency request succeeded:", requestId, operation, responseDetails);
+    } else {
+      console.error("Streamer.bot currency request failed:", requestId, operation, statusCode, responseDetails);
+    }
+    return NextResponse.json(responseBody, { status: statusCode });
+  };
   const authorization = authorizeStreamerBotRequest(request);
   if (authorization === "unconfigured") {
     console.error("Streamer.bot currency integration is not configured.");
-    return NextResponse.json(
+    return respond(
+      503,
       { error: "Streamer.bot integrácia nie je nakonfigurovaná." },
-      { status: 503 },
     );
   }
   if (authorization === "unauthorized") {
-    return NextResponse.json({ error: "Neplatná autorizácia." }, { status: 401 });
+    console.error("Streamer.bot currency request rejected: unauthorized.");
+    return respond(401, { error: "Neplatná autorizácia." });
   }
 
   let body: unknown;
   try {
     body = await request.json();
+    requestDetails = stringifyDetails(body, 10_000);
+    console.log(
+      "Streamer.bot currency request body:",
+      requestDetails,
+    );
   } catch {
-    return NextResponse.json({ error: "Neplatné dáta požiadavky." }, { status: 400 });
+    console.error("Streamer.bot currency request rejected: invalid JSON body.");
+    return respond(400, { error: "Neplatné dáta požiadavky." });
   }
   if (!isRecord(body) || typeof body.operation !== "string") {
-    return NextResponse.json({ error: "Neplatná operácia meny." }, { status: 400 });
+    console.error("Streamer.bot currency request rejected: missing operation.");
+    return respond(400, { error: "Neplatná operácia meny." });
   }
+  operation = body.operation;
 
   if (body.operation === "balance") {
     if (!isTwitchUserId(body.twitchUserId)) {
-      return NextResponse.json({ error: "Neplatné Twitch ID." }, { status: 400 });
+      console.error("Streamer.bot currency balance rejected: invalid Twitch user ID.");
+      return respond(400, { error: "Neplatné Twitch ID." });
     }
     try {
       const balance = await prisma.twitchCustomPointBalance.findUnique({
         where: { twitch_user_id: body.twitchUserId },
         select: { points: true },
       });
-      return NextResponse.json({ ok: true, points: balance?.points ?? 0 });
+      console.log(
+        "Streamer.bot currency balance succeeded:",
+        body.twitchUserId,
+        balance?.points ?? 0,
+      );
+      return respond(200, { ok: true, points: balance?.points ?? 0 }, true);
     } catch (error) {
       console.error("Streamer.bot currency balance lookup failed:", error);
-      return NextResponse.json(
+      return respond(
+        500,
         { error: "Zůstatek bodů se nepodařilo načíst." },
-        { status: 500 },
       );
     }
   }
@@ -99,15 +183,21 @@ export async function POST(request: Request) {
         !isTwitchLogin(body.twitchUserLogin)) ||
       !isAmount(body.amount)
     ) {
-      return NextResponse.json(
+      console.error(
+        "Streamer.bot currency adjustment rejected: invalid event ID, Twitch user, or amount.",
+      );
+      return respond(
+        400,
         { error: "Neplatné údaje pro změnu bodů." },
-        { status: 400 },
       );
     }
 
     const eventId = body.eventId;
     const operation = body.operation;
-    const delta = operation === "add" ? body.amount : -body.amount;
+    const amount = body.amount;
+    const twitchUserLogin =
+      typeof body.twitchUserLogin === "string" ? body.twitchUserLogin : null;
+    const delta = operation === "add" ? amount : -amount;
     try {
       const twitchUserId = await resolveBodyUserId(
         body,
@@ -115,9 +205,10 @@ export async function POST(request: Request) {
         "twitchUserLogin",
       );
       if (!twitchUserId) {
-        return NextResponse.json({ error: "Twitch používateľ sa nenašiel." }, { status: 404 });
+        console.error("Streamer.bot currency adjustment failed: Twitch user not found.");
+        return respond(404, { error: "Twitch používateľ sa nenašiel." });
       }
-      await prisma.$transaction(async (transaction) => {
+      const points = await prisma.$transaction(async (transaction) => {
         await changePointBalance(
           transaction,
           "twitch_custom",
@@ -127,33 +218,59 @@ export async function POST(request: Request) {
           null,
           eventId,
         );
+        const balance = await transaction.twitchCustomPointBalance.findUniqueOrThrow({
+          where: { twitch_user_id: twitchUserId },
+          select: { points: true },
+        });
+        await transaction.adminAuditLog.create({
+          data: {
+            action: "points.streamerbot.adjusted",
+            details: {
+              operation,
+              currency: "twitch_custom",
+              twitchUserId,
+              twitchUserLogin,
+              amount,
+              delta,
+              eventId,
+              balance: balance.points,
+            },
+          },
+        });
+        return balance.points;
       });
-      const balance = await prisma.twitchCustomPointBalance.findUniqueOrThrow({
-        where: { twitch_user_id: twitchUserId },
-        select: { points: true },
-      });
-      return NextResponse.json({ ok: true, duplicate: false, points: balance.points });
+      console.log(
+        "Streamer.bot currency adjustment succeeded:",
+        operation,
+        twitchUserId,
+        delta,
+        points,
+        eventId,
+      );
+      return respond(200, { ok: true, duplicate: false, points }, true);
     } catch (error) {
       if (isDuplicateEvent(error)) {
-        return NextResponse.json({ ok: true, duplicate: true });
+        console.log("Streamer.bot currency adjustment duplicate ignored:", eventId);
+        return respond(200, { ok: true, duplicate: true }, true);
       }
       if (error instanceof InsufficientPointsError) {
-        return NextResponse.json(
+        console.error("Streamer.bot currency adjustment rejected: insufficient points.", eventId);
+        return respond(
+          409,
           { error: "Používateľ nemá dostatok bodov." },
-          { status: 409 },
         );
       }
       if (error instanceof Error && error.message.startsWith("Twitch ")) {
         console.error("Streamer.bot Twitch user lookup failed:", error);
-        return NextResponse.json(
+        return respond(
+          502,
           { error: "Twitch používateľa sa nepodarilo overiť." },
-          { status: 502 },
         );
       }
       console.error("Streamer.bot currency adjustment failed:", error);
-      return NextResponse.json(
+      return respond(
+        500,
         { error: "Změnu bodů se nepodařilo uložit." },
-        { status: 500 },
       );
     }
   }
@@ -166,15 +283,20 @@ export async function POST(request: Request) {
         !isTwitchLogin(body.toTwitchUserLogin)) ||
       !isAmount(body.amount)
     ) {
-      return NextResponse.json(
+      console.error(
+        "Streamer.bot currency transfer rejected: invalid event ID, sender, recipient, or amount.",
+      );
+      return respond(
+        400,
         { error: "Neplatné údaje pro převod bodů." },
-        { status: 400 },
       );
     }
 
     const eventId = body.eventId;
     const fromTwitchUserId = body.fromTwitchUserId;
     const amount = body.amount;
+    const toTwitchUserLogin =
+      typeof body.toTwitchUserLogin === "string" ? body.toTwitchUserLogin : null;
     try {
       const toTwitchUserId = await resolveBodyUserId(
         body,
@@ -182,15 +304,17 @@ export async function POST(request: Request) {
         "toTwitchUserLogin",
       );
       if (!toTwitchUserId) {
-        return NextResponse.json({ error: "Twitch používateľ sa nenašiel." }, { status: 404 });
+        console.error("Streamer.bot currency transfer failed: Twitch recipient not found.");
+        return respond(404, { error: "Twitch používateľ sa nenašiel." });
       }
       if (fromTwitchUserId === toTwitchUserId) {
-        return NextResponse.json(
+        console.error("Streamer.bot currency transfer rejected: sender and recipient match.");
+        return respond(
+          400,
           { error: "Body si nemôžeš poslať sám sebe." },
-          { status: 400 },
         );
       }
-      await prisma.$transaction(async (transaction) => {
+      const balances = await prisma.$transaction(async (transaction) => {
         await changePointBalance(
           transaction,
           "twitch_custom",
@@ -209,48 +333,81 @@ export async function POST(request: Request) {
           null,
           `${eventId}:to`,
         );
-      });
-      const balances = await prisma.twitchCustomPointBalance.findMany({
-        where: {
-          twitch_user_id: {
-            in: [fromTwitchUserId, toTwitchUserId],
+        const updated = await transaction.twitchCustomPointBalance.findMany({
+          where: {
+            twitch_user_id: { in: [fromTwitchUserId, toTwitchUserId] },
           },
-        },
-        select: { twitch_user_id: true, points: true },
+          select: { twitch_user_id: true, points: true },
+        });
+        const balanceById = new Map(
+          updated.map((balance) => [balance.twitch_user_id, balance.points]),
+        );
+        const fromPoints = balanceById.get(fromTwitchUserId) ?? 0;
+        const toPoints = balanceById.get(toTwitchUserId) ?? 0;
+        await transaction.adminAuditLog.create({
+          data: {
+            action: "points.streamerbot.transferred",
+            details: {
+              operation: "give",
+              currency: "twitch_custom",
+              fromTwitchUserId,
+              toTwitchUserId,
+              toTwitchUserLogin,
+              amount,
+              eventId,
+              fromPoints,
+              toPoints,
+            },
+          },
+        });
+        return { fromPoints, toPoints };
       });
-      const balanceById = new Map(
-        balances.map((balance) => [balance.twitch_user_id, balance.points]),
+      console.log(
+        "Streamer.bot currency transfer succeeded:",
+        fromTwitchUserId,
+        toTwitchUserId,
+        amount,
+        balances.fromPoints,
+        balances.toPoints,
+        eventId,
       );
-      return NextResponse.json({
-        ok: true,
-        duplicate: false,
-        fromPoints: balanceById.get(fromTwitchUserId) ?? 0,
-        toPoints: balanceById.get(toTwitchUserId) ?? 0,
-      });
+      return respond(
+        200,
+        {
+          ok: true,
+          duplicate: false,
+          fromPoints: balances.fromPoints,
+          toPoints: balances.toPoints,
+        },
+        true,
+      );
     } catch (error) {
       if (isDuplicateEvent(error)) {
-        return NextResponse.json({ ok: true, duplicate: true });
+        console.log("Streamer.bot currency transfer duplicate ignored:", eventId);
+        return respond(200, { ok: true, duplicate: true }, true);
       }
       if (error instanceof InsufficientPointsError) {
-        return NextResponse.json(
+        console.error("Streamer.bot currency transfer rejected: insufficient points.", eventId);
+        return respond(
+          409,
           { error: "Nemáš dostatek bodů pro tento převod." },
-          { status: 409 },
         );
       }
       if (error instanceof Error && error.message.startsWith("Twitch ")) {
         console.error("Streamer.bot Twitch user lookup failed:", error);
-        return NextResponse.json(
+        return respond(
+          502,
           { error: "Twitch používateľa sa nepodarilo overiť." },
-          { status: 502 },
         );
       }
       console.error("Streamer.bot currency transfer failed:", error);
-      return NextResponse.json(
+      return respond(
+        500,
         { error: "Převod bodů se nepodařilo uložit." },
-        { status: 500 },
       );
     }
   }
 
-  return NextResponse.json({ error: "Neznámá operace měny." }, { status: 400 });
+  console.error("Streamer.bot currency request rejected: unknown operation.", body.operation);
+  return respond(400, { error: "Neznámá operace měny." });
 }

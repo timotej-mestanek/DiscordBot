@@ -51,6 +51,8 @@ The public home page checks the broadcaster's current live status through the Tw
 
 Import the ready-to-use Streamer.bot action pack from `../streamerbot_plugin/N4JT-Currency.sb`. It creates `!points`, `!addpoints`, `!removepoints`, and `!givepoints` using the app's Twitch CustomBody balance. Follow the one-time token setup and import instructions in `../streamerbot_plugin/README.md`. The app resolves Twitch logins to user IDs using its Twitch app credentials. Disable CurrencyCore's commands/actions after importing to prevent duplicate changes.
 
+Admins can inspect successful and failed requests to the Streamer.bot currency endpoint in Dashboard → Admin → Streamer.bot API log. Logs are stored in the app database and can be paged through from newest to oldest; authorization tokens are never stored.
+
 ## Game overlays
 
 Admins can create game overlay URLs from Dashboard → Overlaye. Add them to OBS as a Browser Source; the animated card is positioned at the lower edge of the stream. CS2 uses the existing Game State Integration endpoint. PUBG uses the official PUBG API for Steam accounts; configure `PUBG_API_KEY` in `.env` or the deployment environment, then set the player's nickname in the admin overlay URL builder. PUBG stats include only ranked matches started today in the Europe/Prague timezone and available in the player's recent match list. The daily result is cached for five minutes to stay within API limits.

@@ -184,6 +184,20 @@ model AdminAuditLog {
   @@index([target_account_id, created_at])
 }
 
+model StreamerBotIntegrationLog {
+  id                String   @id @default(cuid())
+  request_id        String   @unique
+  operation         String?
+  success           Boolean
+  status_code       Int
+  request_details   String?
+  response_details  String
+  created_at        DateTime @default(now())
+
+  @@index([created_at, id])
+  @@index([success, created_at])
+}
+
 model StreamOverlayIntegration {
   id         String   @id
   spotify_rt String?

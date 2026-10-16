@@ -40,6 +40,16 @@ type PointEvent = {
   created_at: string;
   actor: { display_name: string } | null;
 };
+type StreamerBotIntegrationLog = {
+  id: string;
+  request_id: string;
+  operation: string | null;
+  success: boolean;
+  status_code: number;
+  request_details: string | null;
+  response_details: string;
+  created_at: string;
+};
 type StreamEvent = {
   id: string;
   title: string;
@@ -89,9 +99,39 @@ export default function AdminPanel() {
   const [data, setData] = useState<AdminData | null>(null);
   const [error, setError] = useState("");
   const [revertingLogId, setRevertingLogId] = useState<string | null>(null);
+  const [streamerBotLogs, setStreamerBotLogs] = useState<StreamerBotIntegrationLog[]>([]);
+  const [streamerBotLogCursor, setStreamerBotLogCursor] = useState<string | null>(null);
+  const [streamerBotLogError, setStreamerBotLogError] = useState("");
+  const [loadingOlderStreamerBotLogs, setLoadingOlderStreamerBotLogs] = useState(false);
+
+  async function loadStreamerBotLogs(reset: boolean) {
+    setStreamerBotLogError("");
+    setLoadingOlderStreamerBotLogs(!reset);
+    try {
+      const cursor = reset ? null : streamerBotLogCursor;
+      const url = cursor
+        ? `/api/admin/streamerbot-logs?cursor=${encodeURIComponent(cursor)}`
+        : "/api/admin/streamerbot-logs";
+      const response = await fetch(url);
+      const result = await response.json();
+      if (!response.ok) {
+        setStreamerBotLogError(result.error ?? "Streamer.bot logy sa nepodarilo načítať.");
+        return;
+      }
+      const page = result.logs as StreamerBotIntegrationLog[];
+      setStreamerBotLogs((current) => (reset ? page : [...current, ...page]));
+      setStreamerBotLogCursor(result.nextCursor ?? null);
+    } catch (loadError) {
+      console.error("Streamer.bot dashboard logs load failed:", loadError);
+      setStreamerBotLogError("Streamer.bot logy sa nepodarilo načítať.");
+    } finally {
+      setLoadingOlderStreamerBotLogs(false);
+    }
+  }
 
   async function load() {
     try {
+      void loadStreamerBotLogs(true);
       const response = await fetch("/api/admin");
       const result = await response.json();
       if (!response.ok) {
@@ -107,6 +147,27 @@ export default function AdminPanel() {
 
   useEffect(() => {
     let active = true;
+    void fetch("/api/admin/streamerbot-logs")
+      .then(async (response) => ({
+        response,
+        result: await response.json(),
+      }))
+      .then(({ response, result }) => {
+        if (!active) return;
+        if (!response.ok) {
+          setStreamerBotLogError(
+            result.error ?? "Streamer.bot logy sa nepodarilo načítať.",
+          );
+          return;
+        }
+        setStreamerBotLogs(result.logs as StreamerBotIntegrationLog[]);
+        setStreamerBotLogCursor(result.nextCursor ?? null);
+      })
+      .catch((loadError: unknown) => {
+        if (!active) return;
+        console.error("Streamer.bot dashboard logs load failed:", loadError);
+        setStreamerBotLogError("Streamer.bot logy sa nepodarilo načítať.");
+      });
     void fetch("/api/admin")
       .then(async (response) => ({
         response,
@@ -461,6 +522,63 @@ export default function AdminPanel() {
           ))}
           {data.logs.length === 0 && <p className="text-sm text-zinc-500">Zatím bez záznamů.</p>}
         </div>
+      </section>
+
+      <section className="rounded-xl border border-zinc-800 bg-zinc-900 p-6">
+        <div className="flex flex-wrap items-center justify-between gap-3">
+          <div>
+            <h2 className="text-xl font-semibold">Streamer.bot API log</h2>
+            <p className="mt-1 text-sm text-zinc-400">
+              Úspešné aj neúspešné požiadavky na Twitch menu endpoint.
+            </p>
+          </div>
+          <button
+            type="button"
+            onClick={() => void loadStreamerBotLogs(true)}
+            disabled={loadingOlderStreamerBotLogs}
+            className="rounded-lg border border-zinc-700 px-3 py-2 text-sm hover:bg-zinc-800 disabled:opacity-50"
+          >
+            Obnoviť log
+          </button>
+        </div>
+        {streamerBotLogError && (
+          <p role="alert" className="mt-3 text-sm text-red-300">
+            {streamerBotLogError}
+          </p>
+        )}
+        <div className="mt-4 max-h-[36rem] space-y-2 overflow-auto">
+          {streamerBotLogs.map((entry) => (
+            <article key={entry.id} className="rounded-lg border border-zinc-800 p-3 text-sm">
+              <p className={entry.success ? "font-medium text-emerald-300" : "font-medium text-red-300"}>
+                {entry.success ? "OK" : "ERROR"} · HTTP {entry.status_code} · {entry.operation ?? "unknown"}
+              </p>
+              <p className="mt-1 text-xs text-zinc-400">
+                {new Date(entry.created_at).toLocaleString("cs-CZ")} · request {entry.request_id}
+              </p>
+              <p className="mt-2 text-xs text-zinc-500">Request</p>
+              <pre className="overflow-x-auto whitespace-pre-wrap break-words text-xs text-zinc-400">
+                {entry.request_details ?? "Request body nebol uložený."}
+              </pre>
+              <p className="mt-2 text-xs text-zinc-500">Response</p>
+              <pre className="overflow-x-auto whitespace-pre-wrap break-words text-xs text-zinc-400">
+                {entry.response_details}
+              </pre>
+            </article>
+          ))}
+          {streamerBotLogs.length === 0 && !streamerBotLogError && (
+            <p className="text-sm text-zinc-500">Zatiaľ neboli zaznamenané žiadne požiadavky.</p>
+          )}
+        </div>
+        {streamerBotLogCursor && (
+          <button
+            type="button"
+            onClick={() => void loadStreamerBotLogs(false)}
+            disabled={loadingOlderStreamerBotLogs}
+            className="mt-3 rounded-lg border border-zinc-700 px-3 py-2 text-sm hover:bg-zinc-800 disabled:opacity-50"
+          >
+            {loadingOlderStreamerBotLogs ? "Načítavam…" : "Načítať staršie logy"}
+          </button>
+        )}
       </section>
     </div>
   );
