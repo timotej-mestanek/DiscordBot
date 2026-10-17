@@ -7,8 +7,15 @@ import { redeemCustomLedEffect, ShopActionError } from "@/lib/shop";
 type EffectKeyframe = {
   time: number;
   color: string;
-  animation: "steady" | "linear" | "pulse";
+  opacity: number;
+  animation: "steady" | "linear" | "ease-in" | "ease-out" | "ease-in-out" | "pulse" | "fill";
+  ledIds: number[] | null;
 };
+
+const LED_COUNT = 333;
+const MAX_DURATION_SECONDS = 10;
+const FPS = 60;
+const MAX_KEYFRAMES = MAX_DURATION_SECONDS * FPS;
 
 function parseEffect(value: unknown): Prisma.InputJsonValue | null {
   if (
@@ -19,11 +26,14 @@ function parseEffect(value: unknown): Prisma.InputJsonValue | null {
     value.name.trim().length < 1 ||
     value.name.trim().length > 40 ||
     !("durationSeconds" in value) ||
-    value.durationSeconds !== 2 ||
+    typeof value.durationSeconds !== "number" ||
+    !Number.isInteger(value.durationSeconds) ||
+    value.durationSeconds < 1 ||
+    value.durationSeconds > MAX_DURATION_SECONDS ||
     !("keyframes" in value) ||
     !Array.isArray(value.keyframes) ||
     value.keyframes.length < 2 ||
-    value.keyframes.length > 120
+    value.keyframes.length > MAX_KEYFRAMES
   ) {
     return null;
   }
@@ -37,14 +47,36 @@ function parseEffect(value: unknown): Prisma.InputJsonValue | null {
       typeof frame.time !== "number" ||
       !Number.isInteger(frame.time) ||
       frame.time < 0 ||
-      frame.time > 119 ||
+      frame.time >= value.durationSeconds * FPS ||
       !("color" in frame) ||
       typeof frame.color !== "string" ||
       !/^#[0-9a-fA-F]{6}$/.test(frame.color) ||
       !("animation" in frame) ||
       (frame.animation !== "steady" &&
         frame.animation !== "linear" &&
-        frame.animation !== "pulse")
+        frame.animation !== "ease-in" &&
+        frame.animation !== "ease-out" &&
+        frame.animation !== "ease-in-out" &&
+        frame.animation !== "pulse" &&
+        frame.animation !== "fill") ||
+      ("opacity" in frame &&
+        (typeof frame.opacity !== "number" ||
+          !Number.isFinite(frame.opacity) ||
+          frame.opacity < 0 ||
+          frame.opacity > 1)) ||
+      ("ledIds" in frame &&
+        frame.ledIds !== null &&
+        (!Array.isArray(frame.ledIds) ||
+          frame.ledIds.length < 1 ||
+          frame.ledIds.length > LED_COUNT ||
+          frame.ledIds.some(
+            (ledId: unknown) =>
+              typeof ledId !== "number" ||
+              !Number.isInteger(ledId) ||
+              ledId < 0 ||
+              ledId >= LED_COUNT,
+          ) ||
+          new Set(frame.ledIds).size !== frame.ledIds.length))
     ) {
       return null;
     }
@@ -52,17 +84,38 @@ function parseEffect(value: unknown): Prisma.InputJsonValue | null {
       time: frame.time,
       color: frame.color,
       animation: frame.animation,
+      opacity: "opacity" in frame ? frame.opacity as number : 1,
+      ledIds:
+        "ledIds" in frame && Array.isArray(frame.ledIds)
+          ? frame.ledIds as number[]
+          : null,
     });
   }
   if (
-    frames.some((frame, index) => index > 0 && frame.time <= frames[index - 1].time)
+    frames.some((frame, index) => {
+      if (index === 0) return false;
+      for (let previousIndex = index - 1; previousIndex >= 0; previousIndex -= 1) {
+        const previous = frames[previousIndex];
+        if (frame.time < previous.time) return true;
+        if (frame.time > previous.time) break;
+        if (frame.ledIds === null && previous.ledIds === null) return true;
+        if (
+          frame.ledIds !== null &&
+          previous.ledIds !== null &&
+          frame.ledIds.some((ledId) => previous.ledIds?.includes(ledId))
+        ) {
+          return true;
+        }
+      }
+      return false;
+    })
   ) {
     return null;
   }
 
   return {
     name: value.name.trim(),
-    durationSeconds: 2,
+    durationSeconds: value.durationSeconds,
     keyframes: frames,
   };
 }

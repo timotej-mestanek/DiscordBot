@@ -2,7 +2,7 @@
 
 import { useMemo, useState, useSyncExternalStore } from "react";
 
-type Widget = "cs2" | "pubg";
+type Widget = "cs2" | "pubg" | "custom-led-effect";
 
 const subscribeToOrigin = () => () => {};
 const getServerOrigin = () => "";
@@ -19,7 +19,11 @@ export default function OverlayBuilder() {
   const [copied, setCopied] = useState(false);
 
   const overlayUrl = useMemo(() => {
-    if (!origin || (widget === "pubg" && !player.trim())) return "";
+    if (!origin) return "";
+    if (widget === "custom-led-effect") {
+      return new URL("/overlays/custom-led-effect", origin).toString();
+    }
+    if (widget === "pubg" && !player.trim()) return "";
     const url = new URL("/overlays/view", origin);
     url.searchParams.set("widget", widget);
     url.searchParams.set("layout", "card");
@@ -44,14 +48,15 @@ export default function OverlayBuilder() {
 
   return (
     <section className="rounded-2xl border border-zinc-800 bg-zinc-900/70 p-5 sm:p-7">
-      <h2 className="text-xl font-semibold">Herní overlay pro OBS</h2>
+      <h2 className="text-xl font-semibold">Overlay pro OBS</h2>
       <p className="mt-2 text-sm text-zinc-400">
-        Veřejnou URL můžeš vložit jako Browser Source. Karta se animovaně zobrazí
-        u spodního okraje obrazu.
+        {widget === "custom-led-effect"
+          ? "Veřejnou URL vlož jako Browser Source. LED rozložení má průhledné pozadí."
+          : "Veřejnou URL můžeš vložit jako Browser Source. Karta se animovaně zobrazí u spodního okraje obrazu."}
       </p>
       <div className="mt-5 grid gap-5 sm:grid-cols-2">
         <label className="text-sm font-medium">
-          Hra
+          Overlay
           <select
             value={widget}
             onChange={(event) => setWidget(event.target.value as Widget)}
@@ -59,6 +64,7 @@ export default function OverlayBuilder() {
           >
             <option value="cs2">CS2 live stats</option>
             <option value="pubg">PUBG ranked stats za dnešek</option>
+            <option value="custom-led-effect">Custom LED effect</option>
           </select>
         </label>
         {widget === "pubg" && (
@@ -106,9 +112,15 @@ export default function OverlayBuilder() {
           )}
         </div>
       </div>
-      <p className="mt-5 text-xs text-zinc-500">
-        Veřejné herní statistiky: CS2 z Game State Integration a dnešní PUBG ranked statistiky přes oficiální API.
-      </p>
+      {widget === "custom-led-effect" ? (
+        <p className="mt-5 text-xs text-zinc-500">
+          Transparentní LED overlay s rozložením podle Custom LED effect.
+        </p>
+      ) : (
+        <p className="mt-5 text-xs text-zinc-500">
+          Veřejné herní statistiky: CS2 z Game State Integration a dnešní PUBG ranked statistiky přes oficiální API.
+        </p>
+      )}
     </section>
   );
 }
