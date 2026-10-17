@@ -1,3 +1,6 @@
 .env
 !bot/.env.dev
 !nextapp/.env.dev
+/ttv_spotify_extension/
+/ttv_gamestats_extension/
+/streamerbot_plugin/

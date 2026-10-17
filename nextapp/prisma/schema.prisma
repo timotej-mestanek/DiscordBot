@@ -225,11 +225,13 @@ model WheelSpin {
 }
 
 model StreamOverlayIntegration {
-  id         String   @id
-  spotify_rt String?
-  spotify_at String?
-  spotify_exp DateTime?
-  updated_at DateTime @updatedAt
+  id               String   @id
+  spotify_rt       String?
+  spotify_at       String?
+  spotify_exp      DateTime?
+  pubg_player_name String   @default("N4JTIK")
+  pubg_teammates   Json     @default("[]")
+  updated_at       DateTime @updatedAt
 }
 
 model StreamEvent {

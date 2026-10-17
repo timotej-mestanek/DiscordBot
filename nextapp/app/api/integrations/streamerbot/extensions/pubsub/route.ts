@@ -1,8 +1,12 @@
 import { NextResponse } from "next/server";
 import { authorizeStreamerBotRequest } from "@/lib/integrations/streamerbot";
 import { getCommunityLeaderboardSnapshot } from "@/lib/community-leaderboards";
-import { publishExtensionBroadcast } from "@/lib/extensions/pubsub";
+import {
+  isExtensionPubSubConfigurationError,
+  publishExtensionBroadcast,
+} from "@/lib/extensions/pubsub";
 import { getCachedPubgDailyStats } from "@/lib/services/pubg";
+import { getTwitchLiveStatus } from "@/lib/services/twitchPublic";
 import { store } from "@/lib/store";
 
 type PublishRequest =
@@ -88,13 +92,22 @@ export async function POST(request: Request) {
   }
 
   try {
+    const liveStatus = await getTwitchLiveStatus();
+    if (!liveStatus.isLive) {
+      return NextResponse.json({
+        ok: true,
+        type: input.type,
+        skipped: "stream-offline",
+      });
+    }
+
     const payload = await getPubSubPayload(input);
-    await publishExtensionBroadcast(payload);
+    await publishExtensionBroadcast(payload, "gamestats");
     return NextResponse.json({ ok: true, type: input.type });
   } catch (error) {
     if (
-      error instanceof Error &&
-      (error.message === "Twitch Extension PubSub is not configured." ||
+      isExtensionPubSubConfigurationError(error) ||
+      (error instanceof Error &&
         error.message === "Twitch Extension secret must be base64-encoded.")
     ) {
       console.error("Twitch Extension PubSub configuration error:", error.message);

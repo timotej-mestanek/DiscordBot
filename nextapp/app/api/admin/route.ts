@@ -13,6 +13,16 @@ function isRecord(value: unknown): value is Record<string, unknown> {
   return typeof value === "object" && value !== null && !Array.isArray(value);
 }
 
+function isValidPubgPlayerName(value: unknown): value is string {
+  return (
+    typeof value === "string" &&
+    value.trim() === value &&
+    value.length > 0 &&
+    value.length <= 32 &&
+    !/[\u0000-\u001f\u007f]/u.test(value)
+  );
+}
+
 class ShopRevertError extends Error {
   constructor(message: string) {
     super(message);
@@ -199,7 +209,14 @@ export async function GET() {
     return NextResponse.json({ error: "Přístup odepřen." }, { status: 403 });
   }
 
-  const [accounts, rates, logs, pointEvents, streamEvents] = await Promise.all([
+  const [
+    accounts,
+    rates,
+    logs,
+    pointEvents,
+    streamEvents,
+    gameStatsSettings,
+  ] = await Promise.all([
     prisma.webAccount.findMany({
       orderBy: { created_at: "desc" },
       select: {
@@ -227,7 +244,20 @@ export async function GET() {
       include: { actor: { select: { display_name: true } } },
     }),
     prisma.streamEvent.findMany({ orderBy: { starts_at: "asc" } }),
+    prisma.streamOverlayIntegration.findUnique({
+      where: { id: "streamer" },
+      select: { pubg_player_name: true, pubg_teammates: true },
+    }),
   ]);
+
+  const pubgTeammates = gameStatsSettings?.pubg_teammates ?? [];
+  if (
+    !isValidPubgPlayerName(gameStatsSettings?.pubg_player_name ?? "N4JTIK") ||
+    !Array.isArray(pubgTeammates) ||
+    !pubgTeammates.every(isValidPubgPlayerName)
+  ) {
+    throw new Error("Stored PUBG teammate settings are invalid.");
+  }
 
   return NextResponse.json({
     accounts,
@@ -235,6 +265,8 @@ export async function GET() {
     logs,
     pointEvents,
     streamEvents,
+    pubgPlayerName: gameStatsSettings?.pubg_player_name ?? "N4JTIK",
+    pubgTeammates,
     selfAccountId: admin.id,
   });
 }
@@ -262,6 +294,82 @@ export async function POST(request: Request) {
   }
 
   try {
+    if (body.action === "gamestats-pubg") {
+      if (
+        !("playerName" in body) ||
+        !isValidPubgPlayerName(body.playerName) ||
+        !("teammates" in body) ||
+        !Array.isArray(body.teammates) ||
+        !body.teammates.every(isValidPubgPlayerName)
+      ) {
+        return NextResponse.json(
+          { error: "Zkontroluj přezdívky hráčů (maximálně 32 znaků)." },
+          { status: 400 },
+        );
+      }
+      if (body.teammates.length > 3) {
+        return NextResponse.json(
+          { error: "PUBG sestava může mít nejvýše tři spoluhráče." },
+          { status: 400 },
+        );
+      }
+
+      const playerName = body.playerName;
+      const teammates = body.teammates;
+      const previousTeammates = (previous: { pubg_teammates: unknown } | null) =>
+        Array.isArray(previous?.pubg_teammates)
+          ? previous.pubg_teammates.filter(isValidPubgPlayerName)
+          : [];
+      const names = [playerName, ...teammates].map((name) =>
+        name.toLocaleLowerCase("en-US"),
+      );
+      if (new Set(names).size !== names.length) {
+        return NextResponse.json(
+          {
+            error:
+              "Jména hráčů musí být unikátní a spoluhráčů mohou být nejvýše tři.",
+          },
+          { status: 400 },
+        );
+      }
+
+      await prisma.$transaction(async (transaction) => {
+        const previous = await transaction.streamOverlayIntegration.findUnique({
+          where: { id: "streamer" },
+          select: { pubg_player_name: true, pubg_teammates: true },
+        });
+        await transaction.streamOverlayIntegration.upsert({
+          where: { id: "streamer" },
+          create: {
+            id: "streamer",
+            pubg_player_name: playerName,
+            pubg_teammates: teammates,
+          },
+          update: {
+            pubg_player_name: playerName,
+            pubg_teammates: teammates,
+          },
+        });
+        await transaction.adminAuditLog.create({
+          data: {
+            actor_account_id: admin.id,
+            action: "gamestats.pubg_roster_updated",
+            details: {
+              previous: previous
+                ? {
+                    playerName: previous.pubg_player_name,
+                    teammates: previousTeammates(previous),
+                  }
+                : { playerName: "N4JTIK", teammates: [] },
+              playerName,
+              teammates,
+            },
+          },
+        });
+      });
+      return NextResponse.json({ ok: true });
+    }
+
     if (
       body.action === "shop-revert" &&
       "logId" in body &&

@@ -4,6 +4,42 @@ const TWITCH_EXTENSION_PUBSUB_URL =
   "https://api.twitch.tv/helix/extensions/pubsub";
 const MAX_MESSAGE_BYTES = 5_000;
 
+export type ExtensionPubSubTarget = "spotify" | "gamestats";
+
+function getExtensionPubSubConfig(target: ExtensionPubSubTarget) {
+  const extensionId =
+    target === "spotify"
+      ? process.env.TWITCH_SPOTIFY_EXTENSION_ID
+      : process.env.TWITCH_GAMESTATS_EXTENSION_ID;
+  const encodedSecret =
+    target === "spotify"
+      ? process.env.TWITCH_SPOTIFY_EXTENSION_SECRET_BASE64
+      : process.env.TWITCH_GAMESTATS_EXTENSION_SECRET_BASE64;
+
+  return {
+    extensionId,
+    encodedSecret,
+    broadcasterId: process.env.TWITCH_EXTENSION_BROADCASTER_ID,
+  };
+}
+
+export function isExtensionPubSubConfigured(
+  target: ExtensionPubSubTarget,
+): boolean {
+  const { extensionId, encodedSecret, broadcasterId } =
+    getExtensionPubSubConfig(target);
+  return Boolean(extensionId && encodedSecret && broadcasterId);
+}
+
+export function isExtensionPubSubConfigurationError(
+  error: unknown,
+): error is Error {
+  return (
+    error instanceof Error &&
+    error.message === "Twitch Extension PubSub is not configured."
+  );
+}
+
 function base64Url(value: string | Buffer): string {
   return Buffer.from(value)
     .toString("base64")
@@ -38,10 +74,12 @@ function createExtensionToken(
   return `${content}.${base64Url(signature)}`;
 }
 
-export async function publishExtensionBroadcast(message: unknown): Promise<void> {
-  const extensionId = process.env.TWITCH_EXTENSION_ID;
-  const encodedSecret = process.env.TWITCH_EXTENSION_SECRET_BASE64;
-  const broadcasterId = process.env.TWITCH_EXTENSION_BROADCASTER_ID;
+export async function publishExtensionBroadcast(
+  message: unknown,
+  target: ExtensionPubSubTarget,
+): Promise<void> {
+  const { extensionId, encodedSecret, broadcasterId } =
+    getExtensionPubSubConfig(target);
   if (!extensionId || !encodedSecret || !broadcasterId) {
     throw new Error("Twitch Extension PubSub is not configured.");
   }

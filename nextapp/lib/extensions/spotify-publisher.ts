@@ -1,5 +1,9 @@
-import { publishExtensionBroadcast } from "@/lib/extensions/pubsub";
+import {
+  isExtensionPubSubConfigured,
+  publishExtensionBroadcast,
+} from "@/lib/extensions/pubsub";
 import { getCurrentPlayBack } from "@/lib/services/spotifyService";
+import { getTwitchLiveStatus } from "@/lib/services/twitchPublic";
 
 const POLL_INTERVAL_MS = 10_000;
 
@@ -8,11 +12,7 @@ let isRunning = false;
 export function startSpotifyExtensionPublisher(): void {
   if (isRunning) return;
 
-  if (
-    !process.env.TWITCH_EXTENSION_ID ||
-    !process.env.TWITCH_EXTENSION_SECRET_BASE64 ||
-    !process.env.TWITCH_EXTENSION_BROADCASTER_ID
-  ) {
+  if (!isExtensionPubSubConfigured("spotify")) {
     console.error(
       "Spotify Twitch Extension publisher is disabled because PubSub is not configured.",
     );
@@ -22,16 +22,29 @@ export function startSpotifyExtensionPublisher(): void {
   isRunning = true;
   console.log("Spotify Twitch Extension publisher started.");
   let hasLoggedFirstPublish = false;
+  let wasOffline = false;
   let lastError: string | undefined;
 
   const poll = async () => {
     try {
+      const liveStatus = await getTwitchLiveStatus();
+      if (!liveStatus.isLive) {
+        if (!wasOffline) {
+          console.log("Spotify Twitch Extension publish paused while the stream is offline.");
+        }
+        wasOffline = true;
+        lastError = undefined;
+        return;
+      }
+
+      wasOffline = false;
       const data = await getCurrentPlayBack();
       await publishExtensionBroadcast({
         type: "spotify",
         updatedAt: new Date().toISOString(),
+        isLive: true,
         data,
-      });
+      }, "spotify");
       if (!hasLoggedFirstPublish) {
         console.log(
           "Twitch accepted the first Spotify Extension PubSub broadcast.",

@@ -63,6 +63,8 @@ type AdminData = {
   logs: Log[];
   pointEvents: PointEvent[];
   streamEvents: StreamEvent[];
+  pubgPlayerName: string;
+  pubgTeammates: string[];
   selfAccountId: string;
 };
 
@@ -104,6 +106,10 @@ export default function AdminPanel() {
   const [streamerBotLogCursor, setStreamerBotLogCursor] = useState<string | null>(null);
   const [streamerBotLogError, setStreamerBotLogError] = useState("");
   const [loadingOlderStreamerBotLogs, setLoadingOlderStreamerBotLogs] = useState(false);
+  const [pubgPlayerName, setPubgPlayerName] = useState<string | null>(null);
+  const [pubgTeammates, setPubgTeammates] = useState<string | null>(null);
+  const [savingPubgRoster, setSavingPubgRoster] = useState(false);
+  const [pubgRosterSaved, setPubgRosterSaved] = useState(false);
 
   async function loadStreamerBotLogs(reset: boolean) {
     setStreamerBotLogError("");
@@ -261,6 +267,43 @@ export default function AdminPanel() {
     }
   }
 
+  async function savePubgRoster(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    setError("");
+    setPubgRosterSaved(false);
+    setSavingPubgRoster(true);
+    const teammateNames = (pubgTeammates ?? data?.pubgTeammates.join("\n") ?? "")
+      .split(/[\n,]/)
+      .map((name) => name.trim())
+      .filter(Boolean);
+    const playerName = (pubgPlayerName ?? data?.pubgPlayerName ?? "N4JTIK").trim();
+    try {
+      const response = await fetch("/api/admin", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          action: "gamestats-pubg",
+          playerName,
+          teammates: teammateNames,
+        }),
+      });
+      const result: { error?: string } = await response.json();
+      if (!response.ok) {
+        setError(result.error ?? "PUBG sestavu se nepodařilo uložit.");
+        return;
+      }
+      setPubgPlayerName(playerName);
+      setPubgTeammates(teammateNames.join("\n"));
+      await load();
+      setPubgRosterSaved(true);
+    } catch (saveError) {
+      console.error("PUBG roster save failed:", saveError);
+      setError("PUBG sestavu se nepodařilo uložit.");
+    } finally {
+      setSavingPubgRoster(false);
+    }
+  }
+
   if (!data) {
     return (
       <p role={error ? "alert" : undefined} className="text-sm text-zinc-400">
@@ -351,6 +394,52 @@ export default function AdminPanel() {
             <p className="text-sm text-zinc-500">Kalendář zatím nemá žádné termíny.</p>
           )}
         </div>
+      </section>
+
+      <section className="rounded-xl border border-zinc-800 bg-zinc-900 p-6">
+        <h2 className="text-xl font-semibold">Game stats · PUBG sestava</h2>
+        <p className="mt-2 text-sm text-zinc-400">
+          Nastav PUBG účet a až tři spoluhráče. Jména se uloží pro budoucí zdroj herních statistik;
+          Extension zatím pouze přijímá a zobrazuje data.
+        </p>
+        <form onSubmit={savePubgRoster} className="mt-4 grid gap-3 sm:grid-cols-2">
+          <label className="text-sm text-zinc-300">
+            Tvoje PUBG přezdívka
+            <input
+              value={pubgPlayerName ?? data.pubgPlayerName}
+              onChange={(event) => {
+                setPubgPlayerName(event.target.value);
+                setPubgRosterSaved(false);
+              }}
+              required
+              maxLength={32}
+              className="mt-1 w-full rounded-lg border border-zinc-700 bg-zinc-950 px-3 py-2"
+            />
+          </label>
+          <label className="text-sm text-zinc-300">
+            Spoluhráči (jeden na řádek, nejvýše tři)
+            <textarea
+              value={pubgTeammates ?? data.pubgTeammates.join("\n")}
+              onChange={(event) => {
+                setPubgTeammates(event.target.value);
+                setPubgRosterSaved(false);
+              }}
+              rows={3}
+              className="mt-1 w-full resize-y rounded-lg border border-zinc-700 bg-zinc-950 px-3 py-2"
+            />
+          </label>
+          <div className="flex items-center gap-3 sm:col-span-2">
+            <button
+              disabled={savingPubgRoster}
+              className="rounded-lg bg-violet-600 px-4 py-2 text-sm font-semibold hover:bg-violet-500 disabled:opacity-50"
+            >
+              {savingPubgRoster ? "Ukládám…" : "Uložit PUBG sestavu"}
+            </button>
+            {pubgRosterSaved && (
+              <p role="status" className="text-sm text-emerald-300">PUBG sestava uložena.</p>
+            )}
+          </div>
+        </form>
       </section>
 
       <section className="rounded-xl border border-zinc-800 bg-zinc-900 p-6">
