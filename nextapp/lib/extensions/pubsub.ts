@@ -30,7 +30,7 @@ function createExtensionToken(
       iat: now,
       channel_id: broadcasterId,
       role: "external",
-      pubsub_perms: { send: ["broadcast"] },
+      pubsub_perms: { send: ["*"] },
     }),
   );
   const content = `${header}.${payload}`;

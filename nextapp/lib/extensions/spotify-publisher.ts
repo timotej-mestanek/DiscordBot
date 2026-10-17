@@ -20,7 +20,7 @@ export function startSpotifyExtensionPublisher(): void {
   }
 
   isRunning = true;
-  console.info("Spotify Twitch Extension publisher started.");
+  console.log("Spotify Twitch Extension publisher started.");
   let hasLoggedFirstPublish = false;
   let lastError: string | undefined;
 
@@ -33,7 +33,7 @@ export function startSpotifyExtensionPublisher(): void {
         data,
       });
       if (!hasLoggedFirstPublish) {
-        console.info(
+        console.log(
           "Twitch accepted the first Spotify Extension PubSub broadcast.",
           data?.is_playing && data.item ? "Playback is active." : "No active playback.",
         );
