@@ -64,15 +64,28 @@ export async function publishExtensionBroadcast(message: unknown): Promise<void>
     },
     body: JSON.stringify({
       broadcaster_id: broadcasterId,
-      targets: ["broadcast"],
+      target: ["broadcast"],
       is_global_broadcast: false,
       message: serializedMessage,
-      content_type: "application/json",
     }),
     cache: "no-store",
   });
   if (!response.ok) {
-    console.error("Twitch Extension PubSub publish failed:", response.status);
-    throw new Error(`Twitch Extension PubSub publish failed (${response.status}).`);
+    const responseBody: unknown = await response.json().catch(() => null);
+    const errorMessage =
+      typeof responseBody === "object" &&
+      responseBody !== null &&
+      "message" in responseBody &&
+      typeof responseBody.message === "string"
+        ? responseBody.message
+        : response.statusText;
+    console.error(
+      "Twitch Extension PubSub publish failed:",
+      response.status,
+      errorMessage,
+    );
+    throw new Error(
+      `Twitch Extension PubSub publish failed (${response.status}): ${errorMessage}`,
+    );
   }
 }
