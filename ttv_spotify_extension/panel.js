@@ -1,41 +1,23 @@
 (() => {
   "use strict";
 
-  const numberFormat = new Intl.NumberFormat("cs-CZ", {
-    maximumFractionDigits: 1,
-  });
-  const integerFormat = new Intl.NumberFormat("cs-CZ", {
-    maximumFractionDigits: 0,
-  });
-
   const elements = {
     connection: document.getElementById("connection"),
     emptyState: document.getElementById("empty-state"),
-    stats: document.getElementById("stats"),
-    player: document.getElementById("player"),
-    matches: document.getElementById("matches"),
-    kd: document.getElementById("kd"),
-    kills: document.getElementById("kills"),
-    deaths: document.getElementById("deaths"),
-    longestKill: document.getElementById("longest-kill"),
-    headshotRate: document.getElementById("headshot-rate"),
-    mostDamage: document.getElementById("most-damage"),
-    averageDamage: document.getElementById("average-damage"),
+    emptyTitle: document.getElementById("empty-title"),
+    emptyDetail: document.getElementById("empty-detail"),
+    track: document.getElementById("track"),
+    cover: document.getElementById("cover"),
+    coverPlaceholder: document.getElementById("cover-placeholder"),
+    trackName: document.getElementById("track-name"),
+    artists: document.getElementById("artists"),
+    spotifyLink: document.getElementById("spotify-link"),
     error: document.getElementById("error"),
     updatedAt: document.getElementById("updated-at"),
   };
 
   function isRecord(value) {
     return typeof value === "object" && value !== null && !Array.isArray(value);
-  }
-
-  function isFiniteNumber(value) {
-    return typeof value === "number" && Number.isFinite(value);
-  }
-
-  function formatNumber(value, digits = 0) {
-    if (!isFiniteNumber(value)) return "—";
-    return (digits === 0 ? integerFormat : numberFormat).format(value);
   }
 
   function setConnection(text, state) {
@@ -48,45 +30,120 @@
     elements.error.hidden = false;
   }
 
-  function renderStats(data) {
-    if (
-      !isRecord(data) ||
-      typeof data.player !== "string" ||
-      !isFiniteNumber(data.matches) ||
-      !isFiniteNumber(data.kills) ||
-      !isFiniteNumber(data.deaths) ||
-      !(data.kd === null || isFiniteNumber(data.kd)) ||
-      !isFiniteNumber(data.longestKill) ||
-      !isFiniteNumber(data.headshotRate) ||
-      !isFiniteNumber(data.mostDamage) ||
-      !isFiniteNumber(data.averageDamage)
-    ) {
-      showError("Prijatá správa neobsahuje platné PUBG štatistiky.");
+  function clearError() {
+    elements.error.textContent = "";
+    elements.error.hidden = true;
+  }
+
+  function getHttpsUrl(value) {
+    if (typeof value !== "string") return null;
+    try {
+      const url = new URL(value);
+      return url.protocol === "https:" ? url : null;
+    } catch {
+      return null;
+    }
+  }
+
+  function showEmptyState(title, detail) {
+    elements.emptyTitle.textContent = title;
+    elements.emptyDetail.textContent = detail;
+    elements.emptyState.hidden = false;
+    elements.track.hidden = true;
+  }
+
+  function updateTimestamp(value) {
+    const timestamp = typeof value === "string" ? Date.parse(value) : Number.NaN;
+    if (!Number.isFinite(timestamp)) {
+      elements.updatedAt.hidden = true;
       return;
     }
 
-    elements.player.textContent = data.player;
-    elements.matches.textContent = `${integerFormat.format(data.matches)} ${
-      data.matches === 1 ? "zápas" : "zápasov"
-    }`;
-    elements.kd.textContent = formatNumber(data.kd, 2);
-    elements.kills.textContent = formatNumber(data.kills);
-    elements.deaths.textContent = formatNumber(data.deaths);
-    elements.longestKill.textContent = formatNumber(data.longestKill, 1);
-    elements.headshotRate.textContent = formatNumber(data.headshotRate, 1);
-    elements.mostDamage.textContent = formatNumber(data.mostDamage);
-    elements.averageDamage.textContent = formatNumber(data.averageDamage, 1);
+    elements.updatedAt.textContent = `Aktualizováno ${new Date(timestamp).toLocaleTimeString(
+      "cs-CZ",
+      { hour: "2-digit", minute: "2-digit" },
+    )}`;
+    elements.updatedAt.hidden = false;
+  }
+
+  function renderPlayback(data, updatedAt) {
+    if (data === null) {
+      showEmptyState(
+        "Spotify právě nic nepřehrává.",
+        "Skladba se zobrazí, až začne přehrávání.",
+      );
+      clearError();
+      updateTimestamp(updatedAt);
+      return;
+    }
+
+    if (
+      !isRecord(data) ||
+      typeof data.is_playing !== "boolean" ||
+      !("item" in data)
+    ) {
+      showError("Přijatá zpráva neobsahuje platná data Spotify.");
+      return;
+    }
+
+    if (!data.is_playing || data.item === null) {
+      showEmptyState(
+        "Spotify právě nic nepřehrává.",
+        "Skladba se zobrazí, až začne přehrávání.",
+      );
+      clearError();
+      updateTimestamp(updatedAt);
+      return;
+    }
+
+    if (
+      !isRecord(data.item) ||
+      typeof data.item.name !== "string" ||
+      !Array.isArray(data.item.artists) ||
+      !data.item.artists.every(
+        (artist) => isRecord(artist) && typeof artist.name === "string",
+      )
+    ) {
+      showError("Přijatá zpráva obsahuje neplatné údaje o skladbě.");
+      return;
+    }
+
+    const artistNames = data.item.artists.map((artist) => artist.name);
+    elements.trackName.textContent = data.item.name;
+    elements.artists.textContent = artistNames.length
+      ? artistNames.join(", ")
+      : "Neznámý interpret";
+
+    const imageUrl = isRecord(data.item.album) &&
+      Array.isArray(data.item.album.images) &&
+      isRecord(data.item.album.images[0])
+      ? getHttpsUrl(data.item.album.images[0].url)
+      : null;
+    if (imageUrl) {
+      elements.cover.src = imageUrl.href;
+      elements.cover.hidden = false;
+      elements.coverPlaceholder.hidden = true;
+    } else {
+      elements.cover.removeAttribute("src");
+      elements.cover.hidden = true;
+      elements.coverPlaceholder.hidden = false;
+    }
+
+    const spotifyUrl = isRecord(data.item.external_urls)
+      ? getHttpsUrl(data.item.external_urls.spotify)
+      : null;
+    if (spotifyUrl) {
+      elements.spotifyLink.href = spotifyUrl.href;
+      elements.spotifyLink.hidden = false;
+    } else {
+      elements.spotifyLink.removeAttribute("href");
+      elements.spotifyLink.hidden = true;
+    }
 
     elements.emptyState.hidden = true;
-    elements.stats.hidden = false;
-    elements.error.hidden = true;
-
-    const updatedAt = new Date().toLocaleTimeString("cs-CZ", {
-      hour: "2-digit",
-      minute: "2-digit",
-    });
-    elements.updatedAt.textContent = `Aktualizováno ${updatedAt}`;
-    elements.updatedAt.hidden = false;
+    elements.track.hidden = false;
+    clearError();
+    updateTimestamp(updatedAt);
   }
 
   function handlePubSubMessage(_target, _contentType, message) {
@@ -96,23 +153,23 @@
         payload = JSON.parse(payload);
       } catch (error) {
         console.error("Twitch Extension PubSub sent invalid JSON:", error);
-        showError("Zo služby PubSub prišla neplatná správa.");
+        showError("Ze služby PubSub přišla neplatná zpráva.");
         return;
       }
     }
 
-    if (!isRecord(payload) || payload.type !== "pubg") return;
-    renderStats(payload.data);
+    if (!isRecord(payload) || payload.type !== "spotify") return;
+    renderPlayback(payload.data, payload.updatedAt);
   }
 
   if (!window.Twitch || !window.Twitch.ext) {
     setConnection("Twitch nedostupný", "error");
-    showError("Panel je potrebné otvoriť v Twitch Extension.");
+    showError("Panel je potřeba otevřít v Twitch Extension.");
     return;
   }
 
   window.Twitch.ext.onAuthorized(() => {
-    setConnection("Pripojené", "connected");
+    setConnection("Připojeno", "connected");
   });
 
   window.Twitch.ext.listen("broadcast", handlePubSubMessage);

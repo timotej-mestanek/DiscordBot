@@ -2,15 +2,13 @@ import { NextResponse } from "next/server";
 import { authorizeStreamerBotRequest } from "@/lib/integrations/streamerbot";
 import { getCommunityLeaderboardSnapshot } from "@/lib/community-leaderboards";
 import { publishExtensionBroadcast } from "@/lib/extensions/pubsub";
-import { getCachedCurrentPlayback } from "@/lib/services/spotifyService";
 import { getCachedPubgDailyStats } from "@/lib/services/pubg";
 import { store } from "@/lib/store";
 
 type PublishRequest =
   | { type: "leaderboards" }
   | { type: "cs2" }
-  | { type: "pubg"; player: string }
-  | { type: "spotify" };
+  | { type: "pubg"; player: string };
 
 function isRecord(value: unknown): value is Record<string, unknown> {
   return typeof value === "object" && value !== null && !Array.isArray(value);
@@ -18,7 +16,7 @@ function isRecord(value: unknown): value is Record<string, unknown> {
 
 function parsePublishRequest(value: unknown): PublishRequest | null {
   if (!isRecord(value)) return null;
-  if (value.type === "leaderboards" || value.type === "cs2" || value.type === "spotify") {
+  if (value.type === "leaderboards" || value.type === "cs2") {
     return { type: value.type };
   }
   if (
@@ -55,13 +53,6 @@ async function getPubSubPayload(input: PublishRequest) {
         updatedAt: new Date().toISOString(),
         data: await getCachedPubgDailyStats(input.player),
       };
-    case "spotify": {
-      return {
-        type: input.type,
-        updatedAt: new Date().toISOString(),
-        data: await getCachedCurrentPlayback(),
-      };
-    }
     default: {
       const exhaustive: never = input;
       return exhaustive;
