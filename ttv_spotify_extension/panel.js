@@ -159,6 +159,7 @@
     }
 
     if (!isRecord(payload) || payload.type !== "spotify") return;
+    setConnection("Data přijata", "connected");
     renderPlayback(payload.data, payload.updatedAt);
   }
 
