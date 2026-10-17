@@ -16,6 +16,7 @@ import {
   type WheelSpinSegment,
 } from "@/lib/wheels";
 import { getTwitchLiveStatus } from "@/lib/services/twitchPublic";
+import { publishWheelRealtimeEvent } from "@/lib/wheel-realtime";
 
 function isRecord(value: unknown): value is Record<string, unknown> {
   return typeof value === "object" && value !== null && !Array.isArray(value);
@@ -357,6 +358,13 @@ export async function POST(request: Request) {
           sequence: sequence satisfies Prisma.InputJsonArray as Prisma.InputJsonValue,
         },
       });
+    });
+    publishWheelRealtimeEvent({
+      type: "spin",
+      spin: {
+        ...spin,
+        created_at: spin.created_at.toISOString(),
+      },
     });
 
     return respond(

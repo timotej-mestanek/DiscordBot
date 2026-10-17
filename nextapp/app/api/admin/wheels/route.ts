@@ -9,6 +9,7 @@ import {
   type WheelProfileData,
 } from "@/lib/wheels";
 import { getTwitchLiveStatus } from "@/lib/services/twitchPublic";
+import { publishWheelRealtimeEvent } from "@/lib/wheel-realtime";
 
 function isRecord(value: unknown): value is Record<string, unknown> {
   return typeof value === "object" && value !== null && !Array.isArray(value);
@@ -260,6 +261,7 @@ export async function POST(request: Request) {
 
   const profileId = `game:${body.gameId}`;
   try {
+    const resetAt = new Date();
     const reset = await prisma.$transaction(async (transaction) => {
       const profile = await transaction.wheelProfile.findUnique({
         where: { id: profileId },
@@ -268,7 +270,7 @@ export async function POST(request: Request) {
       if (!profile) return null;
       await transaction.wheelProfile.update({
         where: { id: profile.id },
-        data: { spin_count: 0, reset_at: new Date() },
+        data: { spin_count: 0, reset_at: resetAt },
       });
       await transaction.adminAuditLog.create({
         data: {
@@ -286,6 +288,11 @@ export async function POST(request: Request) {
     if (!reset) {
       return NextResponse.json({ error: "Profil hry sa nenašiel." }, { status: 404 });
     }
+    publishWheelRealtimeEvent({
+      type: "reset",
+      profileId,
+      resetAt: resetAt.toISOString(),
+    });
     return NextResponse.json({ ok: true });
   } catch (error) {
     console.error("Wheel game limit reset failed:", error);

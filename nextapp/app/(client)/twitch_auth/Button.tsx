@@ -6,7 +6,7 @@ export default function TwitchConnectButton() {
     url.searchParams.set("client_id", "4gaphqdrbdvpadou2t3yz0qmt6ssfn")
     url.searchParams.set(
       "redirect_uri",
-      "https://najtik.stream/api/auth/twitch"
+      new URL("/api/auth/twitch", window.location.origin).toString()
     )
     url.searchParams.set("response_type", "code")
     url.searchParams.set("scope", "user:read:email channel:manage:redemptions")
@@ -15,4 +15,3 @@ export default function TwitchConnectButton() {
 
   return <button onClick={handleConnect}>Connect Twitch</button>
 }
-

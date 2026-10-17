@@ -31,6 +31,19 @@ You can check out [the Next.js GitHub repository](https://github.com/vercel/next
 
 ## N4JT portal setup
 
+### Local development environment
+
+`pnpm dev` loads `.env` and then overrides it with `nextapp/.env.dev`; variables
+already provided by the shell take precedence. The checked-in development file
+points the app and OAuth callbacks to `http://localhost:3000`, uses the local
+Postgres service, and enables wheel test mode. Register the localhost callback
+URLs with the relevant OAuth providers before testing login flows.
+
+Start the local database from the repository root with
+`docker compose -f docker-compose.db.yml up -d`, then start the web app from
+`nextapp` with `pnpm dev`. Production `pnpm build` and `pnpm start` continue to
+use the normal `.env` and deployment environment.
+
 Copy the new integration settings from `.env.example` into `.env` and configure:
 
 - `APP_URL` as the public site origin (defaults to `https://najtik.stream` in the production container). Set it to your site's origin if your domain differs; for local development use `http://localhost:3000` (or `http://localhost:3001` through Docker Compose). This must be the browser-facing site URL, never the container bind address `0.0.0.0`.
@@ -56,13 +69,24 @@ The public home page checks the broadcaster's current live status through the Tw
 
 Dashboard → Admin → **Kolesá šťastia** configures the main subscription/donation wheel, its VIP follow-up wheel, and any number of game-specific wheels. Add game profiles by the Twitch Game ID; while spinning, the app chooses the profile matching the current live Twitch category. Each profile supports a title, enabled state, 3–30 second animation, 2–24 outcomes, an outcome color, and a positive integer weight. Game profiles also set a spin cap from 1 to 100 (default 2), shared across all viewers. Once reached, the cap must be reset by an admin in the dashboard or by a Twitch moderator/broadcaster using the Streamer.bot reset action. The server chooses the outcome using those weights. One outcome on the main wheel can be marked to trigger the VIP wheel.
 
-Add `https://<your-domain>/overlays/wheel` as an OBS Browser Source. Keep it open during the stream; it polls for new spins and animates each wheel result in order.
+Add `https://<your-domain>/overlays/wheel` as an OBS Browser Source. Keep it
+open during the stream; it connects to the app's WebSocket and animates new
+spins in order.
 The wheel itself shows each configured outcome as text on its colored segment
 and has a transparent background for OBS. Add
 `https://<your-domain>/overlays/wheel-history` as a second Browser Source to
 show a card for each result since its game's latest reset. Cards stay visible
 across game changes until that game's spin history is reset; newly completed
 spins are added to the list.
+
+Both wheel overlays use a direct WebSocket connection to
+`/api/overlays/wheels/live` for spin and reset events. The app's custom
+`server.mjs` serves both Next.js and the WebSocket endpoint, so production
+deployments must run it with `pnpm start` (or the provided Docker image), not
+the generic `next start` command. The provided Docker image includes the full
+Next.js runtime rather than standalone output because Next.js standalone mode
+does not support a custom server. A reconnect receives a history snapshot and
+any spins missed while disconnected.
 
 Streamer.bot calls `POST /api/integrations/streamerbot/wheels/spin` with the configured `STREAMERBOT_INGEST_TOKEN` as a Bearer token. Use unique source event IDs; duplicate deliveries return the original spin and never charge N4JT points twice.
 

@@ -1,1 +1,3 @@
 .env
+!bot/.env.dev
+!nextapp/.env.dev

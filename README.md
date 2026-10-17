@@ -26,7 +26,7 @@ Navigate to the project folder:
 cd repo
 ``` 
 ## ⚙️ Configuration
-Create a .env file in the root directory:
+Create `bot/.env` for the bot credentials:
 ```bash 
 DISCORD_BOT_TOKEN = <token>
 ```
@@ -34,6 +34,11 @@ Install all dependencies
 ```bash
 pnpm install 
 ``` 
+For local development, `pnpm dev` loads `bot/.env.dev` over `bot/.env`.
+The development file points `DATABASE_URL` to the local Postgres service and
+`WEB_BASE_URL` to `http://localhost:3000`; provide the bot credentials and
+channel settings in `bot/.env`. Start Postgres from the repository root with
+`docker compose -f docker-compose.db.yml up -d`.
 ## 🚀 Running the bot
 Running the bot via tsx
 ```bash
@@ -53,4 +58,3 @@ To stop the bot
 ```bash
 docker compose down
 ```
-

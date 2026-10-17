@@ -1,7 +1,9 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import type { WheelConfig, WheelProfileData, WheelSlice } from "@/lib/wheels";
+import type { WheelRealtimeEvent } from "@/lib/wheel-realtime";
+import useWheelRealtime from "@/app/overlays/useWheelRealtime";
 
 type WheelAdminData = {
   profiles: WheelProfileData[];
@@ -56,6 +58,45 @@ export default function WheelAdminPanel() {
   const [notice, setNotice] = useState("");
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
+  const seenSpinIds = useRef(new Set<string>());
+  const resetTimes = useRef(new Map<string, number>());
+
+  const handleWheelRealtimeEvent = useCallback((event: WheelRealtimeEvent) => {
+    if (event.type === "reset") {
+      resetTimes.current.set(event.profileId, Date.parse(event.resetAt));
+      setData((current) =>
+        current
+          ? {
+              ...current,
+              profiles: current.profiles.map((profile) =>
+                profile.id === event.profileId
+                  ? { ...profile, spinCount: 0 }
+                  : profile,
+              ),
+            }
+          : current,
+      );
+      return;
+    }
+    if (event.type !== "spin" || !event.spin.profile_id.startsWith("game:")) return;
+    if (seenSpinIds.current.has(event.spin.id)) return;
+    seenSpinIds.current.add(event.spin.id);
+    const resetAt = resetTimes.current.get(event.spin.profile_id);
+    if (resetAt && Date.parse(event.spin.created_at) <= resetAt) return;
+    setData((current) =>
+      current
+        ? {
+            ...current,
+            profiles: current.profiles.map((profile) =>
+              profile.id === event.spin.profile_id
+                ? { ...profile, spinCount: profile.spinCount + 1 }
+                : profile,
+            ),
+          }
+        : current,
+    );
+  }, []);
+  useWheelRealtime(handleWheelRealtimeEvent);
 
   async function load() {
     setLoading(true);
@@ -191,7 +232,16 @@ export default function WheelAdminPanel() {
         return;
       }
       setNotice(`Limit kolesa pre ${profile.gameName} bol resetovaný.`);
-      await load();
+      setData((current) =>
+        current
+          ? {
+              ...current,
+              profiles: current.profiles.map((item) =>
+                item.id === profile.id ? { ...item, spinCount: 0 } : item,
+              ),
+            }
+          : current,
+      );
     } catch (resetError) {
       console.error("Wheel game limit reset failed:", resetError);
       setError("Limit herného kolesa sa nepodarilo resetovať.");
@@ -512,8 +562,11 @@ export default function WheelAdminPanel() {
               <div>
                 <h3 className="font-semibold">Výsledky kolieska</h3>
                 <p className="text-xs text-zinc-500">
-                  Každý text je samostatná možnosť zobrazená aj vo farebnej legende
-                  overlayu. Váha určuje pravdepodobnosť; výsledok žrebuje server.
+                  Váha je relatívny počet žrebovacích lístkov, nie percento.
+                  Napríklad váhy 1 a 3 znamenajú pred žrebovaním šancu 25 % a 75 %.
+                  Decimály netreba: pomer 0,5 : 1,5 je rovnaký ako 1 : 3. Pri
+                  hernom kolese sa už vyžrebované možnosti do resetu vyradia a
+                  váhy sa prepočítajú medzi zostávajúcimi možnosťami.
                 </p>
               </div>
               <button
@@ -547,6 +600,9 @@ export default function WheelAdminPanel() {
                   </label>
                   <label className="text-xs text-zinc-400">
                     Váha
+                    <span className="mt-1 block text-[11px] text-zinc-500">
+                      Celé číslo 1–10 000 · vyššie číslo = väčšia šanca
+                    </span>
                     <input
                       type="number"
                       min={1}

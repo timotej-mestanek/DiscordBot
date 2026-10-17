@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { authorizeStreamerBotRequest } from "@/lib/integrations/streamerbot";
 import { prisma } from "@/lib/prisma";
 import { getTwitchLiveStatus } from "@/lib/services/twitchPublic";
+import { publishWheelRealtimeEvent } from "@/lib/wheel-realtime";
 
 function isRecord(value: unknown): value is Record<string, unknown> {
   return typeof value === "object" && value !== null && !Array.isArray(value);
@@ -110,6 +111,7 @@ export async function POST(request: Request) {
       return respond(409, { error: "Stream je offline alebo nemá aktívnu Twitch hru." });
     }
     const profileId = `game:${liveStatus.gameId}`;
+    const resetAt = new Date();
     const reset = await prisma.$transaction(async (transaction) => {
       const profile = await transaction.wheelProfile.findUnique({
         where: { id: profileId },
@@ -118,7 +120,7 @@ export async function POST(request: Request) {
       if (!profile) return null;
       await transaction.wheelProfile.update({
         where: { id: profile.id },
-        data: { spin_count: 0, reset_at: new Date() },
+        data: { spin_count: 0, reset_at: resetAt },
       });
       await transaction.adminAuditLog.create({
         data: {
@@ -138,6 +140,11 @@ export async function POST(request: Request) {
     if (!reset) {
       return respond(404, { error: `Profil herného kolesa pre ${liveStatus.gameName} sa nenašiel.` });
     }
+    publishWheelRealtimeEvent({
+      type: "reset",
+      profileId,
+      resetAt: resetAt.toISOString(),
+    });
     return respond(
       200,
       {
