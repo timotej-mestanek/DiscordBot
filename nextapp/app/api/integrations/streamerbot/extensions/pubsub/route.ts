@@ -6,12 +6,9 @@ import {
   publishExtensionBroadcast,
 } from "@/lib/extensions/pubsub";
 import { getCachedPubgDailyStats } from "@/lib/services/pubg";
-import { getTwitchLiveStatus } from "@/lib/services/twitchPublic";
-import { store } from "@/lib/store";
 
 type PublishRequest =
   | { type: "leaderboards" }
-  | { type: "cs2" }
   | { type: "pubg"; player: string };
 
 function isRecord(value: unknown): value is Record<string, unknown> {
@@ -20,7 +17,7 @@ function isRecord(value: unknown): value is Record<string, unknown> {
 
 function parsePublishRequest(value: unknown): PublishRequest | null {
   if (!isRecord(value)) return null;
-  if (value.type === "leaderboards" || value.type === "cs2") {
+  if (value.type === "leaderboards") {
     return { type: value.type };
   }
   if (
@@ -42,14 +39,6 @@ async function getPubSubPayload(input: PublishRequest) {
         type: input.type,
         updatedAt: new Date().toISOString(),
         data: await getCommunityLeaderboardSnapshot(),
-      };
-    case "cs2":
-      return {
-        type: input.type,
-        updatedAt: store.updatedAt
-          ? new Date(store.updatedAt).toISOString()
-          : null,
-        data: store.latest,
       };
     case "pubg":
       return {
@@ -92,15 +81,6 @@ export async function POST(request: Request) {
   }
 
   try {
-    const liveStatus = await getTwitchLiveStatus();
-    if (!liveStatus.isLive) {
-      return NextResponse.json({
-        ok: true,
-        type: input.type,
-        skipped: "stream-offline",
-      });
-    }
-
     const payload = await getPubSubPayload(input);
     await publishExtensionBroadcast(payload, "gamestats");
     return NextResponse.json({ ok: true, type: input.type });
