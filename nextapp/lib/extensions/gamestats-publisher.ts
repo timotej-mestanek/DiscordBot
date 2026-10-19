@@ -8,6 +8,7 @@ import { getTwitchLiveStatus } from "@/lib/services/twitchPublic";
 
 const PUBLISH_INTERVAL_MS = 120_000;
 const DEFAULT_PUBG_PLAYER = "N4JTIK";
+const TEST_GAME_NAME = "PUBG";
 
 let isRunning = false;
 
@@ -17,12 +18,12 @@ function normalizeGameName(name: string | null): string {
 
 async function getGameStatsPayload() {
   const liveStatus = await getTwitchLiveStatus();
-  const gameName = liveStatus.gameName;
+  const gameName = liveStatus.gameName ?? TEST_GAME_NAME;
   const normalizedGameName = normalizeGameName(gameName);
 
   const data = {
-    stream: { isLive: liveStatus.isLive },
-    game: { id: normalizedGameName || "unknown", name: gameName ?? "Neznámá hra" },
+    stream: { isLive: true },
+    game: { id: normalizedGameName || "unknown", name: gameName },
     supported: false,
     players: [] as Array<{
       id: string;
@@ -32,8 +33,6 @@ async function getGameStatsPayload() {
       stats: Record<string, number | string>;
     }>,
   };
-
-  if (!liveStatus.isLive) return data;
 
   if (normalizedGameName.includes("pubg")) {
     data.game.id = "pubg";
@@ -101,7 +100,7 @@ export function startGameStatsExtensionPublisher(): void {
       );
       console.log(
         "Game Stats Twitch Extension PubSub broadcast sent.",
-        data.stream.isLive ? data.game.name : "Stream offline.",
+        { game: data.game.name, players: data.players.length },
       );
     } catch (error) {
       console.error("Game Stats Twitch Extension publish failed:", error);
