@@ -3,7 +3,7 @@ import {
   publishExtensionBroadcast,
 } from "@/lib/extensions/pubsub";
 import { prisma } from "@/lib/prisma";
-import { getCachedPubgDailyStats } from "@/lib/services/pubg";
+import { getProcessCachedPubgDailyStats } from "@/lib/services/pubg";
 import { getTwitchLiveStatus } from "@/lib/services/twitchPublic";
 
 const PUBLISH_INTERVAL_MS = 120_000;
@@ -52,7 +52,7 @@ async function getGameStatsPayload() {
         : []),
     ];
     const players = await Promise.all(
-      playerNames.map((name) => getCachedPubgDailyStats(name)),
+      playerNames.map((name) => getProcessCachedPubgDailyStats(name)),
     );
     data.players = players.map((player, index) => ({
       id: index === 0 ? "main" : `teammate-${index}`,

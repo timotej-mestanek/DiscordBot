@@ -18,6 +18,12 @@ type RankedMatchStats = {
   createdAt: number;
 };
 
+const PROCESS_CACHE_TTL_MS = 300_000;
+const processStatsCache = new Map<
+  string,
+  { expiresAt: number; stats: Promise<PubgDailyStats> }
+>();
+
 function isRecord(value: unknown): value is JsonRecord {
   return typeof value === "object" && value !== null && !Array.isArray(value);
 }
@@ -205,6 +211,36 @@ const getCachedDailyStats = unstable_cache(
   ["pubg-daily-ranked-stats-steam"],
   { revalidate: 300 },
 );
+
+export async function getProcessCachedPubgDailyStats(
+  playerName: string,
+): Promise<PubgDailyStats> {
+  const { dayKey } = getPragueDayStart(new Date());
+  const cacheKey = `${dayKey}:${playerName.toLocaleLowerCase("en-US")}`;
+  const now = Date.now();
+
+  for (const [key, entry] of processStatsCache) {
+    if (entry.expiresAt <= now) processStatsCache.delete(key);
+  }
+
+  const cached = processStatsCache.get(cacheKey);
+  if (cached) return cached.stats;
+
+  const entry = {
+    expiresAt: now + PROCESS_CACHE_TTL_MS,
+    stats: loadPubgDailyStats(playerName, dayKey),
+  };
+  processStatsCache.set(cacheKey, entry);
+
+  try {
+    return await entry.stats;
+  } catch (error) {
+    if (processStatsCache.get(cacheKey) === entry) {
+      processStatsCache.delete(cacheKey);
+    }
+    throw error;
+  }
+}
 
 export async function getCachedPubgDailyStats(
   playerName: string,
