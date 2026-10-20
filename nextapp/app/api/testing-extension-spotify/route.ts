@@ -42,7 +42,7 @@ export async function POST() {
       {
         type: "spotify",
         updatedAt: new Date(now).toISOString(),
-        isLive: false,
+        isLive: true,
         testMode: true,
         data: {
           is_playing: true,
