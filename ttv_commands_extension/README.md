@@ -17,6 +17,11 @@ configuration view to use `config.html`. The panel reads the broadcaster's
 saved Extension configuration and falls back to the included N4JT command
 catalogue if none has been saved.
 
+Twitch stores the broadcaster configuration per channel and provides it to
+each viewer panel when the Extension is opened. The panel also applies
+configuration changes while already open, so new viewers see the saved command
+catalogue immediately without waiting for a PubSub broadcast.
+
 ## Configure categories and commands
 
 In the broadcaster configuration view:

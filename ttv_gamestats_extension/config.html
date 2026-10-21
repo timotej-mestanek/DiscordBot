@@ -1,0 +1,80 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <meta name="color-scheme" content="dark" />
+    <title>Game Stats Configuration</title>
+    <link rel="stylesheet" href="./config.css" />
+    <script src="https://extension-files.twitch.tv/helper/v1/twitch-ext.min.js"></script>
+    <script src="./config.js" defer></script>
+  </head>
+  <body>
+    <main class="config">
+      <header class="hero">
+        <p class="eyebrow">BROADCASTER SETTINGS</p>
+        <h1>New viewer snapshot</h1>
+        <p>
+          Save a game stats message that new viewers can see immediately when
+          they open the panel. Live PubSub updates replace this snapshot as soon
+          as they arrive.
+        </p>
+      </header>
+
+      <section class="card">
+        <div class="section-head">
+          <div>
+            <h2>Initial game stats JSON</h2>
+            <p class="muted">
+              Paste a complete <code>gamestats</code> message envelope. Twitch
+              broadcaster configuration is limited to 5 KB.
+            </p>
+          </div>
+          <button id="save-config" class="button primary" type="button">
+            Save to Twitch
+          </button>
+        </div>
+        <textarea
+          id="config-json"
+          class="json-editor"
+          spellcheck="false"
+          aria-label="Initial game stats JSON"
+        ></textarea>
+        <div class="status-row">
+          <p id="status" role="status" aria-live="polite">Loading configuration…</p>
+          <button id="apply-json" class="button secondary" type="button">
+            Validate JSON
+          </button>
+        </div>
+        <p id="error" class="error" role="alert" hidden></p>
+      </section>
+
+      <section class="card">
+        <h2>Expected format</h2>
+        <p class="muted">
+          Store the same envelope used by the live PubSub publisher. The saved
+          snapshot is a fallback for newly opened panels; it does not replace
+          the live publisher.
+        </p>
+        <pre class="example"><code>{
+  "type": "gamestats",
+  "updatedAt": "2026-10-21T12:00:00.000Z",
+  "data": {
+    "stream": { "isLive": true },
+    "game": { "id": "pubg", "name": "PUBG" },
+    "supported": true,
+    "players": [
+      {
+        "id": "main",
+        "name": "Player",
+        "role": "self",
+        "kd": 2.45,
+        "stats": { "Kills": 18, "Deaths": 7 }
+      }
+    ]
+  }
+}</code></pre>
+      </section>
+    </main>
+  </body>
+</html>

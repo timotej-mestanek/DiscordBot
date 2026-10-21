@@ -3,6 +3,14 @@
 !nextapp/.env.dev
 /ttv_spotify_extension/
 /ttv_gamestats_extension/
+!/ttv_gamestats_extension/
+/ttv_gamestats_extension/*
+!/ttv_gamestats_extension/README.md
+!/ttv_gamestats_extension/config.css
+!/ttv_gamestats_extension/config.html
+!/ttv_gamestats_extension/config.js
+!/ttv_gamestats_extension/panel.js
+!/ttv_gamestats_extension/ttv_gamestats_extension.zip
 /streamerbot_plugin/
 !/streamerbot_plugin/
 /streamerbot_plugin/*

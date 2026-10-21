@@ -163,14 +163,26 @@
 
   function loadBroadcasterConfig() {
     const content = window.Twitch?.ext?.configuration?.broadcaster?.content;
-    if (!content) return;
+    if (!content) {
+      config = window.TTVCommands.defaults;
+      selectedGroup = "all";
+      selectedRole = "all";
+      render();
+      elements.notice.hidden = true;
+      return;
+    }
     try {
       config = window.TTVCommands.normalizeConfig(JSON.parse(content));
       selectedGroup = "all";
+      selectedRole = "all";
       render();
       elements.notice.hidden = true;
     } catch (error) {
       console.error("Twitch commands extension received invalid configuration:", error);
+      config = window.TTVCommands.defaults;
+      selectedGroup = "all";
+      selectedRole = "all";
+      render();
       elements.notice.textContent =
         "Konfiguraci tohoto kanálu se nepodařilo načíst. Zobrazuji výchozí příkazy.";
       elements.notice.hidden = false;

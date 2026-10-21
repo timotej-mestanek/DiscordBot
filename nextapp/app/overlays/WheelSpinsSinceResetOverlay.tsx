@@ -80,9 +80,48 @@ function taskTypeForSpin(index: number, maxSpins: number): TaskCardType {
 
 export default function WheelSpinsSinceResetOverlay() {
   const [profiles, setProfiles] = useState<Record<string, ProfileHistory>>({});
+  const [activeGameId, setActiveGameId] = useState<string | null>(null);
   const profilesRef = useRef(profiles);
   const timers = useRef(new Map<string, { profileId: string; timer: number }>());
   const seenSpinIds = useRef(new Set<string>());
+
+  useEffect(() => {
+    let active = true;
+    const refreshActiveGame = async () => {
+      try {
+        const response = await fetch("/api/twitch/live", { cache: "no-store" });
+        const result: unknown = await response.json();
+        if (!response.ok) {
+          throw new Error("Could not check the active Twitch game.");
+        }
+        if (
+          typeof result !== "object" ||
+          result === null ||
+          !("isLive" in result) ||
+          typeof result.isLive !== "boolean" ||
+          !("gameId" in result) ||
+          (result.gameId !== null && typeof result.gameId !== "string")
+        ) {
+          throw new Error("Twitch live status response is invalid.");
+        }
+        if (active) {
+          setActiveGameId(
+            result.isLive && result.gameId ? result.gameId : null,
+          );
+        }
+      } catch (error) {
+        console.error("Wheel history active game lookup failed:", error);
+        if (active) setActiveGameId(null);
+      }
+    };
+
+    void refreshActiveGame();
+    const interval = window.setInterval(() => void refreshActiveGame(), 30_000);
+    return () => {
+      active = false;
+      window.clearInterval(interval);
+    };
+  }, []);
 
   useEffect(() => {
     profilesRef.current = profiles;
@@ -208,17 +247,16 @@ export default function WheelSpinsSinceResetOverlay() {
   }, []);
   useWheelRealtime(handleRealtimeEvent);
 
-  const spins = Object.values(profiles)
-    .flatMap((profile) => {
-      const orderedSpins = [...profile.spins].sort((left, right) =>
-        left.createdAt.localeCompare(right.createdAt),
-      );
-      return orderedSpins.map((spin, index) => ({
-        ...spin,
-        taskType: taskTypeForSpin(index, profile.maxSpins),
-      }));
-    })
-    .sort((left, right) => right.createdAt.localeCompare(left.createdAt));
+  const activeProfile = activeGameId ? profiles[`game:${activeGameId}`] : null;
+  const spins = activeProfile
+    ? [...activeProfile.spins]
+        .sort((left, right) => left.createdAt.localeCompare(right.createdAt))
+        .map((spin, index) => ({
+          ...spin,
+          taskType: taskTypeForSpin(index, activeProfile.maxSpins),
+        }))
+        .sort((left, right) => right.createdAt.localeCompare(left.createdAt))
+    : [];
   const rarityColor = (rarity: number) =>
     rarity <= 0.05
       ? "#facc15"
@@ -229,11 +267,12 @@ export default function WheelSpinsSinceResetOverlay() {
           : "#22c55e";
 
   return (
-    <main className="wheel-history-canvas pointer-events-none fixed inset-0 flex items-end justify-center overflow-hidden p-6 text-white sm:p-10">
+    <main className="wheel-history-canvas pointer-events-none fixed inset-0 overflow-hidden text-white">
       {spins.length > 0 && (
         <section
           aria-label="Game wheel results since the last reset"
-          className="mb-2 flex max-h-[min(70vh,48rem)] w-[min(34rem,calc(100vw-2rem))] flex-col gap-3 overflow-y-hidden"
+          className="absolute left-[10px] flex max-h-[min(70vh,48rem)] w-[min(34rem,calc(100vw-20px))] -translate-y-1/2 flex-col gap-3 overflow-y-hidden"
+          style={{ top: "calc(50% + 100px)" }}
         >
           {[...spins].reverse().map((spin) => (
             <article
