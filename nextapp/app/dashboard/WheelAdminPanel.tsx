@@ -113,6 +113,7 @@ export default function WheelAdminPanel() {
   const [notice, setNotice] = useState("");
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
+  const [probabilityDrafts, setProbabilityDrafts] = useState<Record<string, string>>({});
   const seenSpinIds = useRef(new Set<string>());
   const resetTimes = useRef(new Map<string, number>());
 
@@ -218,6 +219,21 @@ export default function WheelAdminPanel() {
         slice.id === sliceId ? update(slice) : slice,
       ),
     }));
+  }
+
+  function commitSliceProbability(sliceId: string, value: string) {
+    const probability = Number(value);
+    if (value.trim() !== "" && Number.isFinite(probability)) {
+      updateConfig((config) => ({
+        ...config,
+        slices: updateSliceProbability(config.slices, sliceId, probability),
+      }));
+    }
+    setProbabilityDrafts((drafts) => {
+      const remaining = { ...drafts };
+      delete remaining[sliceId];
+      return remaining;
+    });
   }
 
   function addSlice() {
@@ -673,8 +689,8 @@ export default function WheelAdminPanel() {
                   </p>
                 )}
                 <p className="text-xs text-zinc-500">
-                  Set each outcome&apos;s probability as a percentage. Changing a value
-                  automatically adjusts the largest other outcome, keeping the total at 100%.
+                  Set each outcome&apos;s probability as a percentage. The largest other
+                  outcome is adjusted when you leave the field, keeping the total at 100%.
                   Previously selected outcomes are removed from game wheels until reset;
                   the remaining probabilities are proportionally recalculated for each spin.
                 </p>
@@ -712,17 +728,20 @@ export default function WheelAdminPanel() {
                       min={0.01}
                       max={100 - (config.slices.length - 1) * 0.01}
                       step={0.01}
-                      value={slice.probability}
+                      value={probabilityDrafts[slice.id] ?? String(slice.probability)}
+                      disabled={config.slices.length < 2}
                       onChange={(event) =>
-                        updateConfig((current) => ({
-                          ...current,
-                          slices: updateSliceProbability(
-                            current.slices,
-                            slice.id,
-                            Number(event.target.value),
-                          ),
+                        setProbabilityDrafts((drafts) => ({
+                          ...drafts,
+                          [slice.id]: event.target.value,
                         }))
                       }
+                      onBlur={(event) =>
+                        commitSliceProbability(slice.id, event.currentTarget.value)
+                      }
+                      onKeyDown={(event) => {
+                        if (event.key === "Enter") event.currentTarget.blur();
+                      }}
                       className="mt-1 w-full rounded-lg border border-zinc-700 bg-zinc-950 px-3 py-2 text-sm text-white"
                     />
                   </label>
