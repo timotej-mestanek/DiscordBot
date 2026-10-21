@@ -69,6 +69,9 @@ export default async function Home() {
             <Link href="/shop" className="text-sm font-semibold text-zinc-300 hover:text-white">
               Shop
             </Link>
+            <Link href="/commands" className="text-sm font-semibold text-zinc-300 hover:text-white">
+              Příkazy
+            </Link>
           </div>
           <div className="flex items-center gap-3">
             {playerBalances && (

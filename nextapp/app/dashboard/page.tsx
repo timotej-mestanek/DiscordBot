@@ -3,6 +3,7 @@ import Link from "next/link";
 import AdminPanel from "@/app/dashboard/AdminPanel";
 import AdminShopPanel from "@/app/dashboard/AdminShopPanel";
 import DashboardPoints from "@/app/dashboard/DashboardPoints";
+import InterestingFactsPanel from "@/app/dashboard/InterestingFactsPanel";
 import LEDTimelineEditor from "@/app/dashboard/LEDTimelineEditor";
 import WheelAdminPanel from "@/app/dashboard/WheelAdminPanel";
 import OverlayBuilder from "@/app/overlays/OverlayBuilder";
@@ -17,6 +18,7 @@ const userTabs = [
 ] as const;
 
 const adminTabs = [
+  { id: "interesting", label: "Zaujímavosti" },
   { id: "admin", label: "Admin" },
   { id: "admin-shop", label: "Admin Shop" },
   { id: "wheels", label: "Wheels" },
@@ -32,6 +34,7 @@ const dashboardTitles: Record<DashboardTab, string> = {
   points: "Moje body",
   leds: "LEDS",
   auth: "Autorizace",
+  interesting: "Zaujímavosti",
   admin: "Administrace",
   "admin-shop": "Admin Shop",
   wheels: "Wheels",
@@ -272,6 +275,9 @@ export default async function DashboardPage({
 
           {activeTab === "admin" && account.role === "admin" && (
             <AdminPanel view="settings" />
+          )}
+          {activeTab === "interesting" && account.role === "admin" && (
+            <InterestingFactsPanel />
           )}
           {activeTab === "admin-shop" && account.role === "admin" && (
             <AdminShopPanel />

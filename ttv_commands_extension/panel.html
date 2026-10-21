@@ -1,0 +1,48 @@
+<!doctype html>
+<html lang="cs">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <meta name="color-scheme" content="dark" />
+    <title>Twitch chat příkazy</title>
+    <link rel="stylesheet" href="./panel.css" />
+    <script src="https://extension-files.twitch.tv/helper/v1/twitch-ext.min.js"></script>
+    <script src="./commands-data.js" defer></script>
+    <script src="./panel.js" defer></script>
+  </head>
+  <body>
+    <main class="panel">
+      <header class="header">
+        <div>
+          <p class="eyebrow">CHAT GUIDE <span class="live-dot"></span></p>
+          <h1>Commands<span>.</span></h1>
+        </div>
+        <span id="command-count" class="count-badge">0 příkazů</span>
+      </header>
+
+      <label class="search">
+        <span class="search-icon" aria-hidden="true">⌕</span>
+        <span class="visually-hidden">Hledat příkaz</span>
+        <input
+          id="search-input"
+          type="search"
+          placeholder="Hledat příkaz nebo popis…"
+          autocomplete="off"
+        />
+        <kbd>/</kbd>
+      </label>
+
+      <nav id="group-navigation" class="group-navigation" aria-label="Kategorie příkazů"></nav>
+      <nav id="role-navigation" class="role-navigation" aria-label="Oprávnění"></nav>
+      <p id="config-notice" class="config-notice" hidden></p>
+      <div id="groups" class="groups" aria-live="polite"></div>
+      <p id="empty-state" class="empty-state" hidden>
+        Nic jsme nenašli. Zkus jiný výraz nebo filtr.
+      </p>
+      <footer>
+        <span>N4JT · CHAT COMMANDS</span>
+        <span id="footer-category">Všechny kategorie</span>
+      </footer>
+    </main>
+  </body>
+</html>

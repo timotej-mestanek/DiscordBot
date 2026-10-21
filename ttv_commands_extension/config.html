@@ -1,0 +1,105 @@
+<!doctype html>
+<html lang="cs">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <meta name="color-scheme" content="dark" />
+    <title>Nastavení příkazů</title>
+    <link rel="stylesheet" href="./config.css" />
+    <script src="https://extension-files.twitch.tv/helper/v1/twitch-ext.min.js"></script>
+    <script src="./commands-data.js" defer></script>
+    <script src="./config.js" defer></script>
+  </head>
+  <body>
+    <main class="config">
+      <header class="hero">
+        <p class="eyebrow">BROADCASTER SETTINGS</p>
+        <h1>Vlastní katalog příkazů</h1>
+        <p>
+          Uprav kategorie, příkazy, popisy i oprávnění. Změny se uloží do
+          konfigurace Twitch Extension pro tvůj kanál.
+        </p>
+      </header>
+
+      <section class="card">
+        <h2>Rychlé přidání kategorie</h2>
+        <form id="group-form" class="inline-form">
+          <label class="field grow">
+            Název kategorie
+            <input id="group-label" required maxlength="80" placeholder="Např. Wheels" />
+          </label>
+          <button class="button secondary" type="submit">Přidat kategorii</button>
+        </form>
+
+        <h2 class="section-heading">Rychlé přidání příkazu</h2>
+        <form id="command-form" class="form-grid">
+          <label class="field">
+            Kategorie
+            <select id="command-group" required></select>
+          </label>
+          <label class="field">
+            Příkaz
+            <input id="command-name" required maxlength="120" placeholder="!wheel" />
+          </label>
+          <label class="field full">
+            Popis
+            <textarea id="command-description" required maxlength="1000" rows="2" placeholder="Co příkaz udělá?"></textarea>
+          </label>
+          <label class="field full">
+            Použití (nepovinné)
+            <input id="command-usage" maxlength="180" placeholder="!wheel <volitelné argumenty>" />
+          </label>
+          <fieldset class="roles full">
+            <legend>Kdo může příkaz použít?</legend>
+            <label><input type="checkbox" name="role" value="everyone" checked /> Všichni</label>
+            <label><input type="checkbox" name="role" value="vip" /> VIP</label>
+            <label><input type="checkbox" name="role" value="mods" /> Moderátoři</label>
+          </fieldset>
+          <button class="button secondary full" type="submit">Přidat příkaz do JSON</button>
+        </form>
+      </section>
+
+      <section class="card">
+        <div class="section-head">
+          <div>
+            <h2>JSON konfigurace</h2>
+            <p class="muted">
+              Můžeš ji upravit přímo. Podporuje také import skupin z webového API.
+            </p>
+          </div>
+          <button id="save-config" class="button primary" type="button">Uložit do Twitch</button>
+        </div>
+        <textarea id="config-json" class="json-editor" spellcheck="false" aria-label="JSON konfigurace příkazů"></textarea>
+        <div class="status-row">
+          <p id="status" role="status" aria-live="polite">Načítám konfiguraci…</p>
+          <button id="apply-json" class="button secondary" type="button">Ověřit a načíst JSON</button>
+        </div>
+      </section>
+
+      <section class="card import-card">
+        <h2>Jednorázový import z jiné stránky</h2>
+        <p class="muted">
+          Vlož veřejnou adresu JSON nebo vlož celý JSON text. Načtení pouze
+          připraví data v editoru; změny se projeví až po uložení do Twitch.
+        </p>
+        <div class="inline-form">
+          <label class="field grow">
+            URL JSON feedu
+            <input id="import-url" type="url" placeholder="https://example.com/api/commands" />
+          </label>
+          <button id="load-url" class="button secondary" type="button">Načíst URL</button>
+        </div>
+        <label class="field import-text">
+          Vložený JSON
+          <textarea id="import-json" rows="5" spellcheck="false" placeholder='{"groups":[{"id":"wheels","label":"Wheels","description":"","commands":[]}]}'></textarea>
+        </label>
+        <button id="load-pasted" class="button secondary" type="button">Načíst vložený JSON</button>
+        <p class="hint">
+          URL musí povolovat CORS. Katalog příkazů N4JT:
+          <code>/api/ttv-commands</code>
+        </p>
+      </section>
+      <p id="error" class="error" role="alert" hidden></p>
+    </main>
+  </body>
+</html>
