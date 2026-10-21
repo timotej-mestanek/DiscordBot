@@ -65,7 +65,7 @@ function historyCardFromSpin(spin: WheelRealtimeSpin): WheelHistoryCard | null {
   return {
     id: spin.id,
     displayName: spin.display_name,
-    gameName: spin.game_name ?? "Herná hra",
+    gameName: spin.game_name ?? "Game",
     result: segment.selectedLabel,
     rarity: selected.weight / totalWeight,
     createdAt: spin.created_at,
@@ -158,7 +158,7 @@ export default function WheelSpinsSinceResetOverlay() {
         return {
           ...current,
           [event.profileId]: {
-            gameName: profile?.gameName ?? "Herná hra",
+            gameName: profile?.gameName ?? "Game",
             maxSpins: profile?.maxSpins ?? 2,
             resetAt: event.resetAt,
             spins: [],
@@ -190,7 +190,7 @@ export default function WheelSpinsSinceResetOverlay() {
         return {
           ...current,
           [event.spin.profile_id]: {
-            gameName: event.spin.game_name ?? existing?.gameName ?? "Herná hra",
+            gameName: event.spin.game_name ?? existing?.gameName ?? "Game",
             maxSpins: existing?.maxSpins ?? 2,
             resetAt: existing?.resetAt ?? null,
             spins: existing?.spins.some((item) => item.id === spin.id)
@@ -233,7 +233,7 @@ export default function WheelSpinsSinceResetOverlay() {
     <main className="wheel-history-canvas pointer-events-none fixed inset-0 flex items-end justify-center overflow-hidden p-6 text-white sm:p-10">
       {spins.length > 0 && (
         <section
-          aria-label="Výsledky herného kolesa od posledného resetu"
+          aria-label="Game wheel results since the last reset"
           className="mb-2 flex max-h-[min(70vh,48rem)] w-[min(34rem,calc(100vw-2rem))] flex-col gap-3 overflow-y-hidden"
         >
           {[...spins].reverse().map((spin) => (

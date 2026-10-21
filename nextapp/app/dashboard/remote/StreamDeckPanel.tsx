@@ -56,7 +56,7 @@ function parseWheelData(value: unknown): WheelData {
     !(value.liveGame === null || isLiveGame(value.liveGame)) ||
     typeof value.liveGameUnavailable !== "boolean"
   ) {
-    throw new Error("Nextapp vrátil neplatné dáta kolies.");
+    throw new Error("The Next.js app returned invalid wheel data.");
   }
   return {
     profiles: value.profiles,
@@ -76,7 +76,7 @@ async function fetchWheelData(): Promise<WheelData> {
   const result: unknown = await response.json();
   if (!response.ok) {
     throw new Error(
-      getErrorMessage(result, "Stav kolies sa nepodarilo načítať."),
+      getErrorMessage(result, "Could not load wheel status."),
     );
   }
   return parseWheelData(result);
@@ -99,7 +99,7 @@ export default function StreamDeckPanel() {
       setError(
         loadError instanceof Error
           ? loadError.message
-          : "Stav kolies sa nepodarilo načítať.",
+          : "Could not load wheel status.",
       );
     } finally {
       setLoading(false);
@@ -118,7 +118,7 @@ export default function StreamDeckPanel() {
         setError(
           loadError instanceof Error
             ? loadError.message
-            : "Stav kolies sa nepodarilo načítať.",
+            : "Could not load wheel status.",
         );
       })
       .finally(() => {
@@ -137,7 +137,7 @@ export default function StreamDeckPanel() {
     if (!liveProfile || resetting) return;
     if (
       !window.confirm(
-        `Resetovať limit a históriu výsledkov kolesa pre ${liveProfile.gameName}?`,
+        `Reset the wheel limit and spin history for ${liveProfile.gameName}?`,
       )
     ) {
       return;
@@ -158,7 +158,7 @@ export default function StreamDeckPanel() {
       const result: unknown = await response.json();
       if (!response.ok) {
         setError(
-          getErrorMessage(result, "Výsledky kola sa nepodarilo resetovať."),
+          getErrorMessage(result, "Could not reset the wheel results."),
         );
         return;
       }
@@ -174,10 +174,10 @@ export default function StreamDeckPanel() {
             }
           : current,
       );
-      setNotice(`Výsledky kolesa pre ${liveProfile.gameName} boli resetované.`);
+      setNotice(`Wheel results for ${liveProfile.gameName} have been reset.`);
     } catch (resetError) {
       console.error("Stream Deck wheel reset failed:", resetError);
-      setError("Výsledky kola sa nepodarilo resetovať.");
+      setError("Could not reset the wheel results.");
     } finally {
       setResetting(false);
     }
@@ -185,8 +185,8 @@ export default function StreamDeckPanel() {
 
   const unavailableActions = [
     { label: "Raffle", icon: "🎟️" },
-    { label: "Zapnúť hlasovanie", icon: "🗳️" },
-    { label: "Potvrdiť výsledok kola", icon: "🏁" },
+    { label: "Start a vote", icon: "🗳️" },
+    { label: "Confirm wheel result", icon: "🏁" },
   ];
 
   return (
@@ -195,7 +195,7 @@ export default function StreamDeckPanel() {
         <header className="mb-6 flex items-center justify-between gap-4">
           <div>
             <p className="text-xs font-bold uppercase tracking-[0.25em] text-violet-300">
-              N4JT · ovládanie streamu
+              N4JT · stream controls
             </p>
             <h1 className="mt-2 text-3xl font-black tracking-tight sm:text-4xl">
               Stream Deck
@@ -207,7 +207,7 @@ export default function StreamDeckPanel() {
             disabled={loading || resetting}
             className="min-h-12 rounded-xl border border-zinc-700 px-4 text-sm font-semibold text-zinc-200 transition hover:bg-zinc-800 disabled:opacity-50"
           >
-            {loading ? "Načítavam…" : "Obnoviť"}
+            {loading ? "Loading…" : "Refresh"}
           </button>
         </header>
 
@@ -224,22 +224,22 @@ export default function StreamDeckPanel() {
             </p>
           </div>
           <p className="mt-2 text-xl font-bold">
-            {data?.liveGame?.name ?? "Nie je aktívna hra"}
+            {data?.liveGame?.name ?? "No active game"}
           </p>
           {liveProfile && (
             <p className="mt-1 text-sm text-zinc-400">
               {liveProfile.title} · {liveProfile.spinCount} /{" "}
-              {liveProfile.maxSpins ?? "∞"} roztočení
+              {liveProfile.maxSpins ?? "∞"} spins
             </p>
           )}
           {!loading && data?.liveGame && !liveProfile && (
             <p className="mt-2 text-sm text-amber-300">
-              Pre túto hru ešte nie je vytvorený profil kolesa.
+              No wheel profile has been created for this game yet.
             </p>
           )}
           {!loading && data?.liveGameUnavailable && (
             <p className="mt-2 text-sm text-amber-300">
-              Stav Twitch streamu sa nepodarilo overiť.
+              Could not verify Twitch stream status.
             </p>
           )}
         </section>
@@ -272,11 +272,10 @@ export default function StreamDeckPanel() {
               {resetting ? "⏳" : "🔄"}
             </span>
             <span className="text-lg font-black uppercase tracking-wide">
-              {resetting ? "Resetujem…" : "Resetovať výsledky kola"}
+              {resetting ? "Resetting…" : "Reset wheel results"}
             </span>
             <span className="text-xs leading-5 text-zinc-300">
-              Resetuje limit roztočení a históriu výsledkov kolesa pre aktívnu
-              hru.
+              Resets the spin limit and wheel result history for the active game.
             </span>
           </button>
 
@@ -285,7 +284,7 @@ export default function StreamDeckPanel() {
               key={action.label}
               type="button"
               disabled
-              title="Serverová akcia zatiaľ nie je dostupná."
+              title="This server action is not available yet."
               className="flex min-h-32 flex-col items-center justify-center gap-2 rounded-2xl border border-zinc-800 bg-zinc-900/70 p-4 text-center opacity-55"
             >
               <span aria-hidden="true" className="text-3xl grayscale">
@@ -293,20 +292,20 @@ export default function StreamDeckPanel() {
               </span>
               <span className="text-sm font-bold">{action.label}</span>
               <span className="text-[11px] leading-4 text-zinc-500">
-                API zatiaľ nie je dostupné
+                API is not available yet
               </span>
             </button>
           ))}
         </div>
 
         <p className="mt-5 text-center text-xs leading-5 text-zinc-500">
-          Zmeny sú dostupné len prihlásenému administrátorovi. Nastavenie
-          herných kolies nájdeš v{" "}
+          Changes are available only to signed-in administrators. Configure
+          game wheels in the{" "}
           <a
             href="/dashboard?tab=admin"
             className="font-semibold text-violet-300 underline underline-offset-2"
           >
-            administrácii
+            admin panel
           </a>
           .
         </p>

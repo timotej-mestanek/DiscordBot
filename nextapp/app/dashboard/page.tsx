@@ -12,18 +12,18 @@ import { prisma } from "@/lib/prisma";
 import { getAccountPointBalances } from "@/lib/points";
 
 const userTabs = [
-  { id: "points", label: "Moje body" },
+  { id: "points", label: "My points" },
   { id: "leds", label: "LEDS" },
-  { id: "auth", label: "Autorizace" },
+  { id: "auth", label: "Authorization" },
 ] as const;
 
 const adminTabs = [
-  { id: "interesting", label: "Zaujímavosti" },
+  { id: "interesting", label: "Fun facts" },
   { id: "admin", label: "Admin" },
   { id: "admin-shop", label: "Admin Shop" },
   { id: "wheels", label: "Wheels" },
   { id: "logs", label: "Logs" },
-  { id: "overlays", label: "Overlaye" },
+  { id: "overlays", label: "Overlays" },
 ] as const;
 
 type DashboardTab =
@@ -31,15 +31,15 @@ type DashboardTab =
   | (typeof adminTabs)[number]["id"];
 
 const dashboardTitles: Record<DashboardTab, string> = {
-  points: "Moje body",
+  points: "My points",
   leds: "LEDS",
-  auth: "Autorizace",
-  interesting: "Zaujímavosti",
-  admin: "Administrace",
+  auth: "Authorization",
+  interesting: "Fun facts",
+  admin: "Administration",
   "admin-shop": "Admin Shop",
   wheels: "Wheels",
   logs: "Logs",
-  overlays: "Overlaye",
+  overlays: "Overlays",
 };
 
 export default async function DashboardPage({
@@ -74,8 +74,8 @@ export default async function DashboardPage({
   const linkedLabel =
     params.linked === "discord" || params.linked === "twitch"
       ? params.merged === "true"
-        ? `Účty byly sloučeny a ${params.linked === "discord" ? "Discord" : "Twitch"} účet je teď připojený k tomuto profilu.`
-        : `${params.linked === "discord" ? "Discord" : "Twitch"} účet byl úspěšně propojen.`
+        ? `Accounts were merged and the ${params.linked === "discord" ? "Discord" : "Twitch"} account is now linked to this profile.`
+        : `${params.linked === "discord" ? "Discord" : "Twitch"} account linked successfully.`
       : null;
   const [balances, rates] = await Promise.all([
     getAccountPointBalances(account.identities),
@@ -108,7 +108,7 @@ export default async function DashboardPage({
             </span>
             <form action="/api/logout" method="post">
               <button className="rounded-lg border border-zinc-700 px-4 py-2 text-sm font-medium transition-colors hover:border-zinc-500 hover:bg-zinc-800">
-                Odhlásit
+                Sign out
               </button>
             </form>
           </div>
@@ -146,7 +146,7 @@ export default async function DashboardPage({
           )}
           <div className="flex shrink-0 flex-col gap-1">
             <p className="px-3 py-2 text-xs font-bold uppercase tracking-widest text-zinc-500">
-              Můj účet
+              My account
             </p>
             {userTabs.map((tab) => (
               <a
@@ -177,7 +177,7 @@ export default async function DashboardPage({
               {dashboardTitles[activeTab]}
             </h1>
             <p className="mt-2 text-sm text-zinc-400">
-              Přihlášen jako {account.display_name}
+              Signed in as {account.display_name}
             </p>
           </div>
 
@@ -192,14 +192,12 @@ export default async function DashboardPage({
               className="mb-5 rounded-lg border border-red-900 bg-red-950/50 p-3 text-sm text-red-200"
             >
               {params.error === "identity-in-use"
-                ? "Tento účet už je propojený s jiným profilem. Účty nebyly sloučeny."
+                ? "This account is already linked to another profile. The accounts were not merged."
                 : params.error === "denied"
-                  ? "Autorizace nebyla dokončena."
+                  ? "Authorization was not completed."
                   : params.error === "provider"
-                    ? "Účet poskytovatele se nepodařilo ověřit."
-                        : params.error === "identity-in-use"
-                          ? "Účty nelze sloučit: aktuální profil už má připojený jiný účet stejné služby."
-                        : "Přihlášení vypršelo. Spusť autorizaci znovu."}
+                    ? "The provider account could not be verified."
+                    : "Your sign-in session expired. Start authorization again."}
             </p>
           )}
 
@@ -213,18 +211,18 @@ export default async function DashboardPage({
             ) : (
               <section className="rounded-xl border border-zinc-800 bg-zinc-900 p-6">
                 <p className="text-sm font-semibold uppercase tracking-widest text-violet-300">
-                  LEDS · zamčeno
+                  LEDS · locked
                 </p>
-                <h2 className="mt-2 text-xl font-semibold">Přístup přes shop</h2>
+                <h2 className="mt-2 text-xl font-semibold">Unlock through the shop</h2>
                 <p className="mt-3 text-sm leading-6 text-zinc-400">
-                  Pro otevření editoru kup Custom LED effect v shopu. Každé použití v editoru
-                  spotřebuje jednu zakoupenou položku.
+                  Buy Custom LED effect in the shop to unlock the editor. Each use
+                  consumes one purchased item.
                 </p>
                 <Link
                   href="/shop"
                   className="mt-5 inline-flex rounded-lg bg-violet-600 px-4 py-2.5 text-sm font-semibold hover:bg-violet-500"
                 >
-                  Přejít do shopu
+                  Go to shop
                 </Link>
               </section>
             )
@@ -245,8 +243,8 @@ export default async function DashboardPage({
                       <h2 className="text-lg font-semibold">{label}</h2>
                       <p className="mt-2 text-sm text-zinc-400">
                         {identity
-                          ? `Propojeno jako ${identity.display_name}`
-                          : "K účtu zatím není připojen"}
+                          ? `Linked as ${identity.display_name}`
+                          : "Not linked to this account yet"}
                       </p>
                     </div>
                     <span className={`rounded-full px-2.5 py-1 text-xs ${
@@ -254,7 +252,7 @@ export default async function DashboardPage({
                         ? "bg-emerald-950 text-emerald-300"
                         : "bg-zinc-800 text-zinc-400"
                     }`}>
-                      {identity ? "Připojeno" : "Nepřipojeno"}
+                      {identity ? "Connected" : "Not connected"}
                     </span>
                   </div>
                   {!identity && (
@@ -262,13 +260,13 @@ export default async function DashboardPage({
                       href={`/api/login/${provider}`}
                       className="mt-5 inline-flex min-h-10 items-center justify-center rounded-lg bg-violet-600 px-4 text-sm font-semibold transition-colors hover:bg-violet-500"
                     >
-                      Připojit {label}
+                      Connect {label}
                     </a>
                   )}
                 </article>
               ))}
               <p className="text-sm leading-6 text-zinc-500 lg:col-span-2">
-                Připojení dalších přihlašovacích údajů propojí účty k tomuto profilu. Účet už propojený jinde nelze automaticky sloučit. Webové přihlášení zůstává aktivní 30 dní.
+                Linking another sign-in connects that account to this profile. An account already linked elsewhere cannot be merged automatically. Web sign-in remains active for 30 days.
               </p>
             </div>
           )}

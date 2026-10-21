@@ -1,5 +1,6 @@
 import { getCurrentAccount } from "@/lib/auth/session";
 import Link from "next/link";
+import LivePointBalance from "@/app/LivePointBalance";
 import RankingSwitcher from "@/app/RankingSwitcher";
 import {
   StreamLiveBadge,
@@ -70,36 +71,16 @@ export default async function Home() {
               Shop
             </Link>
             <Link href="/commands" className="text-sm font-semibold text-zinc-300 hover:text-white">
-              Příkazy
+              Commands
             </Link>
           </div>
           <div className="flex items-center gap-3">
-            {playerBalances && (
-              <div
-                aria-label="Zůstatek bodů"
-                className="hidden text-right text-xs leading-5 text-zinc-400 sm:block"
-              >
-                {playerBalances.discord !== null && (
-                  <p>
-                    Discord <span className="font-semibold tabular-nums text-white">
-                      {playerBalances.discord.toLocaleString("cs-CZ")}
-                    </span>
-                  </p>
-                )}
-                {playerBalances.twitchCustom !== null && (
-                  <p>
-                    Twitch <span className="font-semibold tabular-nums text-white">
-                      {playerBalances.twitchCustom.toLocaleString("cs-CZ")}
-                    </span>
-                  </p>
-                )}
-              </div>
-            )}
+            {playerBalances && <LivePointBalance initial={playerBalances} />}
             <a
               href={account ? "/dashboard" : "/login"}
               className="rounded-lg bg-violet-600 px-4 py-2 text-sm font-semibold hover:bg-violet-500"
             >
-              {account ? "Můj účet" : "Přihlásit se"}
+              {account ? "My account" : "Sign in"}
             </a>
           </div>
         </div>
@@ -111,13 +92,13 @@ export default async function Home() {
         <div className="relative mx-auto max-w-6xl px-4 py-20 sm:px-6 md:py-28">
           <StreamLiveBadge />
           <p className="text-sm font-semibold uppercase tracking-[0.3em] text-violet-300">
-            Streamer · komunita · body
+            Streaming · community · points
           </p>
           <h1 className="mt-5 max-w-3xl text-5xl font-black tracking-tight sm:text-7xl">
             N4JT<span className="text-violet-400">.</span>
           </h1>
           <p className="mt-5 max-w-xl text-lg leading-8 text-zinc-300">
-            Vítej na komunitním webu N4JT. Sleduj stream, porovnej body a měj přehled o tom, co právě běží.
+            Welcome to the N4JT community hub. Watch the stream, compare points, and see what is happening.
           </p>
           <div className="mt-8 flex flex-wrap gap-3">
             <a href={twitchUrl} target="_blank" rel="noreferrer" className="rounded-lg bg-violet-600 px-5 py-3 font-semibold hover:bg-violet-500">
@@ -125,7 +106,7 @@ export default async function Home() {
             </a>
             {discordUrl && (
               <a href={discordUrl} target="_blank" rel="noreferrer" className="rounded-lg border border-zinc-700 px-5 py-3 font-semibold hover:bg-zinc-900">
-                Discord komunita
+                Discord community
               </a>
             )}
             {instagramUrl && (
@@ -155,15 +136,15 @@ export default async function Home() {
           <TopClipCard initialClip={topClip} />
           <section className="rounded-2xl border border-zinc-800 bg-zinc-900/70 p-5">
             <p className="text-sm font-semibold uppercase tracking-widest text-violet-300">
-              Kalendář
+              Schedule
             </p>
-            <h2 className="mt-2 text-xl font-bold">Kdy se streamuje</h2>
+            <h2 className="mt-2 text-xl font-bold">Upcoming streams</h2>
             <ol className="mt-4 divide-y divide-zinc-800">
               {streamEvents.map((event) => (
                 <li key={event.id} className="py-3 first:pt-0 last:pb-0">
                   <p className="font-medium">{event.title}</p>
                   <p className="mt-1 text-sm text-zinc-400">
-                    {new Date(event.starts_at).toLocaleString("cs-CZ", {
+                    {new Date(event.starts_at).toLocaleString("en-GB", {
                       timeZone: "Europe/Prague",
                       weekday: "short",
                       day: "numeric",
@@ -172,7 +153,7 @@ export default async function Home() {
                       minute: "2-digit",
                     })}
                     {event.ends_at &&
-                      ` – ${new Date(event.ends_at).toLocaleTimeString("cs-CZ", {
+                      ` – ${new Date(event.ends_at).toLocaleTimeString("en-GB", {
                         timeZone: "Europe/Prague",
                         hour: "2-digit",
                         minute: "2-digit",
@@ -182,7 +163,7 @@ export default async function Home() {
               ))}
               {streamEvents.length === 0 && (
                 <li className="py-3 text-sm text-zinc-500">
-                  Další termín zatím není naplánovaný.
+                  No upcoming streams are scheduled.
                 </li>
               )}
             </ol>
@@ -192,7 +173,7 @@ export default async function Home() {
       </StreamStatusProvider>
 
       <footer className="border-t border-zinc-800 px-4 py-6 text-center text-xs text-zinc-500">
-        Twitch CustomBody a Discord body jsou oddělené měny. Channel Points nejsou aplikací zpracovávané.
+        Twitch CustomBody and Discord points are separate currencies. Twitch Channel Points are not processed by this app.
       </footer>
     </main>
   );

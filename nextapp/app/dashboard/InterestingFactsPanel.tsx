@@ -5,9 +5,9 @@ import { useEffect, useState } from "react";
 const exampleJson = JSON.stringify(
   [
     {
-      title: "Proč je obloha modrá?",
-      body: "Molekuly vzduchu rozptylují modré světlo více než červené.",
-      category: "Věda",
+      title: "Why is the sky blue?",
+      body: "Air molecules scatter blue light more than red light.",
+      category: "Science",
     },
   ],
   null,
@@ -33,7 +33,7 @@ export default function InterestingFactsPanel() {
             "error" in result &&
             typeof result.error === "string"
               ? result.error
-              : "Zajímavosti se nepodařilo načíst.";
+              : "Could not load fun facts.";
           throw new Error(message);
         }
         if (!active) return;
@@ -46,7 +46,7 @@ export default function InterestingFactsPanel() {
         setError(
           loadError instanceof Error
             ? loadError.message
-            : "Zajímavosti se nepodařilo načíst.",
+            : "Could not load fun facts.",
         );
       })
       .finally(() => {
@@ -66,8 +66,8 @@ export default function InterestingFactsPanel() {
     } catch (parseError) {
       setError(
         parseError instanceof Error
-          ? `Neplatný JSON: ${parseError.message}`
-          : "Text není platný JSON.",
+          ? `Invalid JSON: ${parseError.message}`
+          : "The text is not valid JSON.",
       );
       return;
     }
@@ -87,7 +87,7 @@ export default function InterestingFactsPanel() {
           "error" in result &&
           typeof result.error === "string"
             ? result.error
-            : "Zajímavosti se nepodařilo uložit.";
+            : "Could not save fun facts.";
         setError(message);
         return;
       }
@@ -98,10 +98,10 @@ export default function InterestingFactsPanel() {
         typeof result.saved === "number"
           ? result.saved
           : 0;
-      setNotice(`Uloženo: ${savedCount} zajímavostí.`);
+      setNotice(`Saved ${savedCount} fun facts.`);
     } catch (saveError) {
       console.error("Interesting facts admin save failed:", saveError);
-      setError("Zajímavosti se nepodařilo uložit. Zkontroluj připojení a zkus to znovu.");
+      setError("Could not save fun facts. Check your connection and try again.");
     } finally {
       setSaving(false);
     }
@@ -113,16 +113,16 @@ export default function InterestingFactsPanel() {
         <div className="flex flex-wrap items-start justify-between gap-4">
           <div>
             <p className="text-xs font-bold uppercase tracking-[0.24em] text-violet-300">
-              Denní obsah · externí API
+              Daily content · public API
             </p>
-            <h2 className="mt-2 text-2xl font-bold">Zajímavost dne</h2>
+            <h2 className="mt-2 text-2xl font-bold">Fun fact of the day</h2>
             <p className="mt-2 max-w-2xl text-sm leading-6 text-zinc-300">
-              Každý den se zobrazí jedna zajímavost. Výběr se mění o půlnoci v
-              pevném pásmu GMT+2 a během dne zůstává stejný.
+              One fun fact is shown each day. The selection changes at midnight
+              in the fixed GMT+2 time zone and remains the same throughout the day.
             </p>
           </div>
           <span className="rounded-full border border-cyan-400/20 bg-cyan-400/10 px-3 py-1.5 text-xs font-semibold text-cyan-200">
-            GMT+2 · 1 záznam denně
+            GMT+2 · 1 fact per day
           </span>
         </div>
       </section>
@@ -130,13 +130,13 @@ export default function InterestingFactsPanel() {
       <section className="rounded-xl border border-zinc-800 bg-zinc-900 p-5 sm:p-6">
         <div className="flex flex-wrap items-center justify-between gap-3">
           <div>
-            <h2 className="text-lg font-semibold">JSON databáze</h2>
+            <h2 className="text-lg font-semibold">JSON database</h2>
             <p className="mt-1 text-sm text-zinc-400">
-              Uložení nahradí celý seznam. Kategorie je volitelná.
+              Saving replaces the entire list. Category is optional.
             </p>
           </div>
           <span className="text-xs text-zinc-500">
-            {loading ? "Načítám…" : "Formát: pole objektů"}
+            {loading ? "Loading…" : "Format: array of objects"}
           </span>
         </div>
         <textarea
@@ -146,7 +146,7 @@ export default function InterestingFactsPanel() {
             setNotice("");
           }}
           spellCheck={false}
-          aria-label="JSON seznam zajímavostí"
+          aria-label="JSON fun facts list"
           className="mt-4 min-h-80 w-full resize-y rounded-xl border border-zinc-700 bg-[#09090f] p-4 font-mono text-sm leading-6 text-violet-100 outline-none transition focus:border-violet-500 focus:ring-2 focus:ring-violet-500/20"
         />
         <div className="mt-4 flex flex-wrap items-center gap-3">
@@ -156,7 +156,7 @@ export default function InterestingFactsPanel() {
             disabled={saving || loading}
             className="rounded-lg bg-violet-600 px-5 py-2.5 text-sm font-semibold transition hover:bg-violet-500 disabled:cursor-not-allowed disabled:opacity-50"
           >
-            {saving ? "Ukládám…" : "Ověřit JSON a uložit"}
+            {saving ? "Saving…" : "Validate JSON and save"}
           </button>
           {notice && (
             <p role="status" className="text-sm text-emerald-300">
@@ -170,32 +170,32 @@ export default function InterestingFactsPanel() {
           )}
         </div>
         <p className="mt-4 text-xs leading-5 text-zinc-500">
-          Každý záznam musí mít <code className="text-violet-300">title</code> a{" "}
-          <code className="text-violet-300">body</code>. Jeden záznam může mít
-          volitelně také <code className="text-violet-300">category</code>.
-          Limit je 200 záznamů.
+          Each item must have <code className="text-violet-300">title</code> and{" "}
+          <code className="text-violet-300">body</code>. You can also add an
+          optional <code className="text-violet-300">category</code>.
+          The limit is 200 items.
         </p>
       </section>
 
       <section className="rounded-xl border border-zinc-800 bg-zinc-900 p-5 sm:p-6">
-        <h2 className="text-lg font-semibold">Veřejné API</h2>
+        <h2 className="text-lg font-semibold">Public API</h2>
         <p className="mt-1 text-sm text-zinc-400">
-          Endpoint je veřejný a podporuje CORS. Každý režim vrací stejnou jednu
-          denní položku.
+          This endpoint is public and supports CORS. Every format returns the
+          same single daily fact.
         </p>
         <div className="mt-4 grid gap-3">
           {[
             {
               format: "json",
-              description: "Čistý JSON pro načtení dat do jiné stránky.",
+              description: "Plain JSON for loading data on another page.",
             },
             {
               format: "animated",
-              description: "Animovaná HTML karta pro vložení do iframe.",
+              description: "Animated HTML card for embedding in an iframe.",
             },
             {
               format: "static",
-              description: "Statická HTML karta pro vložení do iframe.",
+              description: "Static HTML card for embedding in an iframe.",
             },
           ].map(({ format, description }) => (
             <article
@@ -216,8 +216,8 @@ export default function InterestingFactsPanel() {
 ></iframe>`}
         </pre>
         <p className="mt-3 text-xs leading-5 text-zinc-500">
-          JSON odpověď: <code>{`{"title":"…","body":"…","category":"…"}`}</code>.
-          Pokud není vybraná žádná zajímavost, API vrátí HTTP 404.
+          JSON response: <code>{`{"title":"…","body":"…","category":"…"}`}</code>.
+          The API returns HTTP 404 if there are no facts to display.
         </p>
       </section>
     </div>

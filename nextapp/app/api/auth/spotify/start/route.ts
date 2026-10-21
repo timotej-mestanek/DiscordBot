@@ -6,10 +6,10 @@ import { prisma } from "@/lib/prisma";
 export async function GET() {
   const account = await getCurrentAccount();
   if (!account) {
-    return NextResponse.json({ error: "Přihlas se." }, { status: 401 });
+    return NextResponse.json({ error: "Sign in to continue." }, { status: 401 });
   }
   if (account.role !== "admin") {
-    return NextResponse.json({ error: "Přístup odepřen." }, { status: 403 });
+    return NextResponse.json({ error: "Access denied." }, { status: 403 });
   }
 
   const clientId = process.env.SPOTIFY_CLIENT_ID;
@@ -17,7 +17,7 @@ export async function GET() {
   const redirectUri = process.env.SPOTIFY_REDIRECT_URI;
   if (!clientId || !clientSecret || !redirectUri) {
     console.error("Missing Spotify OAuth client ID or callback URI.");
-    return NextResponse.json({ error: "Spotify není nakonfigurováno." }, { status: 500 });
+    return NextResponse.json({ error: "Spotify is not configured." }, { status: 500 });
   }
 
   const { state, nonce, expiresAt } = createSpotifyOAuthState(

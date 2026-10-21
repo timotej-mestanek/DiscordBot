@@ -71,26 +71,26 @@ export default async function ShopPage({
       </header>
       <div className="mx-auto max-w-6xl px-4 py-10 sm:px-6 md:py-14">
         <p className="text-sm font-semibold uppercase tracking-[0.3em] text-violet-300">
-          Komunitní shop
+          Community shop
         </p>
         <h1 className="mt-3 text-4xl font-black sm:text-5xl">Shop</h1>
         <p className="mt-3 max-w-2xl text-zinc-400">
-          Nakup položky za Discord body nebo Twitch CustomBody. Podle nastavení se položka použije hned,
-          nebo se uloží do inventáře.
+          Buy items with Discord points or Twitch CustomBody. Depending on the
+          product settings, an item is used immediately or added to your inventory.
         </p>
         {isPublicPreview && (
           <p className="mt-5 rounded-lg border border-violet-900/60 bg-violet-950/20 p-3 text-sm text-violet-200">
-            Uživatelský náhled · neaktivní produkty a administrační nástroje jsou skryté.
+            Public preview · inactive products and admin tools are hidden.
           </p>
         )}
 
         {!shopTablesReady ? (
           <section className="mt-8 rounded-xl border border-amber-900 bg-amber-950/40 p-5">
-            <h2 className="font-semibold text-amber-100">Shop potřebuje databázovou migraci</h2>
+            <h2 className="font-semibold text-amber-100">The shop requires a database migration</h2>
             <p className="mt-2 text-sm leading-6 text-amber-100/80">
-              Shop zatím není dostupný, protože v databázi chybí jeho tabulky. Spusť
+              The shop is unavailable because its database tables are missing. Run
               {" "}<code className="rounded bg-black/30 px-1.5 py-0.5">pnpm exec prisma migrate deploy</code>
-              {" "}a obnov stránku.
+              {" "}and reload the page.
             </p>
           </section>
         ) : (
@@ -138,8 +138,8 @@ export default async function ShopPage({
             {products.every((product) => !product.active) && (
               <p className="mt-8 rounded-xl border border-zinc-800 bg-zinc-900 p-5 text-sm text-zinc-400">
                 {account?.role === "admin" && !isPublicPreview
-                  ? "Vytvoř modul v administraci shopu níže a zapni jeho prodej."
-                  : "Momentálně nejsou v prodeji žádné moduly."}
+                  ? "Create a product in the shop admin section below and enable it."
+                  : "No products are currently available."}
               </p>
             )}
           </>

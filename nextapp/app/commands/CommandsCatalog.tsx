@@ -4,16 +4,16 @@ import { useMemo, useState } from "react";
 import type { TtvCommandGroup, TtvCommandRole } from "@/lib/ttv-commands";
 
 const roleLabels: Record<TtvCommandRole, string> = {
-  everyone: "Všichni",
+  everyone: "Everyone",
   vip: "VIP",
-  mods: "Moderátoři",
+  mods: "Moderators",
 };
 
 const roleFilters: Array<{ id: "all" | TtvCommandRole; label: string }> = [
-  { id: "all", label: "Všechny role" },
-  { id: "everyone", label: "Všichni" },
+  { id: "all", label: "All roles" },
+  { id: "everyone", label: "Everyone" },
   { id: "vip", label: "VIP" },
-  { id: "mods", label: "Moderátoři" },
+  { id: "mods", label: "Moderators" },
 ];
 
 export default function CommandsCatalog({
@@ -27,7 +27,7 @@ export default function CommandsCatalog({
     useState<(typeof roleFilters)[number]["id"]>("all");
 
   const filteredGroups = useMemo(() => {
-    const normalizedQuery = query.trim().toLocaleLowerCase("cs");
+    const normalizedQuery = query.trim().toLocaleLowerCase("en");
     return groups
       .filter((group) => activeGroup === "all" || group.id === activeGroup)
       .map((group) => ({
@@ -40,7 +40,7 @@ export default function CommandsCatalog({
           const matchesQuery =
             !normalizedQuery ||
             `${command.name} ${command.description} ${command.usage ?? ""} ${group.label}`
-              .toLocaleLowerCase("cs")
+              .toLocaleLowerCase("en")
               .includes(normalizedQuery);
           return matchesRole && matchesQuery;
         }),
@@ -56,7 +56,7 @@ export default function CommandsCatalog({
     <>
       <section className="rounded-2xl border border-white/10 bg-zinc-900/80 p-4 shadow-2xl shadow-violet-950/20 sm:p-6">
         <label htmlFor="command-search" className="sr-only">
-          Hledat příkaz
+          Search commands
         </label>
         <div className="relative">
           <span
@@ -70,7 +70,7 @@ export default function CommandsCatalog({
             type="search"
             value={query}
             onChange={(event) => setQuery(event.target.value)}
-            placeholder="Hledat příkaz nebo popis…"
+            placeholder="Search commands or descriptions…"
             className="w-full rounded-xl border border-zinc-700 bg-zinc-950 py-3.5 pl-12 pr-4 text-sm text-white outline-none transition placeholder:text-zinc-500 focus:border-violet-500 focus:ring-2 focus:ring-violet-500/20"
           />
         </div>
@@ -85,7 +85,7 @@ export default function CommandsCatalog({
                 : "bg-zinc-800 text-zinc-300 hover:bg-zinc-700"
             }`}
           >
-            Všechny kategorie
+            All categories
           </button>
           {groups.map((group) => (
             <button
@@ -122,7 +122,7 @@ export default function CommandsCatalog({
             ))}
           </div>
           <p className="text-xs text-zinc-500">
-            {visibleCount} {visibleCount === 1 ? "příkaz" : "příkazů"}
+            {visibleCount} {visibleCount === 1 ? "command" : "commands"}
           </p>
         </div>
       </section>
@@ -181,8 +181,8 @@ export default function CommandsCatalog({
             ) : (
               <p className="rounded-xl border border-dashed border-zinc-800 bg-zinc-900/40 p-5 text-sm text-zinc-500">
                 {query || activeRole !== "all"
-                  ? "Žádné příkazy neodpovídají vyhledávání a zvolenému filtru."
-                  : "Zatím tu nejsou uvedené žádné Twitch příkazy."}
+                  ? "No commands match your search and selected filters."
+                  : "No Twitch commands have been added to this category yet."}
               </p>
             )}
           </section>

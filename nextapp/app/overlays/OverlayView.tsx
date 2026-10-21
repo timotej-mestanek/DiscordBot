@@ -69,11 +69,11 @@ export default function OverlayView({ widget, player, refreshSeconds }: Props) {
             <div className="mt-2 flex items-end justify-between gap-4">
               <div className="min-w-0">
                 <h1 className="truncate text-2xl font-black">
-                  {cs2Player?.name || "Čekám na hru…"}
+                  {cs2Player?.name || "Waiting for the game…"}
                 </h1>
                 <p className="mt-1 text-sm text-zinc-400">
                   {cs2?.map?.name || "Game State Integration"}
-                  {cs2?.map?.round ? ` · Kolo ${cs2.map.round}` : ""}
+                  {cs2?.map?.round ? ` · Round ${cs2.map.round}` : ""}
                 </p>
               </div>
               <div className="flex shrink-0 gap-5 text-center">
@@ -87,15 +87,15 @@ export default function OverlayView({ widget, player, refreshSeconds }: Props) {
         ) : (
           <>
             <p className="text-[10px] font-bold uppercase tracking-[0.24em] text-amber-300">
-              PUBG · Ranked · Dnes
+              PUBG · Ranked · Today
             </p>
             <div className="mt-2 flex flex-wrap items-end justify-between gap-4">
               <div className="min-w-0">
                 <h1 className="truncate text-2xl font-black">
-                  {pubg?.player || player || "Zadej PUBG nickname"}
+                  {pubg?.player || player || "Enter a PUBG username"}
                 </h1>
                 <p className="mt-1 text-sm text-zinc-400">
-                  Steam · {pubg?.matches ?? 0} ranked zápasů
+                  Steam · {pubg?.matches ?? 0} ranked matches
                 </p>
               </div>
               <div className="grid grid-cols-3 gap-x-4 gap-y-3 text-center">
@@ -108,8 +108,8 @@ export default function OverlayView({ widget, player, refreshSeconds }: Props) {
               </div>
             </div>
             <div className="mt-4 flex flex-wrap gap-x-5 gap-y-1 border-t border-white/10 pt-3 text-xs text-zinc-300">
-              <span>Průměr damage: {pubg?.averageDamage.toLocaleString("cs-CZ") ?? "—"}</span>
-              <span>Nejvyšší damage v jednom ranked zápase</span>
+              <span>Average damage: {pubg?.averageDamage.toLocaleString("en-US") ?? "—"}</span>
+              <span>Highest damage in a single ranked match</span>
             </div>
             {loadError && <LoadError />}
           </>
@@ -145,7 +145,7 @@ function Stat({
 function LoadError() {
   return (
     <p className="mt-3 text-xs text-red-300">
-      Statistiky se nepodařilo načíst. Zkontroluj konfiguraci API.
+      Could not load statistics. Check the API configuration.
     </p>
   );
 }

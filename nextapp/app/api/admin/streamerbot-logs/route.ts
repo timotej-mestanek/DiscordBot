@@ -6,14 +6,14 @@ const PAGE_SIZE = 50;
 
 export async function GET(request: Request) {
   const admin = await getCurrentAccount();
-  if (!admin) return NextResponse.json({ error: "Přihlas se." }, { status: 401 });
+  if (!admin) return NextResponse.json({ error: "Sign in to continue." }, { status: 401 });
   if (admin.role !== "admin") {
-    return NextResponse.json({ error: "Přístup odepřen." }, { status: 403 });
+    return NextResponse.json({ error: "Access denied." }, { status: 403 });
   }
 
   const cursor = new URL(request.url).searchParams.get("cursor");
   if (cursor && (cursor.length > 100 || !/^[a-zA-Z0-9_-]+$/.test(cursor))) {
-    return NextResponse.json({ error: "Neplatný kurzor." }, { status: 400 });
+    return NextResponse.json({ error: "Invalid cursor." }, { status: 400 });
   }
 
   try {
@@ -31,7 +31,7 @@ export async function GET(request: Request) {
   } catch (error) {
     console.error("Streamer.bot dashboard logs lookup failed:", error);
     return NextResponse.json(
-      { error: "Streamer.bot logy sa nepodarilo načítať." },
+      { error: "Could not load Streamer.bot logs." },
       { status: 500 },
     );
   }

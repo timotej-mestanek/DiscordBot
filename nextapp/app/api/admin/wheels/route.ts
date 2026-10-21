@@ -83,13 +83,13 @@ async function requireAdmin() {
   if (!account) {
     return {
       admin: null,
-      response: NextResponse.json({ error: "Přihlas se." }, { status: 401 }),
+      response: NextResponse.json({ error: "Sign in to continue." }, { status: 401 }),
     };
   }
   if (account.role !== "admin") {
     return {
       admin: null,
-      response: NextResponse.json({ error: "Přístup odepřen." }, { status: 403 }),
+      response: NextResponse.json({ error: "Access denied." }, { status: 403 }),
     };
   }
   return { admin: account, response: null };
@@ -117,7 +117,7 @@ export async function GET() {
           gameName: null,
           spinCount: 0,
           config: defaultWheelConfig(
-            kind === "main" ? "Koleso šťastia" : "VIP koleso šťastia",
+            kind === "main" ? "Prize wheel" : "VIP prize wheel",
           ),
         });
       }
@@ -133,7 +133,7 @@ export async function GET() {
   } catch (error) {
     console.error("Wheel admin configuration lookup failed:", error);
     return NextResponse.json(
-      { error: "Konfiguráciu kolies sa nepodarilo načítať." },
+      { error: "Could not load the wheel configuration." },
       { status: 500 },
     );
   }
@@ -141,7 +141,7 @@ export async function GET() {
 
 export async function PUT(request: Request) {
   if (!isSameOriginRequest(request)) {
-    return NextResponse.json({ error: "Neplatný požadavek." }, { status: 403 });
+    return NextResponse.json({ error: "Invalid request." }, { status: 403 });
   }
   const { admin, response } = await requireAdmin();
   if (response || !admin) return response;
@@ -150,10 +150,10 @@ export async function PUT(request: Request) {
   try {
     body = await request.json();
   } catch {
-    return NextResponse.json({ error: "Neplatná data požadavku." }, { status: 400 });
+    return NextResponse.json({ error: "Invalid request data." }, { status: 400 });
   }
   if (!isRecord(body) || !Array.isArray(body.profiles) || body.profiles.length > 100) {
-    return NextResponse.json({ error: "Neplatná konfigurácia kolies." }, { status: 400 });
+    return NextResponse.json({ error: "Invalid wheel configuration." }, { status: 400 });
   }
 
   const profiles = body.profiles.map(parseProfile);
@@ -166,7 +166,7 @@ export async function PUT(request: Request) {
       profiles.filter((profile) => profile?.kind === "game").length
   ) {
     return NextResponse.json(
-      { error: "Skontroluj názvy, Twitch ID hier a položky všetkých kolies." },
+      { error: "Check the names, Twitch game IDs, and outcomes for all wheels." },
       { status: 400 },
     );
   }
@@ -180,7 +180,7 @@ export async function PUT(request: Request) {
     !vipProfile?.config.enabled
   ) {
     return NextResponse.json(
-      { error: "VIP koleso musí byť zapnuté, ak hlavné koleso obsahuje VIP výsledok." },
+      { error: "The VIP wheel must be enabled when the main wheel has a VIP outcome." },
       { status: 400 },
     );
   }
@@ -231,7 +231,7 @@ export async function PUT(request: Request) {
   } catch (error) {
     console.error("Wheel admin configuration save failed:", error);
     return NextResponse.json(
-      { error: "Konfiguráciu kolies sa nepodarilo uložiť." },
+      { error: "Could not save the wheel configuration." },
       { status: 500 },
     );
   }
@@ -239,7 +239,7 @@ export async function PUT(request: Request) {
 
 export async function POST(request: Request) {
   if (!isSameOriginRequest(request)) {
-    return NextResponse.json({ error: "Neplatný požadavek." }, { status: 403 });
+    return NextResponse.json({ error: "Invalid request." }, { status: 403 });
   }
   const { admin, response } = await requireAdmin();
   if (response || !admin) return response;
@@ -248,7 +248,7 @@ export async function POST(request: Request) {
   try {
     body = await request.json();
   } catch {
-    return NextResponse.json({ error: "Neplatná data požadavku." }, { status: 400 });
+    return NextResponse.json({ error: "Invalid request data." }, { status: 400 });
   }
   if (
     !isRecord(body) ||
@@ -256,7 +256,7 @@ export async function POST(request: Request) {
     typeof body.gameId !== "string" ||
     !/^\d{1,32}$/.test(body.gameId)
   ) {
-    return NextResponse.json({ error: "Neplatný reset herného kolesa." }, { status: 400 });
+    return NextResponse.json({ error: "Invalid game wheel reset request." }, { status: 400 });
   }
 
   const profileId = `game:${body.gameId}`;
@@ -286,7 +286,7 @@ export async function POST(request: Request) {
       return profile;
     });
     if (!reset) {
-      return NextResponse.json({ error: "Profil hry sa nenašiel." }, { status: 404 });
+      return NextResponse.json({ error: "Game profile not found." }, { status: 404 });
     }
     publishWheelRealtimeEvent({
       type: "reset",
@@ -297,7 +297,7 @@ export async function POST(request: Request) {
   } catch (error) {
     console.error("Wheel game limit reset failed:", error);
     return NextResponse.json(
-      { error: "Limit herného kolesa sa nepodarilo resetovať." },
+      { error: "Could not reset the game wheel limit." },
       { status: 500 },
     );
   }

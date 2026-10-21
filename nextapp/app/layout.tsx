@@ -14,8 +14,8 @@ const geistMono = Geist_Mono({
 });
 
 export const metadata: Metadata = {
-  title: "N4JT — Stream a komunita",
-  description: "Sleduj stream N4JT, bodové žebříčky a komunitní shop.",
+  title: "N4JT — Stream and Community",
+  description: "Watch N4JT streams, explore point leaderboards, and visit the community shop.",
 };
 
 export default function RootLayout({
@@ -24,7 +24,7 @@ export default function RootLayout({
   children: React.ReactNode;
 }>) {
   return (
-    <html lang="cs">
+    <html lang="en">
       <body
         className={`${geistSans.variable} ${geistMono.variable} antialiased`}
       >

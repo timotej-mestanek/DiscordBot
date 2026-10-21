@@ -5,9 +5,9 @@ import { prisma } from "@/lib/prisma";
 
 export async function GET() {
   const account = await getCurrentAccount();
-  if (!account) return NextResponse.json({ error: "Přihlas se." }, { status: 401 });
+  if (!account) return NextResponse.json({ error: "Sign in to continue." }, { status: 401 });
   if (account.role !== "admin") {
-    return NextResponse.json({ error: "Přístup odepřen." }, { status: 403 });
+    return NextResponse.json({ error: "Access denied." }, { status: 403 });
   }
 
   const products = await prisma.shopProduct.findMany({
@@ -21,19 +21,19 @@ export async function GET() {
 
 export async function POST(request: Request) {
   if (!isSameOriginRequest(request)) {
-    return NextResponse.json({ error: "Neplatný požadavek." }, { status: 403 });
+    return NextResponse.json({ error: "Invalid request." }, { status: 403 });
   }
   const account = await getCurrentAccount();
-  if (!account) return NextResponse.json({ error: "Přihlas se." }, { status: 401 });
+  if (!account) return NextResponse.json({ error: "Sign in to continue." }, { status: 401 });
   if (account.role !== "admin") {
-    return NextResponse.json({ error: "Přístup odepřen." }, { status: 403 });
+    return NextResponse.json({ error: "Access denied." }, { status: 403 });
   }
 
   let body: unknown;
   try {
     body = await request.json();
   } catch {
-    return NextResponse.json({ error: "Neplatná data požadavku." }, { status: 400 });
+    return NextResponse.json({ error: "Invalid request data." }, { status: 400 });
   }
 
   if (
@@ -67,7 +67,7 @@ export async function POST(request: Request) {
     typeof body.active !== "boolean" ||
     ("productId" in body && typeof body.productId !== "string")
   ) {
-    return NextResponse.json({ error: "Zkontroluj název, popis a ceny modulu." }, { status: 400 });
+    return NextResponse.json({ error: "Check the product name, description, and prices." }, { status: 400 });
   }
 
   const name = body.name.trim();
@@ -84,7 +84,7 @@ export async function POST(request: Request) {
       const previous = productId
         ? await transaction.shopProduct.findUnique({ where: { id: productId } })
         : null;
-      if (productId && !previous) throw new Error("Produkt nebyl nalezen.");
+      if (productId && !previous) throw new Error("Product not found.");
 
       const savedProduct = productId
         ? await transaction.shopProduct.update({
@@ -144,6 +144,6 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: error.message }, { status: 404 });
     }
     console.error("Shop module save failed:", error);
-    return NextResponse.json({ error: "Modul se nepodařilo uložit." }, { status: 500 });
+    return NextResponse.json({ error: "Could not save the product." }, { status: 500 });
   }
 }

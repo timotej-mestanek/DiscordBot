@@ -7,7 +7,7 @@ export async function GET() {
   } catch (error) {
     console.error("Unable to start Twitch login:", error);
     return NextResponse.json(
-      { error: "Twitch přihlášení není nakonfigurované." },
+      { error: "Twitch sign-in is not configured." },
       { status: 500 },
     );
   }

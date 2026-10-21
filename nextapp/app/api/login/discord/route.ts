@@ -7,7 +7,7 @@ export async function GET() {
   } catch (error) {
     console.error("Unable to start Discord login:", error);
     return NextResponse.json(
-      { error: "Discord přihlášení není nakonfigurované." },
+      { error: "Discord sign-in is not configured." },
       { status: 500 },
     );
   }

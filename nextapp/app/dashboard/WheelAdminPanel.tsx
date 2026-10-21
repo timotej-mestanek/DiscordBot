@@ -15,7 +15,7 @@ async function fetchWheelAdminData(): Promise<WheelAdminData> {
   const response = await fetch("/api/admin/wheels", { cache: "no-store" });
   const result = await response.json();
   if (!response.ok) {
-    throw new Error(result.error ?? "Konfiguráciu kolies sa nepodarilo načítať.");
+    throw new Error(result.error ?? "Could not load the wheel configuration.");
   }
   return result as WheelAdminData;
 }
@@ -23,7 +23,7 @@ async function fetchWheelAdminData(): Promise<WheelAdminData> {
 function createSlice(): WheelSlice {
   return {
     id: crypto.randomUUID().replaceAll("-", ""),
-    label: "Nová výhra",
+    label: "New prize",
     weight: 1,
     color: "#7c3aed",
     vipTrigger: false,
@@ -37,7 +37,7 @@ function createGameProfile(gameId: string, gameName: string): WheelProfileData {
     gameId,
     gameName,
     config: {
-      title: `${gameName} koleso`,
+      title: `${gameName} wheel`,
       enabled: false,
       durationMs: 8_000,
       pointMode: "n4jt_points",
@@ -108,7 +108,7 @@ export default function WheelAdminPanel() {
       setError(
         loadError instanceof Error
           ? loadError.message
-          : "Konfiguráciu kolies sa nepodarilo načítať.",
+          : "Could not load the wheel configuration.",
       );
     } finally {
       setLoading(false);
@@ -127,7 +127,7 @@ export default function WheelAdminPanel() {
         setError(
           loadError instanceof Error
             ? loadError.message
-            : "Konfiguráciu kolies sa nepodarilo načítať.",
+            : "Could not load the wheel configuration.",
         );
       })
       .finally(() => {
@@ -170,14 +170,14 @@ export default function WheelAdminPanel() {
     const normalizedId = id.trim();
     const normalizedName = name.trim();
     if (!/^\d{1,32}$/.test(normalizedId) || !normalizedName || normalizedName.length > 100) {
-      setError("Zadaj názov hry a jej číselné Twitch Game ID.");
+      setError("Enter a game name and its numeric Twitch Game ID.");
       return;
     }
     const existing = data.profiles.find((profile) => profile.gameId === normalizedId);
     if (existing) {
       setSelectedId(existing.id);
       setError("");
-      setNotice(`Profil hry ${existing.gameName} už existuje.`);
+      setNotice(`A profile for ${existing.gameName} already exists.`);
       return;
     }
     const profile = createGameProfile(normalizedId, normalizedName);
@@ -202,15 +202,15 @@ export default function WheelAdminPanel() {
       });
       const result = await response.json();
       if (!response.ok) {
-        setError(result.error ?? "Konfiguráciu kolies sa nepodarilo uložiť.");
+        setError(result.error ?? "Could not save the wheel configuration.");
         return;
       }
 
-      setNotice("Konfigurácia kolies bola uložená.");
+      setNotice("Wheel configuration saved.");
       await load();
     } catch (saveError) {
       console.error("Wheel admin configuration save failed:", saveError);
-      setError("Konfiguráciu kolies sa nepodarilo uložiť.");
+      setError("Could not save the wheel configuration.");
     } finally {
       setSaving(false);
     }
@@ -228,10 +228,10 @@ export default function WheelAdminPanel() {
       });
       const result = await response.json();
       if (!response.ok) {
-        setError(result.error ?? "Limit herného kolesa sa nepodarilo resetovať.");
+        setError(result.error ?? "Could not reset the game wheel limit.");
         return;
       }
-      setNotice(`Limit kolesa pre ${profile.gameName} bol resetovaný.`);
+      setNotice(`The wheel limit for ${profile.gameName} has been reset.`);
       setData((current) =>
         current
           ? {
@@ -244,15 +244,15 @@ export default function WheelAdminPanel() {
       );
     } catch (resetError) {
       console.error("Wheel game limit reset failed:", resetError);
-      setError("Limit herného kolesa sa nepodarilo resetovať.");
+      setError("Could not reset the game wheel limit.");
     }
   }
 
   if (loading && !data) {
     return (
       <section className="rounded-xl border border-zinc-800 bg-zinc-900 p-6">
-        <h2 className="text-xl font-semibold">Kolesá šťastia</h2>
-        <p className="mt-3 text-sm text-zinc-400">Načítavam konfiguráciu…</p>
+        <h2 className="text-xl font-semibold">Prize wheels</h2>
+        <p className="mt-3 text-sm text-zinc-400">Loading configuration…</p>
       </section>
     );
   }
@@ -260,14 +260,14 @@ export default function WheelAdminPanel() {
   if (!data) {
     return (
       <section className="rounded-xl border border-zinc-800 bg-zinc-900 p-6">
-        <h2 className="text-xl font-semibold">Kolesá šťastia</h2>
+        <h2 className="text-xl font-semibold">Prize wheels</h2>
         <p role="alert" className="mt-3 text-sm text-red-300">{error}</p>
         <button
           type="button"
           onClick={() => void load()}
           className="mt-4 rounded-lg border border-zinc-700 px-3 py-2 text-sm"
         >
-          Skúsiť znova
+          Try again
         </button>
       </section>
     );
@@ -283,11 +283,11 @@ export default function WheelAdminPanel() {
     <section className="rounded-xl border border-zinc-800 bg-zinc-900 p-6">
       <div className="flex flex-wrap items-start justify-between gap-4">
         <div>
-          <h2 className="text-xl font-semibold">Kolesá šťastia</h2>
+          <h2 className="text-xl font-semibold">Prize wheels</h2>
           <p className="mt-2 max-w-3xl text-sm leading-6 text-zinc-400">
-            Nastav výhry, ich váhy, farby a dĺžku animácie. Sub alebo donate
-            spúšťa hlavné koleso cez Streamer.bot; výherný VIP segment následne
-            roztočí VIP koleso. Herný profil sa vyberie podľa aktuálnej Twitch hry.
+            Configure prizes, weights, colors, and animation duration. A sub or donation
+            starts the main wheel via Streamer.bot; landing on a VIP segment then
+            spins the VIP wheel. The game profile is selected based on the current Twitch game.
           </p>
         </div>
         <div className="flex flex-wrap gap-2">
@@ -297,7 +297,7 @@ export default function WheelAdminPanel() {
             rel="noreferrer"
             className="rounded-lg border border-zinc-700 px-3 py-2 text-sm font-semibold hover:bg-zinc-800"
           >
-            Náhľad animácie kolesa
+            Wheel animation preview
           </a>
           <a
             href="/overlays/wheel-history"
@@ -305,7 +305,7 @@ export default function WheelAdminPanel() {
             rel="noreferrer"
             className="rounded-lg border border-violet-800 px-3 py-2 text-sm font-semibold text-violet-200 hover:bg-violet-950/50"
           >
-            Náhľad histórie výsledkov
+            Spin history preview
           </a>
         </div>
       </div>
@@ -322,19 +322,19 @@ export default function WheelAdminPanel() {
       )}
 
       <div className="mt-5 rounded-lg border border-zinc-800 bg-zinc-950/60 p-4 text-sm">
-        <p className="font-semibold">Hra na aktuálnom streame</p>
+        <p className="font-semibold">Game on the current stream</p>
         {data.liveGame ? (
           <p className="mt-1 text-zinc-300">
             {data.liveGame.name}
             {liveGameProfile
-              ? ` · aktívny profil: ${liveGameProfile.config.title}`
-              : " · zatiaľ bez herného profilu"}
+              ? ` · active profile: ${liveGameProfile.config.title}`
+              : " · no game profile yet"}
           </p>
         ) : (
           <p className="mt-1 text-zinc-400">
             {data.liveGameUnavailable
-              ? "Twitch hru sa teraz nepodarilo overiť."
-              : "Stream je offline alebo Twitch nevrátil kategóriu hry."}
+              ? "Could not verify the Twitch game."
+              : "The stream is offline or Twitch did not return a game category."}
           </p>
         )}
       </div>
@@ -342,31 +342,31 @@ export default function WheelAdminPanel() {
       <div className="mt-5 grid gap-4 lg:grid-cols-[minmax(13rem,0.7fr)_minmax(0,1.5fr)]">
         <div className="space-y-4">
           <label className="block text-sm text-zinc-300">
-            Upravované koleso
+            Wheel to edit
             <select
               value={selectedId}
               onChange={(event) => setSelectedId(event.target.value)}
               className="mt-1 w-full rounded-lg border border-zinc-700 bg-zinc-950 px-3 py-2"
             >
               <option value="main">Sub a donate</option>
-              <option value="vip">VIP koleso</option>
+              <option value="vip">VIP wheel</option>
               {gameProfiles.map((profile) => (
                 <option key={profile.id} value={profile.id}>
-                  {profile.gameName} · herné
+                  {profile.gameName} · game
                 </option>
               ))}
             </select>
           </label>
 
           <div className="rounded-lg border border-zinc-800 p-4">
-            <h3 className="font-semibold">Pridať profil hry</h3>
+            <h3 className="font-semibold">Add a game profile</h3>
             {data.liveGame && (
               <button
                 type="button"
                 onClick={() => addGameProfile(data.liveGame!.id, data.liveGame!.name)}
                 className="mt-3 w-full rounded-lg bg-violet-700 px-3 py-2 text-sm font-semibold hover:bg-violet-600"
               >
-                Pridať aktuálnu hru
+                Add current game
               </button>
             )}
             <form
@@ -380,7 +380,7 @@ export default function WheelAdminPanel() {
                 value={gameName}
                 onChange={(event) => setGameName(event.target.value)}
                 maxLength={100}
-                placeholder="Názov hry"
+                placeholder="Game name"
                 className="w-full rounded-lg border border-zinc-700 bg-zinc-950 px-3 py-2 text-sm"
               />
               <input
@@ -391,7 +391,7 @@ export default function WheelAdminPanel() {
                 className="w-full rounded-lg border border-zinc-700 bg-zinc-950 px-3 py-2 text-sm"
               />
               <button className="w-full rounded-lg border border-zinc-700 px-3 py-2 text-sm hover:bg-zinc-800">
-                Pridať profil
+                Add profile
               </button>
             </form>
             {selectedProfile?.kind === "game" && (
@@ -403,27 +403,27 @@ export default function WheelAdminPanel() {
                     profiles: data.profiles.filter((profile) => profile.id !== selectedProfile.id),
                   });
                   setSelectedId("main");
-                  setNotice("Profil bude odstránený po uložení zmien.");
+                  setNotice("The profile will be removed after saving changes.");
                 }}
                 className="mt-4 w-full rounded-lg border border-red-900 px-3 py-2 text-sm text-red-300 hover:bg-red-950/50"
               >
-                Odstrániť tento profil hry
+                Remove this game profile
               </button>
             )}
             {selectedProfile?.kind === "game" && (
               <div className="mt-4 rounded-lg border border-zinc-800 p-3">
                 <p className="text-sm font-medium">
-                  Zatočenia: {selectedProfile.spinCount}/{selectedProfile.config.maxSpins ?? 2}
+                  Spins: {selectedProfile.spinCount}/{selectedProfile.config.maxSpins ?? 2}
                 </p>
                 <p className="mt-1 text-xs text-zinc-500">
-                  Po dosiahnutí limitu sa koleso zastaví, kým ho moderátor alebo streamer neresetuje.
+                  Once the limit is reached, the wheel stops until a moderator or streamer resets it.
                 </p>
                 <button
                   type="button"
                   onClick={() => void resetGameLimit(selectedProfile)}
                   className="mt-3 w-full rounded-lg border border-amber-800 px-3 py-2 text-sm font-semibold text-amber-200 hover:bg-amber-950/50"
                 >
-                  Resetovať limit zatočení
+                  Reset spin limit
                 </button>
               </div>
             )}
@@ -434,7 +434,7 @@ export default function WheelAdminPanel() {
           <div className="min-w-0 space-y-4">
             <div className="grid gap-3 sm:grid-cols-[minmax(0,1fr)_10rem]">
               <label className="text-sm text-zinc-300">
-                Názov kolesa
+                Wheel title
                 <input
                   value={config.title}
                   maxLength={80}
@@ -445,7 +445,7 @@ export default function WheelAdminPanel() {
                 />
               </label>
               <label className="text-sm text-zinc-300">
-                Trvanie animácie (sekundy)
+                Animation duration (seconds)
                 <input
                   type="number"
                   min={3}
@@ -469,13 +469,13 @@ export default function WheelAdminPanel() {
                   updateConfig((current) => ({ ...current, enabled: event.target.checked }))
                 }
               />
-              Koleso zapnuté
+              Wheel enabled
             </label>
 
             {selectedProfile.kind === "game" && (
               <div className="grid gap-3 rounded-lg border border-zinc-800 p-4 sm:grid-cols-2">
                 <label className="text-sm text-zinc-300">
-                  Maximálny počet zatočení pred resetom
+                  Maximum spins before reset
                   <input
                     type="number"
                     min={1}
@@ -491,7 +491,7 @@ export default function WheelAdminPanel() {
                   />
                 </label>
                 <label className="text-sm text-zinc-300">
-                  Mena za otočenie
+                  Currency per spin
                   <select
                     value={config.pointMode ?? "n4jt_points"}
                     onChange={(event) =>
@@ -506,12 +506,12 @@ export default function WheelAdminPanel() {
                     }
                     className="mt-1 w-full rounded-lg border border-zinc-700 bg-zinc-950 px-3 py-2"
                   >
-                    <option value="n4jt_points">N4JT Twitch body</option>
+                    <option value="n4jt_points">N4JT Twitch points</option>
                     <option value="channel_points">Twitch Channel Points</option>
                   </select>
                 </label>
                 <label className="text-sm text-zinc-300">
-                  Cena za otočenie
+                  Cost per spin
                   <input
                     type="number"
                     min={1}
@@ -539,20 +539,20 @@ export default function WheelAdminPanel() {
                             channelRewardId: event.target.value,
                           }))
                         }
-                        placeholder="ID odmeny z Twitch / Streamer.bot"
+                        placeholder="Reward ID from Twitch / Streamer.bot"
                         className="mt-1 w-full rounded-lg border border-zinc-700 bg-zinc-950 px-3 py-2"
                       />
                     </label>
                     <p className="text-xs leading-5 text-amber-200 sm:col-span-2">
-                      Twitch odmenu nastav na rovnakú cenu a v Streamer.bot spusti
-                      koleso pri jej uplatnení. Twitch body sa účtujú priamo na Twitchi.
+                      Set the Twitch reward to the same cost and trigger the wheel in
+                      Streamer.bot when it is redeemed. Twitch points are charged directly by Twitch.
                     </p>
                   </>
                 )}
                 {config.pointMode === "n4jt_points" && (
                   <p className="text-xs leading-5 text-zinc-400 sm:col-span-2">
-                    Body sa odpočítajú z N4JT Twitch zostatku atomicky pri prijatí
-                    požiadavky; neúspešný spin body nestratí.
+                    Points are atomically deducted from the N4JT Twitch balance when the
+                    request is accepted; a failed spin does not consume points.
                   </p>
                 )}
               </div>
@@ -560,13 +560,13 @@ export default function WheelAdminPanel() {
 
             <div className="flex items-center justify-between gap-3">
               <div>
-                <h3 className="font-semibold">Výsledky kolieska</h3>
+                <h3 className="font-semibold">Wheel outcomes</h3>
                 <p className="text-xs text-zinc-500">
-                  Váha je relatívny počet žrebovacích lístkov, nie percento.
-                  Napríklad váhy 1 a 3 znamenajú pred žrebovaním šancu 25 % a 75 %.
-                  Decimály netreba: pomer 0,5 : 1,5 je rovnaký ako 1 : 3. Pri
-                  hernom kolese sa už vyžrebované možnosti do resetu vyradia a
-                  váhy sa prepočítajú medzi zostávajúcimi možnosťami.
+                  Weight is the relative number of raffle tickets, not a percentage.
+                  For example, weights 1 and 3 give chances of 25% and 75%.
+                  Decimals are unnecessary: a 0.5 : 1.5 ratio is the same as 1 : 3.
+                  In game wheels, already selected outcomes are removed until reset,
+                  and weights are recalculated among the remaining outcomes.
                 </p>
               </div>
               <button
@@ -578,14 +578,14 @@ export default function WheelAdminPanel() {
                 disabled={config.slices.length >= 24}
                 className="shrink-0 rounded-lg border border-zinc-700 px-3 py-2 text-sm hover:bg-zinc-800 disabled:opacity-50"
               >
-                Pridať výsledok
+                Add outcome
               </button>
             </div>
             <div className="space-y-3">
               {config.slices.map((slice, index) => (
                 <article key={slice.id} className="grid gap-3 rounded-lg border border-zinc-800 p-3 sm:grid-cols-[minmax(0,1fr)_6rem_4rem_auto]">
                   <label className="text-xs text-zinc-400">
-                    Výsledok {index + 1}
+                    Outcome {index + 1}
                     <input
                       value={slice.label}
                       maxLength={80}
@@ -599,9 +599,9 @@ export default function WheelAdminPanel() {
                     />
                   </label>
                   <label className="text-xs text-zinc-400">
-                    Váha
+                    Weight
                     <span className="mt-1 block text-[11px] text-zinc-500">
-                      Celé číslo 1–10 000 · vyššie číslo = väčšia šanca
+                      Integer 1–10,000 · higher number = higher chance
                     </span>
                     <input
                       type="number"
@@ -618,7 +618,7 @@ export default function WheelAdminPanel() {
                     />
                   </label>
                   <label className="text-xs text-zinc-400">
-                    Farba
+                    Color
                     <input
                       type="color"
                       value={slice.color}
@@ -641,7 +641,7 @@ export default function WheelAdminPanel() {
                     }
                     className="self-end rounded-lg border border-zinc-700 px-3 py-2 text-sm text-zinc-300 hover:border-red-800 hover:text-red-300"
                   >
-                    Odobrať
+                    Remove
                   </button>
                   {selectedProfile.kind === "main" && (
                     <label className="flex items-center gap-2 text-xs text-amber-200 sm:col-span-4">
@@ -658,28 +658,28 @@ export default function WheelAdminPanel() {
                           }))
                         }
                       />
-                      Po tomto výsledku roztočiť VIP koleso
+                      Spin the VIP wheel after this outcome
                     </label>
                   )}
                 </article>
               ))}
               {config.slices.length === 0 && (
                 <p className="rounded-lg border border-dashed border-zinc-700 p-5 text-sm text-zinc-500">
-                  Zatiaľ tu nie sú žiadne výsledky. Pridaj aspoň dva, aby sa koleso dalo uložiť a spustiť.
+                  There are no outcomes yet. Add at least two to save and spin the wheel.
                 </p>
               )}
             </div>
           </div>
         ) : (
           <p className="rounded-lg border border-dashed border-zinc-700 p-5 text-sm text-zinc-500">
-            Vybraný profil nie je dostupný.
+            The selected profile is unavailable.
           </p>
         )}
       </div>
 
       <div className="mt-5 flex flex-wrap items-center justify-between gap-3 border-t border-zinc-800 pt-4">
         <p className="text-xs text-zinc-500">
-          Herné profily sa párujú s Twitch Game ID, nie iba s názvom kategórie.
+          Game profiles are matched by Twitch Game ID, not just the category name.
         </p>
         <button
           type="button"
@@ -687,7 +687,7 @@ export default function WheelAdminPanel() {
           disabled={saving}
           className="rounded-lg bg-violet-600 px-5 py-2.5 text-sm font-semibold hover:bg-violet-500 disabled:opacity-50"
         >
-          {saving ? "Ukladám…" : "Uložiť všetky kolesá"}
+          {saving ? "Saving…" : "Save all wheels"}
         </button>
       </div>
     </section>

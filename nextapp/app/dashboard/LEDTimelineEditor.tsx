@@ -39,12 +39,12 @@ const initialFrames: Keyframe[] = [
 ];
 const TIMELINE_LABEL_WIDTH = 96;
 const ledStrips = [
-  { label: "Horní", start: 0, end: 99 },
-  { label: "Pravý", start: 100, end: 171 },
-  { label: "Spodní", start: 172, end: 210 },
-  { label: "Levý", start: 211, end: 240 },
-  { label: "Krátký", start: 241, end: 248 },
-  { label: "Hexagony", start: 249, end: 332 },
+  { label: "Top", start: 0, end: 99 },
+  { label: "Right", start: 100, end: 171 },
+  { label: "Bottom", start: 172, end: 210 },
+  { label: "Left", start: 211, end: 240 },
+  { label: "Short", start: 241, end: 248 },
+  { label: "Hexagons", start: 249, end: 332 },
 ];
 
 function formatFrameTime(frame: number) {
@@ -190,7 +190,7 @@ export default function LEDTimelineEditor({ initialUses }: { initialUses: number
   const [cookieConsent, setCookieConsent] = useState<CookieConsent>("unset");
   const [timelineZoom, setTimelineZoom] = useState(1);
   const [timelineViewportWidth, setTimelineViewportWidth] = useState(0);
-  const [name, setName] = useState("Můj LED efekt");
+  const [name, setName] = useState("My LED effect");
   const [message, setMessage] = useState("");
   const [showConsentNotice, setShowConsentNotice] = useState(false);
   const [busy, setBusy] = useState(false);
@@ -231,7 +231,7 @@ export default function LEDTimelineEditor({ initialUses }: { initialUses: number
           window.localStorage.removeItem(LED_DRAFT_STORAGE_KEY);
         } catch (error) {
           console.error("Could not remove the declined LED draft:", error);
-          setMessage("Uložený LED návrh se nepodařilo odstranit z úložiště.");
+          setMessage("Could not remove the saved LED draft from storage.");
         }
         return;
       }
@@ -250,10 +250,10 @@ export default function LEDTimelineEditor({ initialUses }: { initialUses: number
         setSelectedId(parsed.frames[0].id);
         setPlayhead(0);
         setSelectedLedIds([]);
-        setMessage(`Načten uložený návrh „${parsed.name}“.`);
+        setMessage(`Loaded saved draft “${parsed.name}”.`);
       } catch (error) {
         console.error("Could not load the saved LED draft:", error);
-        setMessage("Uložený LED návrh je poškozený a nepodařilo se ho načíst.");
+        setMessage("The saved LED draft is corrupted and could not be loaded.");
       }
     }
     syncConsentAndDraft();
@@ -318,11 +318,11 @@ export default function LEDTimelineEditor({ initialUses }: { initialUses: number
       } else if (editorRef.current?.requestFullscreen) {
         await editorRef.current.requestFullscreen();
       } else {
-        setMessage("Fullscreen není v tomto prohlížeči dostupný.");
+        setMessage("Fullscreen is not available in this browser.");
       }
     } catch (error) {
       console.error("Could not toggle LED preview fullscreen:", error);
-      setMessage("Náhled se nepodařilo přepnout na fullscreen.");
+      setMessage("Could not switch the preview to fullscreen.");
     }
   }
 
@@ -342,10 +342,10 @@ export default function LEDTimelineEditor({ initialUses }: { initialUses: number
     setSelectedId(initialFrames[0].id);
     setPlayhead(0);
     setDurationSeconds(2);
-    setName("Můj LED efekt");
+    setName("My LED effect");
     setSelectedLedIds([]);
     playbackStartFrame.current = 0;
-    setMessage("Nový LED návrh připravený. Uložení je pouze v tomto prohlížeči.");
+    setMessage("New LED draft ready. It is saved in this browser only.");
   }
 
   function saveDraft() {
@@ -358,17 +358,17 @@ export default function LEDTimelineEditor({ initialUses }: { initialUses: number
 
     const draft: SavedDraft = {
       version: 1,
-      name: name.trim() || "Můj LED efekt",
+      name: name.trim() || "My LED effect",
       durationSeconds,
       frames: sortedFrames,
     };
     try {
       window.localStorage.setItem(LED_DRAFT_STORAGE_KEY, JSON.stringify(draft));
       setName(draft.name);
-      setMessage(`Návrh „${draft.name}“ uložen pouze v tomto prohlížeči.`);
+      setMessage(`Draft “${draft.name}” saved in this browser only.`);
     } catch (error) {
       console.error("Could not save the LED draft locally:", error);
-      setMessage("LED návrh se nepodařilo uložit do místního úložiště.");
+      setMessage("Could not save the LED draft to local storage.");
     }
   }
 
@@ -376,7 +376,7 @@ export default function LEDTimelineEditor({ initialUses }: { initialUses: number
     if (!selectedFrame) return;
     if (selectedLedIds.length > 0 && selectedFrame.ledIds === null) {
       if (frames.length >= MAX_KEYFRAMES) {
-        setMessage(`Efekt už obsahuje všech ${MAX_KEYFRAMES} dostupných keyframů.`);
+        setMessage(`The effect already contains the maximum of ${MAX_KEYFRAMES} keyframes.`);
         return;
       }
       const conflictingFrame = frames.find(
@@ -386,7 +386,7 @@ export default function LEDTimelineEditor({ initialUses }: { initialUses: number
           frame.ledIds.some((ledId) => selectedLedIds.includes(ledId)),
       );
       if (conflictingFrame) {
-        setMessage("Pro tyto LED už v tomto čase existuje samostatný keyframe.");
+        setMessage("A separate keyframe already exists for these LEDs at this time.");
         return;
       }
       const id = Math.max(...frames.map((frame) => frame.id), 0) + 1;
@@ -410,13 +410,13 @@ export default function LEDTimelineEditor({ initialUses }: { initialUses: number
 
   function addKeyframe() {
     if (frames.length >= MAX_KEYFRAMES) {
-      setMessage(`Efekt už obsahuje všech ${MAX_KEYFRAMES} dostupných keyframů.`);
+      setMessage(`The effect already contains the maximum of ${MAX_KEYFRAMES} keyframes.`);
       return;
     }
     const exactTimeFrames = frames.filter((frame) => frame.time === playhead);
     if (selectedLedIds.length === 0 && exactTimeFrames.length > 0) {
       setSelectedId(exactTimeFrames[0].id);
-      setMessage("Na této pozici už keyframe existuje.");
+      setMessage("A keyframe already exists at this position.");
       return;
     }
     if (
@@ -427,7 +427,7 @@ export default function LEDTimelineEditor({ initialUses }: { initialUses: number
           frame.ledIds.some((ledId) => selectedLedIds.includes(ledId)),
       )
     ) {
-      setMessage("Na této pozici už existuje keyframe pro některou vybranou LED.");
+      setMessage("A keyframe for one of the selected LEDs already exists at this position.");
       return;
     }
     const id = Math.max(...frames.map((frame) => frame.id), 0) + 1;
@@ -453,14 +453,14 @@ export default function LEDTimelineEditor({ initialUses }: { initialUses: number
       { name: string; keyframes: Omit<Keyframe, "id">[] }
     > = {
       fade: {
-        name: "Pomalé rozsvícení · 2 s",
+        name: "Slow fade-in · 2 s",
         keyframes: [
           { time: 0, color: "#8b5cf6", opacity: 0, animation: "ease-in-out", ledIds: null },
           { time: exampleLastFrame, color: "#8b5cf6", opacity: 1, animation: "steady", ledIds: null },
         ],
       },
       pulse: {
-        name: "Pulz · 2 s",
+        name: "Pulse · 2 s",
         keyframes: [0, 30, 60, 90, exampleLastFrame].map((time, index) => ({
           time,
           color: "#22d3ee",
@@ -470,7 +470,7 @@ export default function LEDTimelineEditor({ initialUses }: { initialUses: number
         })),
       },
       "color-flow": {
-        name: "Barevný přechod · 2 s",
+        name: "Color transition · 2 s",
         keyframes: [
           { time: 0, color: "#8b5cf6", opacity: 1, animation: "linear", ledIds: null },
           { time: 60, color: "#22d3ee", opacity: 1, animation: "linear", ledIds: null },
@@ -586,7 +586,7 @@ export default function LEDTimelineEditor({ initialUses }: { initialUses: number
 
   function removeKeyframe() {
     if (!selectedFrame || frames.length <= 2) {
-      setMessage("Efekt musí obsahovat alespoň dva keyframy.");
+      setMessage("The effect must contain at least two keyframes.");
       return;
     }
     const next = frames.filter((frame) => frame.id !== selectedFrame.id);
@@ -618,18 +618,18 @@ export default function LEDTimelineEditor({ initialUses }: { initialUses: number
       });
       const result: { error?: string; quantity?: number } = await response.json();
       if (!response.ok || typeof result.quantity !== "number") {
-        setMessage(result.error ?? "Efekt se nepodařilo použít.");
+        setMessage(result.error ?? "Could not apply the effect.");
         return;
       }
       setUses(result.quantity);
       setMessage(
         result.quantity > 0
-          ? `Efekt byl uložen. Zbývající použití: ${result.quantity}. Světla zatím nejsou připojená.`
-          : "Efekt byl uložen. Použití spotřebováno; pro další efekt si kup další v shopu. Světla zatím nejsou připojená.",
+          ? `Effect saved. Uses remaining: ${result.quantity}. The lights are not connected yet.`
+          : "Effect saved and use consumed. Buy another in the shop to apply another effect. The lights are not connected yet.",
       );
     } catch (error) {
       console.error("LED effect request failed:", error);
-      setMessage("Efekt se nepodařilo použít.");
+      setMessage("Could not apply the effect.");
     } finally {
       setBusy(false);
     }
@@ -648,15 +648,15 @@ export default function LEDTimelineEditor({ initialUses }: { initialUses: number
         <div className="flex min-w-0 items-center gap-3">
           <span className="grid h-7 w-7 shrink-0 place-items-center rounded bg-violet-600 text-xs font-black text-white">LED</span>
           <div className="min-w-0">
-            <h2 className="truncate text-sm font-semibold">{name || "Nová LED kompozice"}</h2>
-            <p className="text-[10px] uppercase tracking-[0.16em] text-zinc-500">Custom LED effect · 60 sn./s</p>
+            <h2 className="truncate text-sm font-semibold">{name || "New LED composition"}</h2>
+            <p className="text-[10px] uppercase tracking-[0.16em] text-zinc-500">Custom LED effect · 60 fps</p>
           </div>
         </div>
         <div className="flex shrink-0 items-center gap-3">
           <span className="hidden text-xs tabular-nums text-zinc-400 sm:inline">
             {formatFrameTime(Math.floor(playhead))}
           </span>
-          <span className="rounded bg-[#383838] px-2 py-1 text-[10px] text-zinc-300">Použití: {uses}</span>
+          <span className="rounded bg-[#383838] px-2 py-1 text-[10px] text-zinc-300">Uses: {uses}</span>
           <button
             type="button"
             onClick={createNewDraft}
@@ -669,8 +669,8 @@ export default function LEDTimelineEditor({ initialUses }: { initialUses: number
             onClick={saveDraft}
             title={
               cookieConsent === "accepted"
-                ? "Uložit návrh pouze do tohoto prohlížeče"
-                : "Zobrazit nastavení souhlasu pro místní uložení"
+                ? "Save draft in this browser only"
+                : "Show consent settings for local storage"
             }
             className="rounded border border-violet-500 bg-violet-600 px-2.5 py-1.5 text-xs font-semibold text-white hover:bg-violet-500"
           >
@@ -681,7 +681,7 @@ export default function LEDTimelineEditor({ initialUses }: { initialUses: number
             onClick={() => void toggleFullscreen()}
             className="rounded border border-zinc-600 px-2.5 py-1.5 text-xs hover:bg-zinc-700"
           >
-            {isFullscreen ? "Zavřít fullscreen" : "Fullscreen"}
+            {isFullscreen ? "Exit fullscreen" : "Fullscreen"}
           </button>
         </div>
       </header>
@@ -690,7 +690,7 @@ export default function LEDTimelineEditor({ initialUses }: { initialUses: number
         <main className="flex min-h-0 min-w-0 flex-col border-b border-black p-2 lg:border-b-0 lg:border-r">
           <div className="flex h-8 shrink-0 items-center justify-between rounded-t border border-[#111] bg-[#292929] px-3">
             <span className="text-[10px] font-semibold uppercase tracking-wider text-zinc-400">
-              Kompozice · náhled LED
+              Composition · LED preview
             </span>
             <div className="flex items-center gap-2">
               <span className="text-[10px] tabular-nums text-zinc-500">{formatFrameTime(Math.floor(playhead))}</span>
@@ -698,12 +698,12 @@ export default function LEDTimelineEditor({ initialUses }: { initialUses: number
                 type="button"
                 onClick={togglePlayback}
                 aria-pressed={playing}
-                title="Mezerník přehraje nebo pozastaví efekt"
+                title="Press Space to play or pause the effect"
                 className="min-w-20 rounded bg-[#414141] px-2 py-1 text-[10px] font-semibold text-zinc-100 hover:bg-[#505050]"
               >
-                {playing ? "❚❚ Pauza" : "▶ Přehrát"}
+                {playing ? "❚❚ Pause" : "▶ Play"}
               </button>
-              <span className="hidden text-[9px] text-zinc-600 sm:inline">Mezerník</span>
+              <span className="hidden text-[9px] text-zinc-600 sm:inline">Space</span>
             </div>
           </div>
           <div className="flex min-h-0 flex-1 items-center justify-center overflow-hidden border-x border-b border-[#111] bg-[#151515] p-2">
@@ -719,14 +719,14 @@ export default function LEDTimelineEditor({ initialUses }: { initialUses: number
 
         <aside className="min-h-0 overflow-y-auto bg-[#262626]">
           <div className="flex h-9 items-center border-b border-black bg-[#303030] px-3 text-[11px] font-semibold uppercase tracking-wider text-zinc-300">
-            Vlastnosti
+            Properties
           </div>
           <div className="space-y-4 p-3">
             <div className="flex items-center justify-between gap-2 rounded border border-zinc-700 bg-[#1e1e1e] px-2 py-2">
               <span className="text-[10px] text-zinc-300">
                 {selectedLedIds.length
-                  ? `Vybráno LED: ${selectedLedIds.length}`
-                  : "Všechny LED"}
+                  ? `Selected LEDs: ${selectedLedIds.length}`
+                  : "All LEDs"}
               </span>
               {selectedLedIds.length > 0 && (
                 <button
@@ -734,16 +734,16 @@ export default function LEDTimelineEditor({ initialUses }: { initialUses: number
                   onClick={() => setSelectedLedIds([])}
                   className="cursor-pointer text-[10px] text-violet-300 hover:text-violet-200"
                 >
-                  Zrušit výběr
+                  Clear selection
                 </button>
               )}
             </div>
             <p className="text-[9px] leading-4 text-zinc-500">
-              Klik = jedna LED · Ctrl/Cmd = přidat/odebrat · Shift = rozsah · tažením = výběr oblasti
+              Click = one LED · Ctrl/Cmd = add/remove · Shift = range · drag = area selection
             </p>
             <div className="space-y-2 border-t border-zinc-700 pt-3">
               <p className="text-[10px] font-semibold uppercase tracking-wide text-zinc-400">
-                Výběr pásků
+                Strip selection
               </p>
               <div className="grid grid-cols-2 gap-1">
                 {ledStrips.map((strip) => {
@@ -780,7 +780,7 @@ export default function LEDTimelineEditor({ initialUses }: { initialUses: number
             </div>
             <div className="space-y-2 border-t border-zinc-700 pt-3">
               <p className="text-[10px] font-semibold uppercase tracking-wide text-zinc-400">
-                Ukázkové animace · 2 s
+                Example animations · 2 s
               </p>
               <div className="grid grid-cols-2 gap-1">
                 <button
@@ -788,26 +788,26 @@ export default function LEDTimelineEditor({ initialUses }: { initialUses: number
                   onClick={() => loadExample("fade")}
                   className="rounded border border-zinc-700 bg-[#1e1e1e] px-2 py-1.5 text-[10px] text-zinc-300 hover:border-violet-400"
                 >
-                  Rozsvícení
+                  Fade in
                 </button>
                 <button
                   type="button"
                   onClick={() => loadExample("pulse")}
                   className="rounded border border-zinc-700 bg-[#1e1e1e] px-2 py-1.5 text-[10px] text-zinc-300 hover:border-violet-400"
                 >
-                  Pulz
+                  Pulse
                 </button>
                 <button
                   type="button"
                   onClick={() => loadExample("color-flow")}
                   className="col-span-2 rounded border border-zinc-700 bg-[#1e1e1e] px-2 py-1.5 text-[10px] text-zinc-300 hover:border-violet-400"
                 >
-                  Barevný přechod
+                  Color transition
                 </button>
               </div>
             </div>
             <label className="block text-[10px] font-semibold uppercase tracking-wide text-zinc-400">
-              Název efektu
+              Effect name
               <input
                 value={name}
                 maxLength={40}
@@ -818,9 +818,9 @@ export default function LEDTimelineEditor({ initialUses }: { initialUses: number
             {selectedFrame && (
               <>
                 <div className="border-t border-zinc-700 pt-3">
-                  <p className="mb-2 text-[10px] font-semibold uppercase tracking-wide text-zinc-400">Vybraný keyframe</p>
+                  <p className="mb-2 text-[10px] font-semibold uppercase tracking-wide text-zinc-400">Selected keyframe</p>
                   <label className="block text-[10px] text-zinc-500">
-                    Snímek
+                    Frame
                     <div className="mt-1 flex items-center gap-2">
                       <input
                         type="number"
@@ -847,7 +847,7 @@ export default function LEDTimelineEditor({ initialUses }: { initialUses: number
                   </label>
                 </div>
                 <label className="block text-[10px] font-semibold uppercase tracking-wide text-zinc-400">
-                  Barva
+                  Color
                   <input
                     type="color"
                     value={selectedFrame.color}
@@ -856,7 +856,7 @@ export default function LEDTimelineEditor({ initialUses }: { initialUses: number
                   />
                 </label>
                 <label className="block text-[10px] font-semibold uppercase tracking-wide text-zinc-400">
-                  Interpolace
+                  Interpolation
                   <select
                     value={selectedFrame.animation}
                     onChange={(event) => {
@@ -865,24 +865,24 @@ export default function LEDTimelineEditor({ initialUses }: { initialUses: number
                     }}
                     className="mt-1.5 w-full rounded border border-[#111] bg-[#191919] px-2 py-2 text-xs font-normal normal-case text-white"
                   >
-                    <option value="steady">Stálá</option>
-                    <option value="linear">Plynulá</option>
-                    <option value="ease-in">Zpomalený začátek</option>
-                    <option value="ease-out">Zpomalený konec</option>
-                    <option value="ease-in-out">Zpomalený začátek i konec</option>
-                    <option value="pulse">Puls</option>
-                    <option value="fill">Fill · postupné rozsvícení</option>
+                    <option value="steady">Steady</option>
+                    <option value="linear">Linear</option>
+                    <option value="ease-in">Ease in</option>
+                    <option value="ease-out">Ease out</option>
+                    <option value="ease-in-out">Ease in and out</option>
+                    <option value="pulse">Pulse</option>
+                    <option value="fill">Fill · progressive lighting</option>
                   </select>
                 </label>
                 {selectedFrame.animation === "fill" && (
                   <p className="text-[9px] leading-4 text-cyan-200/80">
-                    LED se postupně rozsvěcují v pořadí podle ID až k dalšímu keyframu.
-                    Pro celé kolo nastav stejnou barvu na obou bodech, krytí 0 % na začátku,
-                    100 % na konci a délku 3 s.
+                    LEDs light up in ID order until the next keyframe.
+                    For a full-cycle effect, use the same color at both points, set
+                    opacity to 0% at the start and 100% at the end, and set the duration to 3 s.
                   </p>
                 )}
                 <label className="block text-[10px] font-semibold uppercase tracking-wide text-zinc-400">
-                  Krytí
+                  Opacity
                   <input
                     type="range"
                     min="0"
@@ -900,8 +900,8 @@ export default function LEDTimelineEditor({ initialUses }: { initialUses: number
                 </label>
                 <p className="border-t border-zinc-700 pt-3 text-[10px] leading-5 text-zinc-500">
                   {selectedFrame.ledIds
-                    ? `Keyframe cílí na ${selectedFrame.ledIds.length} LED.`
-                    : "Keyframe cílí na všechny LED."}
+                    ? `Keyframe targets ${selectedFrame.ledIds.length} LEDs.`
+                    : "Keyframe targets all LEDs."}
                 </p>
               </>
             )}
@@ -912,7 +912,7 @@ export default function LEDTimelineEditor({ initialUses }: { initialUses: number
       <section className="h-[240px] min-w-0 shrink-0 overflow-hidden border-t border-black bg-[#202020] px-3">
         <div className="flex h-9 min-w-0 items-center justify-between gap-2 border-b border-black bg-[#292929] px-3">
           <div className="flex items-center gap-3">
-            <span className="text-[10px] font-semibold uppercase tracking-wider text-zinc-300">Časová osa</span>
+            <span className="text-[10px] font-semibold uppercase tracking-wider text-zinc-300">Timeline</span>
             <span className="text-[10px] tabular-nums text-zinc-500">{formatFrameTime(Math.floor(playhead))}</span>
           </div>
           <div className="flex gap-1.5">
@@ -930,10 +930,10 @@ export default function LEDTimelineEditor({ initialUses }: { initialUses: number
               onClick={removeKeyframe}
               className="rounded border border-zinc-600 bg-[#383838] px-2 py-1 text-[10px] font-semibold hover:border-red-800 hover:bg-[#4a4a4a]"
             >
-              − Smazat
+              − Delete
             </button>
             <label className="flex items-center gap-1 text-[10px] text-zinc-400">
-              Délka
+              Duration
               <select
                 value={durationSeconds}
                 onChange={(event) => {
@@ -952,7 +952,7 @@ export default function LEDTimelineEditor({ initialUses }: { initialUses: number
                   }
                 }}
                 className="rounded border border-zinc-600 bg-[#202020] px-1.5 py-1 text-[10px] text-zinc-200"
-                aria-label="Délka animace v sekundách"
+                aria-label="Animation duration in seconds"
               >
                 {Array.from({ length: MAX_DURATION_SECONDS }, (_, index) => index + 1).map(
                   (seconds) => (
@@ -968,7 +968,7 @@ export default function LEDTimelineEditor({ initialUses }: { initialUses: number
               </select>
             </label>
             <span className="hidden text-[9px] text-zinc-500 md:inline">
-              Alt + kolečko: zoom · {Math.round(timelineZoom * 100)}%
+              Alt + scroll: zoom · {Math.round(timelineZoom * 100)}%
             </span>
           </div>
         </div>
@@ -1011,7 +1011,7 @@ export default function LEDTimelineEditor({ initialUses }: { initialUses: number
             <div className="relative h-[calc(100%-28px)]">
               <div className="relative flex h-14 border-b border-black">
                 <div className="flex w-24 shrink-0 items-center gap-2 border-r border-black bg-[#292929] px-2 text-[10px] text-zinc-300">
-                  <span className="text-violet-300">◆</span> Barva LED
+                  <span className="text-violet-300">◆</span> LED color
                 </div>
                 <div
                   className="relative flex min-h-14 shrink-0 cursor-pointer touch-none bg-[#242424]"
@@ -1052,8 +1052,8 @@ export default function LEDTimelineEditor({ initialUses }: { initialUses: number
                     <button
                       key={frame.id}
                       type="button"
-                      aria-label={`Keyframe v čase ${formatFrameTime(frame.time)}${
-                        frame.ledIds ? ` pro ${frame.ledIds.length} LED` : " pro všechny LED"
+                      aria-label={`Keyframe at ${formatFrameTime(frame.time)}${
+                        frame.ledIds ? ` for ${frame.ledIds.length} LEDs` : " for all LEDs"
                       }`}
                       aria-pressed={frame.id === selectedId}
                       onPointerDown={(event) => {
@@ -1090,7 +1090,7 @@ export default function LEDTimelineEditor({ initialUses }: { initialUses: number
               </div>
               <div className="flex h-12 border-b border-black">
                 <div className="flex w-24 shrink-0 items-center gap-2 border-r border-black bg-[#292929] px-2 text-[10px] text-zinc-300">
-                  <span className="text-amber-300">▰</span> Animace
+                  <span className="text-amber-300">▰</span> Animation
                 </div>
                 <div
                   className="relative flex shrink-0 overflow-hidden bg-[#242424]"
@@ -1128,7 +1128,7 @@ export default function LEDTimelineEditor({ initialUses }: { initialUses: number
               </div>
               <div className="relative flex h-10 border-b border-black">
                 <div className="flex w-24 shrink-0 items-center gap-2 border-r border-black bg-[#292929] px-2 text-[10px] text-zinc-300">
-                  <span className="text-cyan-300">◧</span> Krytí
+                  <span className="text-cyan-300">◧</span> Opacity
                 </div>
                 <div
                   className="relative flex shrink-0 overflow-hidden bg-[#242424]"
@@ -1172,11 +1172,11 @@ export default function LEDTimelineEditor({ initialUses }: { initialUses: number
             className="w-full max-w-md rounded-xl border border-zinc-700 bg-[#202020] p-5 text-zinc-100 shadow-2xl"
           >
             <h2 id="led-save-consent-title" className="text-sm font-semibold">
-              Pro uložení je potřeba souhlas
+              Consent is required to save
             </h2>
             <p className="mt-2 text-xs leading-5 text-zinc-300">
-              LED návrh se uloží pouze do místního úložiště tohoto prohlížeče.
-              Nejdřív je potřeba povolit volitelné úložiště.
+              The LED draft is saved only in this browser&apos;s local storage.
+              You must first allow optional storage.
             </p>
             <div className="mt-4 flex justify-end gap-2">
               <button
@@ -1184,7 +1184,7 @@ export default function LEDTimelineEditor({ initialUses }: { initialUses: number
                 onClick={() => setShowConsentNotice(false)}
                 className="rounded border border-zinc-600 px-3 py-2 text-xs font-semibold hover:bg-zinc-700"
               >
-                Zrušit
+                Cancel
               </button>
               <button
                 type="button"
@@ -1206,7 +1206,7 @@ export default function LEDTimelineEditor({ initialUses }: { initialUses: number
           <p role="status" className="truncate text-[10px] text-zinc-300">{message}</p>
         ) : (
           <p className="truncate text-[10px] text-zinc-500">
-            Efekt se uloží jako návrh; fyzické LED zatím nejsou připojené.
+            The effect is saved as a draft; physical LEDs are not connected yet.
           </p>
         )}
         {uses > 0 ? (
@@ -1216,11 +1216,11 @@ export default function LEDTimelineEditor({ initialUses }: { initialUses: number
             onClick={() => void applyEffect()}
             className="shrink-0 rounded bg-violet-600 px-4 py-1.5 text-xs font-bold text-white hover:bg-violet-500 disabled:cursor-not-allowed disabled:bg-zinc-700 disabled:text-zinc-400"
           >
-            {busy ? "Ukládám…" : "Použít"}
+            {busy ? "Saving…" : "Apply"}
           </button>
         ) : (
           <a href="/shop" className="shrink-0 rounded bg-violet-600 px-4 py-1.5 text-xs font-bold text-white hover:bg-violet-500">
-            Dokoupit
+            Buy more
           </a>
         )}
       </footer>

@@ -25,13 +25,13 @@ export default async function LoginPage({
   const { error } = await searchParams;
   const errorMessage =
     error === "state"
-      ? "Přihlášení vypršelo. Zkus to prosím znovu."
+      ? "Your sign-in session expired. Please try again."
       : error === "denied"
-        ? "Přihlášení nebylo dokončeno."
+        ? "Sign-in was not completed."
         : error === "identity-in-use"
-          ? "Tento účet už je propojený s jiným profilem."
+          ? "This account is already linked to another profile."
           : error === "provider"
-            ? "Poskytovatel nevrátil platný účet. Zkus přihlášení znovu."
+            ? "The provider did not return a valid account. Please try signing in again."
             : null;
 
   return (
@@ -41,9 +41,9 @@ export default async function LoginPage({
           <p className="mb-3 text-sm font-semibold uppercase tracking-[0.2em] text-violet-400">
             N4JT
           </p>
-          <h1 className="text-3xl font-bold tracking-tight">Přihlášení</h1>
+          <h1 className="text-3xl font-bold tracking-tight">Sign in</h1>
           <p className="mt-3 text-sm leading-6 text-zinc-400">
-            Přihlas se přes Discord nebo Twitch. Druhý účet můžeš propojit později v dashboardu.
+            Sign in with Discord or Twitch. You can link the other account later in your dashboard.
           </p>
         </div>
         {errorMessage && (
@@ -61,12 +61,12 @@ export default async function LoginPage({
               href={provider.href}
               className={`flex min-h-12 items-center justify-center rounded-lg px-5 font-semibold transition-colors focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-white ${provider.className}`}
             >
-              Pokračovat přes {provider.name}
+              Continue with {provider.name}
             </a>
           ))}
         </div>
         <p className="mt-6 text-center text-xs leading-5 text-zinc-500">
-          Pokračováním povolíš aplikaci ověřit identitu svého účtu.
+          By continuing, you allow the app to verify your account identity.
         </p>
       </section>
     </main>

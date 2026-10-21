@@ -48,11 +48,11 @@ export default function OverlayBuilder() {
 
   return (
     <section className="rounded-2xl border border-zinc-800 bg-zinc-900/70 p-5 sm:p-7">
-      <h2 className="text-xl font-semibold">Overlay pro OBS</h2>
+      <h2 className="text-xl font-semibold">OBS overlay</h2>
       <p className="mt-2 text-sm text-zinc-400">
         {widget === "custom-led-effect"
-          ? "Veřejnou URL vlož jako Browser Source. LED rozložení má průhledné pozadí."
-          : "Veřejnou URL můžeš vložit jako Browser Source. Karta se animovaně zobrazí u spodního okraje obrazu."}
+          ? "Add the public URL as a Browser Source. The LED layout has a transparent background."
+          : "Add the public URL as a Browser Source. The card animates along the bottom edge of the image."}
       </p>
       <div className="mt-5 grid gap-5 sm:grid-cols-2">
         <label className="text-sm font-medium">
@@ -63,7 +63,7 @@ export default function OverlayBuilder() {
             className="mt-2 block w-full rounded-lg border border-zinc-700 bg-zinc-950 px-3 py-2"
           >
             <option value="cs2">CS2 live stats</option>
-            <option value="pubg">PUBG ranked stats za dnešek</option>
+            <option value="pubg">PUBG ranked stats for today</option>
             <option value="custom-led-effect">Custom LED effect</option>
           </select>
         </label>
@@ -74,7 +74,7 @@ export default function OverlayBuilder() {
               value={player}
               onChange={(event) => setPlayer(event.target.value)}
               maxLength={32}
-              placeholder="Zadej přesný herní nickname"
+              placeholder="Enter the exact in-game username"
               className="mt-2 block w-full rounded-lg border border-zinc-700 bg-zinc-950 px-3 py-2"
             />
           </label>
@@ -83,7 +83,7 @@ export default function OverlayBuilder() {
 
       <div className="mt-6">
         <label htmlFor="overlay-url" className="text-sm font-medium">
-          Veřejná URL pro OBS Browser Source
+          Public URL for OBS Browser Source
         </label>
         <input
           id="overlay-url"
@@ -98,7 +98,7 @@ export default function OverlayBuilder() {
             disabled={!overlayUrl}
             className="rounded-lg bg-violet-600 px-4 py-2 text-sm font-semibold hover:bg-violet-500 disabled:opacity-50"
           >
-            {copied ? "Zkopírováno" : "Kopírovat URL"}
+            {copied ? "Copied" : "Copy URL"}
           </button>
           {overlayUrl && (
             <a
@@ -107,18 +107,18 @@ export default function OverlayBuilder() {
               rel="noreferrer"
               className="rounded-lg border border-zinc-700 px-4 py-2 text-sm font-semibold hover:bg-zinc-800"
             >
-              Náhled overlaye
+              Preview overlay
             </a>
           )}
         </div>
       </div>
       {widget === "custom-led-effect" ? (
         <p className="mt-5 text-xs text-zinc-500">
-          Transparentní LED overlay s rozložením podle Custom LED effect.
+          Transparent LED overlay using the Custom LED effect layout.
         </p>
       ) : (
         <p className="mt-5 text-xs text-zinc-500">
-          Veřejné herní statistiky: CS2 z Game State Integration a dnešní PUBG ranked statistiky přes oficiální API.
+          Public game stats: CS2 via Game State Integration and today&apos;s PUBG ranked stats via the official API.
         </p>
       )}
     </section>

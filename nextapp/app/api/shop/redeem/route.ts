@@ -122,23 +122,23 @@ function parseEffect(value: unknown): Prisma.InputJsonValue | null {
 
 export async function POST(request: Request) {
   if (!isSameOriginRequest(request)) {
-    return NextResponse.json({ error: "Neplatný požadavek." }, { status: 403 });
+    return NextResponse.json({ error: "Invalid request." }, { status: 403 });
   }
   const account = await getCurrentAccount();
-  if (!account) return NextResponse.json({ error: "Přihlas se." }, { status: 401 });
+  if (!account) return NextResponse.json({ error: "Sign in to continue." }, { status: 401 });
 
   let body: unknown;
   try {
     body = await request.json();
   } catch {
-    return NextResponse.json({ error: "Neplatná data požadavku." }, { status: 400 });
+    return NextResponse.json({ error: "Invalid request data." }, { status: 400 });
   }
   if (typeof body !== "object" || body === null || !("effect" in body)) {
-    return NextResponse.json({ error: "Chybí LED efekt." }, { status: 400 });
+    return NextResponse.json({ error: "LED effect is required." }, { status: 400 });
   }
   const effect = parseEffect(body.effect);
   if (!effect) {
-    return NextResponse.json({ error: "LED efekt nebo jeho keyframes nejsou platné." }, { status: 400 });
+    return NextResponse.json({ error: "The LED effect or its keyframes are invalid." }, { status: 400 });
   }
 
   try {
@@ -149,6 +149,6 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: error.message }, { status: 409 });
     }
     console.error("LED effect redemption failed:", error);
-    return NextResponse.json({ error: "LED efekt se nepodařilo uplatnit." }, { status: 500 });
+    return NextResponse.json({ error: "Could not redeem the LED effect." }, { status: 500 });
   }
 }

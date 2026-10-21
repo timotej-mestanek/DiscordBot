@@ -9,19 +9,19 @@ import {
 
 export async function POST(request: Request) {
   if (!isSameOriginRequest(request)) {
-    return NextResponse.json({ error: "Neplatný požadavek." }, { status: 403 });
+    return NextResponse.json({ error: "Invalid request." }, { status: 403 });
   }
 
   const account = await getCurrentAccount();
   if (!account) {
-    return NextResponse.json({ error: "Přihlas se." }, { status: 401 });
+    return NextResponse.json({ error: "Sign in to continue." }, { status: 401 });
   }
 
   let body: unknown;
   try {
     body = await request.json();
   } catch {
-    return NextResponse.json({ error: "Neplatná data požadavku." }, { status: 400 });
+    return NextResponse.json({ error: "Invalid request data." }, { status: 400 });
   }
   if (
     typeof body !== "object" ||
@@ -36,7 +36,7 @@ export async function POST(request: Request) {
     body.sourceAmount <= 0 ||
     body.sourceAmount > 1_000_000_000
   ) {
-    return NextResponse.json({ error: "Neplatné údaje konverze." }, { status: 400 });
+    return NextResponse.json({ error: "Invalid conversion details." }, { status: 400 });
   }
 
   try {
@@ -50,12 +50,12 @@ export async function POST(request: Request) {
     return NextResponse.json({ ok: true, ...result });
   } catch (error) {
     if (error instanceof InsufficientPointsError) {
-      return NextResponse.json({ error: "Nemáš dostatek bodů." }, { status: 409 });
+      return NextResponse.json({ error: "You do not have enough points." }, { status: 409 });
     }
     if (error instanceof Error) {
       return NextResponse.json({ error: error.message }, { status: 400 });
     }
     console.error("Point conversion failed:", error);
-    return NextResponse.json({ error: "Konverze bodů selhala." }, { status: 500 });
+    return NextResponse.json({ error: "Point conversion failed." }, { status: 500 });
   }
 }

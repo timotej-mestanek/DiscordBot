@@ -4,9 +4,9 @@ import CommandsCatalog from "@/app/commands/CommandsCatalog";
 import { ttvCommandGroups } from "@/lib/ttv-commands";
 
 export const metadata: Metadata = {
-  title: "Twitch příkazy | N4JT",
+  title: "Twitch Commands | N4JT",
   description:
-    "Přehled Twitch chat příkazů pro komunitu N4JT, včetně použití a oprávnění.",
+    "Browse N4JT Twitch chat commands, including usage and access levels.",
 };
 
 export default function CommandsPage() {
@@ -39,24 +39,24 @@ export default function CommandsPage() {
             Twitch · chat guide
           </p>
           <h1 className="relative mt-3 text-4xl font-black tracking-tight sm:text-5xl">
-            Příkazy do chatu<span className="text-violet-400">.</span>
+            Chat commands<span className="text-violet-400">.</span>
           </h1>
           <p className="relative mt-4 max-w-2xl text-sm leading-7 text-zinc-300 sm:text-base">
-            Vyhledej příkaz, zjisti jak ho použít a kdo ho může spustit.
-            Katalog rozlišuje příkazy pro všechny, VIP a moderátory.
+            Find a command, learn how to use it, and see who can run it.
+            Browse commands for everyone, VIPs, and moderators.
           </p>
           <div className="relative mt-6 flex flex-wrap gap-2">
             <span className="rounded-full border border-white/10 bg-black/20 px-3 py-1.5 text-xs font-semibold text-zinc-200">
-              {commandCount} příkazů
+              {commandCount} commands
             </span>
             <span className="rounded-full border border-white/10 bg-black/20 px-3 py-1.5 text-xs font-semibold text-zinc-200">
-              {ttvCommandGroups.length} kategorií
+              {ttvCommandGroups.length} categories
             </span>
             <a
               href="/api/ttv-commands"
               className="rounded-full border border-cyan-300/20 bg-cyan-300/10 px-3 py-1.5 text-xs font-semibold text-cyan-200 transition hover:bg-cyan-300/20"
             >
-              JSON po skupinách ↗
+              Grouped JSON ↗
             </a>
           </div>
         </section>
@@ -64,11 +64,11 @@ export default function CommandsPage() {
         <CommandsCatalog groups={ttvCommandGroups} />
 
         <section className="mt-10 rounded-2xl border border-zinc-800 bg-zinc-900/70 p-5 sm:p-6">
-          <h2 className="font-semibold">Chceš vlastní command katalog?</h2>
+          <h2 className="font-semibold">Want your own command catalogue?</h2>
           <p className="mt-2 text-sm leading-6 text-zinc-400">
-            Twitch extension obsahuje vyhledávání, role i vlastní kategorie.
-            Její configurační view umí načíst tento JSON jedním kliknutím nebo
-            přijmout JSON vložený z libovolného webu.
+            The Twitch extension supports search, access levels, and custom
+            categories. Its configuration view can load this JSON in one click
+            or import JSON from any website.
           </p>
           <pre className="mt-4 overflow-x-auto rounded-xl border border-zinc-800 bg-black/30 p-4 text-xs leading-5 text-cyan-100">
 {`{
@@ -77,12 +77,12 @@ export default function CommandsPage() {
     {
       "id": "wheels",
       "label": "Wheels",
-      "description": "Příkazy ke kolům",
+      "description": "Wheel commands",
       "commands": [
         {
           "id": "wheel",
           "name": "!wheel",
-          "description": "Roztočí kolo",
+          "description": "Spin the wheel",
           "usage": "!wheel",
           "roles": ["everyone"]
         }

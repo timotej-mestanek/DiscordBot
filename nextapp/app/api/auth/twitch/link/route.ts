@@ -15,7 +15,7 @@ export async function GET(request: NextRequest) {
 
   if (!clientId || !redirectUri || !discordId) {
     return NextResponse.json(
-      { error: "Nejprve ověř Discord a zkontroluj konfiguraci Twitch propojení." },
+      { error: "Verify your Discord account first and check the Twitch linking configuration." },
       { status: 400 },
     );
   }

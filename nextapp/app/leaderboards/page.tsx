@@ -52,7 +52,7 @@ export default async function LeaderboardsPage() {
       return {
         name: statistic.name,
         entries: totals.map((row) => ({
-          name: names.get(row.entity_id) ?? "Neznámý uživatel",
+          name: names.get(row.entity_id) ?? "Unknown user",
           points: row._sum.value ?? 0,
         })),
       };
@@ -65,27 +65,27 @@ export default async function LeaderboardsPage() {
         <div className="mx-auto flex max-w-6xl items-center justify-between px-4 py-4 sm:px-6">
           <Link href="/" className="text-xl font-black tracking-widest">N4JT</Link>
           <Link href="/" className="text-sm font-semibold text-violet-300 hover:text-violet-200">
-            ← Zpět na hlavní stránku
+            ← Back to home
           </Link>
         </div>
       </header>
 
       <div className="mx-auto max-w-6xl px-4 py-10 sm:px-6 md:py-14">
         <p className="text-sm font-semibold uppercase tracking-[0.3em] text-violet-300">
-          Komunita
+          Community
         </p>
-        <h1 className="mt-3 text-4xl font-black sm:text-5xl">Všechny žebříčky</h1>
+        <h1 className="mt-3 text-4xl font-black sm:text-5xl">All leaderboards</h1>
         <p className="mt-3 max-w-2xl text-zinc-400">
-          Body i statistiky komunity na jednom místě. Další textové statistiky se tu objeví,
-          jakmile je začneme počítat.
+          Community points and statistics in one place. More text-based statistics
+          will appear here as they become available.
         </p>
 
         <section className="mt-8 grid gap-5 md:grid-cols-2">
-          <Ranking title="Celkem bodů" entries={overall} />
+          <Ranking title="Total points" entries={overall} />
           <Ranking title="Twitch CustomBody" entries={twitch} />
-          <Ranking title="Discord body" entries={discord} />
+          <Ranking title="Discord points" entries={discord} />
           <Ranking
-            title="Nejvíc vulgarismů"
+            title="Most profanity"
             entries={profanity.map((entry) => ({
               name: entry.name,
               points: entry.total,
@@ -94,7 +94,7 @@ export default async function LeaderboardsPage() {
           {profanityCategories.map((ranking) => (
             <Ranking
               key={ranking.category}
-              title={`Skóre · ${ranking.category}`}
+              title={`Score · ${ranking.category}`}
               entries={ranking.entries.map((entry) => ({
                 name: entry.name,
                 points: entry.total,
@@ -102,14 +102,14 @@ export default async function LeaderboardsPage() {
             />
           ))}
           <Ranking
-            title="Nejvíc vsazeno · Twitch"
+            title="Most wagered · Twitch"
             entries={twitchGambling.map((entry) => ({
               name: entry.name,
               points: entry.total,
             }))}
           />
           <Ranking
-            title="Nejvíc vsazeno · Discord"
+            title="Most wagered · Discord"
             entries={discordGambling.map((entry) => ({
               name: entry.name,
               points: entry.total,
@@ -142,12 +142,12 @@ function Ranking({
               <span className="truncate font-medium">{entry.name}</span>
             </span>
             <span className="shrink-0 font-semibold tabular-nums">
-              {entry.points.toLocaleString("cs-CZ")}
+              {entry.points.toLocaleString("en-US")}
             </span>
           </li>
         ))}
         {entries.length === 0 && (
-          <li className="py-5 text-sm text-zinc-500">Zatím nejsou žádná data.</li>
+          <li className="py-5 text-sm text-zinc-500">No data yet.</li>
         )}
       </ol>
     </section>

@@ -37,7 +37,7 @@ export default function NowPlayingCard({
   const track = playback?.is_playing ? playback.item : null;
   return (
     <article className="rounded-2xl border border-zinc-800 bg-zinc-900/70 p-5">
-      <p className="text-sm font-semibold uppercase tracking-widest text-emerald-300">Právě hraje</p>
+      <p className="text-sm font-semibold uppercase tracking-widest text-emerald-300">Now playing</p>
       {track ? (
         <div className="mt-4 flex gap-4">
           {track.album?.images?.[0]?.url && (
@@ -57,17 +57,17 @@ export default function NowPlayingCard({
             </p>
             {track.external_urls?.spotify && (
               <a href={track.external_urls.spotify} target="_blank" rel="noreferrer" className="mt-2 inline-block text-xs text-emerald-300 hover:text-emerald-200">
-                Otevřít ve Spotify
+                Open in Spotify
               </a>
             )}
           </div>
         </div>
       ) : (
         <div className="mt-3">
-          <p className="text-sm text-zinc-400">Aktuálně není dostupná skladba.</p>
+          <p className="text-sm text-zinc-400">No track is currently playing.</p>
           {isAdmin && (
             <a href="/api/auth/spotify/start" className="mt-3 inline-block text-sm font-semibold text-emerald-300 hover:text-emerald-200">
-              {spotifyConnected ? "Znovu autorizovat Spotify" : "Propojit Spotify pro overlay"}
+              {spotifyConnected ? "Reconnect Spotify" : "Connect Spotify for the overlay"}
             </a>
           )}
         </div>

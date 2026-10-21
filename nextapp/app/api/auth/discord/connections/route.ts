@@ -7,7 +7,7 @@ export async function GET() {
   if (!clientId || !redirectUri) {
     console.error("Missing Discord OAuth client ID or callback URI.");
     return NextResponse.json(
-      { error: "Discord propojení není nakonfigurované." },
+      { error: "Discord linking is not configured." },
       { status: 500 },
     );
   }

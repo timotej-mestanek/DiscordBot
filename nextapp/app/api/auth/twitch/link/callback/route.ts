@@ -27,7 +27,7 @@ function isTwitchUser(value: unknown): value is TwitchUser {
 
 function resultPage(message: string, status = 200): NextResponse {
   return new NextResponse(
-    `<!doctype html><html lang="cs"><meta charset="utf-8"><meta name="viewport" content="width=device-width"><title>Ověření Twitch</title><body><main><h1>Ověření Twitch účtu</h1><p>${message}</p><p><a href="/">Zpět na web</a></p></main></body></html>`,
+    `<!doctype html><html lang="en"><meta charset="utf-8"><meta name="viewport" content="width=device-width"><title>Twitch account verification</title><body><main><h1>Verify Twitch account</h1><p>${message}</p><p><a href="/">Back to website</a></p></main></body></html>`,
     {
       status,
       headers: { "Content-Type": "text/html; charset=utf-8" },
@@ -56,14 +56,14 @@ export async function GET(request: NextRequest) {
   const cookieState = request.cookies.get("twitch_link_state")?.value;
   if (!matchesDiscordOAuthState(state, cookieState)) {
     return clearOAuthCookies(
-      resultPage("Požadavek vypršel nebo není platný. Začni ověření znovu.", 400),
+      resultPage("The request has expired or is invalid. Start the verification again.", 400),
     );
   }
 
   const code = params.get("code");
   if (params.has("error") || !code) {
     return clearOAuthCookies(
-      resultPage("Twitch autorizace nebyla dokončena. Vrať se na web a ověř Discord znovu.", 400),
+      resultPage("Twitch authorization was not completed. Return to the website and verify Discord again.", 400),
       true,
     );
   }
@@ -81,7 +81,7 @@ export async function GET(request: NextRequest) {
   if (!clientId || !clientSecret || !redirectUri || !discordId) {
     console.error("Missing Twitch link OAuth configuration or Discord verification.");
     return clearOAuthCookies(
-      resultPage("Propojení Twitch není nakonfigurované nebo ověření Discordu vypršelo.", 400),
+      resultPage("Twitch linking is not configured or Discord verification has expired.", 400),
       true,
     );
   }
@@ -105,7 +105,7 @@ export async function GET(request: NextRequest) {
   ) {
     console.error("Twitch OAuth token exchange failed:", tokenResponse.status);
     return clearOAuthCookies(
-      resultPage("Twitch autorizaci se nepodařilo ověřit. Zkus propojení znovu.", 502),
+      resultPage("Could not verify Twitch authorization. Try linking again.", 502),
       true,
     );
   }
@@ -120,14 +120,14 @@ export async function GET(request: NextRequest) {
   if (!userResponse.ok || !isRecord(userBody) || !Array.isArray(userBody.data)) {
     console.error("Twitch profile lookup failed:", userResponse.status);
     return clearOAuthCookies(
-      resultPage("Twitch účet se nepodařilo ověřit. Zkus propojení znovu.", 502),
+      resultPage("Could not verify the Twitch account. Try linking again.", 502),
       true,
     );
   }
   const twitchUser = userBody.data.find(isTwitchUser);
   if (!twitchUser) {
     return clearOAuthCookies(
-      resultPage("Twitch nevrátil platnou identitu účtu.", 502),
+      resultPage("Twitch did not return a valid account identity.", 502),
       true,
     );
   }
@@ -139,7 +139,7 @@ export async function GET(request: NextRequest) {
   });
   if (linkedElsewhere && linkedElsewhere.discord_id !== discordId) {
     return clearOAuthCookies(
-      resultPage("Tento Twitch účet už je propojený s jiným Discord účtem.", 409),
+      resultPage("This Twitch account is already linked to another Discord account.", 409),
       true,
     );
   }
@@ -165,7 +165,7 @@ export async function GET(request: NextRequest) {
       error.code === "P2002"
     ) {
       return clearOAuthCookies(
-        resultPage("Tento Twitch účet už je propojený s jiným Discord účtem.", 409),
+        resultPage("This Twitch account is already linked to another Discord account.", 409),
         true,
       );
     }
@@ -182,10 +182,10 @@ export async function GET(request: NextRequest) {
     twitchName,
   );
   const nicknameMessage = nicknameErrors.length
-    ? " Twitch účet je propojený, ale přezdívku se nepodařilo aktualizovat. Zkontroluj oprávnění bota a jeho konfiguraci."
-    : " Přezdívka na Discordu byla aktualizována.";
+    ? " The Twitch account is linked, but the nickname could not be updated. Check the bot permissions and configuration."
+    : " The Discord nickname has been updated.";
   return clearOAuthCookies(
-    resultPage(`Twitch účet byl ověřen a propojen s tvým Discordem.${nicknameMessage}`),
+    resultPage(`The Twitch account was verified and linked to your Discord account.${nicknameMessage}`),
     true,
   );
 }

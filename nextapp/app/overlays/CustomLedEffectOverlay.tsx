@@ -305,7 +305,7 @@ export function CustomLedLayout({
       preserveAspectRatio="xMidYMid meet"
       className={className}
       role="img"
-      aria-label="LED rozložení: horní LED pás, levý horní a levý svislý pás, pravý a spodní pás a 12 hexagonů po 7 LEDkách"
+      aria-label="LED layout: top strip, upper-left and left vertical strips, right and bottom strips, and 12 hexagons with 7 LEDs each"
       onPointerDown={handlePointerDown}
       onPointerMove={handlePointerMove}
       onPointerUp={handlePointerUp}

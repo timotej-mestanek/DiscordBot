@@ -32,7 +32,7 @@ export default function TopClipCard({
 
   return (
     <article className="overflow-hidden rounded-2xl border border-zinc-800 bg-zinc-900/70">
-      <p className="px-5 pt-5 text-sm font-semibold uppercase tracking-widest text-amber-300">Top klip</p>
+      <p className="px-5 pt-5 text-sm font-semibold uppercase tracking-widest text-amber-300">Top clip</p>
       {clip ? (
         <>
           <a href={clip.url} target="_blank" rel="noreferrer" className="mt-4 block">
@@ -50,12 +50,12 @@ export default function TopClipCard({
               {clip.title}
             </a>
             <p className="mt-1 text-sm text-zinc-400">
-              {clip.view_count.toLocaleString("cs-CZ")} zhlédnutí · {clip.creator_name}
+              {clip.view_count.toLocaleString("en-US")} views · {clip.creator_name}
             </p>
           </div>
         </>
       ) : (
-        <p className="p-5 pt-3 text-sm text-zinc-400">Top klip zatím není dostupný.</p>
+        <p className="p-5 pt-3 text-sm text-zinc-400">No top clip is available yet.</p>
       )}
     </article>
   );

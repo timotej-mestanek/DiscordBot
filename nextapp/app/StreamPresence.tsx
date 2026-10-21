@@ -49,14 +49,14 @@ export function StreamLiveBadge() {
     return (
       <p className="inline-flex items-center gap-3 rounded-full border border-emerald-500/30 bg-emerald-950/60 px-5 py-2 text-xl font-black uppercase tracking-wider text-emerald-300 shadow-[0_0_40px_rgba(16,185,129,0.15)] sm:text-3xl">
         <span className="h-3 w-3 animate-pulse rounded-full bg-emerald-400" />
-        Právě streamuje
+        LIVE NOW
       </p>
     );
   }
   if (isLive === null) {
     return (
       <p className="inline-flex rounded-full border border-zinc-700 bg-zinc-900/70 px-4 py-2 text-sm font-medium text-zinc-300">
-        Stav streamu se nepodařilo ověřit
+        Unable to verify stream status
       </p>
     );
   }

@@ -43,19 +43,19 @@ export default function ShopProductCard({
       });
       const result: { error?: string; addToInventory?: boolean } = await response.json();
       if (!response.ok) {
-        setMessage(result.error ?? "Nákup se nepodařilo dokončit.");
+        setMessage(result.error ?? "The purchase could not be completed.");
         return;
       }
       if (!result.addToInventory) {
         setSuccess(true);
-        setMessage("Položka byla zaplacena a okamžitě použita.");
+        setMessage("The item was purchased and used immediately.");
         window.setTimeout(() => window.location.reload(), 900);
         return;
       }
       window.location.reload();
     } catch (error) {
       console.error("Shop purchase request failed:", error);
-      setMessage("Nákup se nepodařilo dokončit.");
+      setMessage("The purchase could not be completed.");
     } finally {
       setBusy(null);
     }
@@ -64,7 +64,7 @@ export default function ShopProductCard({
   const prices = [
     {
       currency: "discord" as const,
-      label: "Discord body",
+      label: "Discord points",
       price: product.discordPrice,
       balance: balances?.discord ?? null,
       connected: linked?.discord ?? false,
@@ -83,26 +83,26 @@ export default function ShopProductCard({
       <div className="flex flex-wrap items-start justify-between gap-4">
         <div>
           <p className="text-xs font-semibold uppercase tracking-widest text-violet-300">
-            {product.addToInventory ? "Položka · do inventáře" : "Položka · okamžité použití"}
+            {product.addToInventory ? "Product · inventory item" : "Product · instant use"}
           </p>
           <h2 className="mt-2 text-2xl font-bold">{product.name}</h2>
         </div>
         {quantity > 0 && (
           <span className="rounded-full border border-emerald-900 bg-emerald-950/50 px-3 py-1 text-sm font-semibold text-emerald-200">
-            V inventáři: {quantity}
+            In inventory: {quantity}
           </span>
         )}
       </div>
       <p className="mt-3 text-sm leading-6 text-zinc-400">{product.description}</p>
       <p className="mt-2 text-sm leading-6 text-zinc-500">
         {product.addToInventory
-          ? "Po nákupu se položka přidá do inventáře a můžeš ji použít později."
-          : "Po nákupu se položka okamžitě použije a nepřidá se do inventáře."}
+          ? "After purchase, the item is added to your inventory for later use."
+          : "After purchase, the item is used immediately and is not added to your inventory."}
       </p>
 
       {!product.active ? (
         <p className="mt-5 rounded-lg border border-zinc-800 bg-zinc-950/60 p-3 text-sm text-zinc-400">
-          Produkt teď není v prodeji.
+          This product is not currently for sale.
         </p>
       ) : (
         <div className="mt-5 grid gap-3 sm:grid-cols-2">
@@ -110,11 +110,11 @@ export default function ShopProductCard({
             <div key={currency} className="rounded-xl border border-zinc-800 bg-zinc-950/50 p-4">
               <p className="font-semibold">{label}</p>
               <p className="mt-1 text-sm text-zinc-400">
-                {price?.toLocaleString("cs-CZ") ?? "—"} bodů
+                {price?.toLocaleString("en-US") ?? "—"} points
               </p>
               {connected && balance !== null && (
                 <p className="mt-1 text-xs text-zinc-500">
-                  Zůstatek: {balance.toLocaleString("cs-CZ")}
+                  Balance: {balance.toLocaleString("en-US")}
                 </p>
               )}
               {isLoggedIn ? (
@@ -131,19 +131,19 @@ export default function ShopProductCard({
                     className="mt-4 w-full rounded-lg bg-violet-600 px-3 py-2 text-sm font-semibold hover:bg-violet-500 disabled:cursor-not-allowed disabled:bg-zinc-800 disabled:text-zinc-500"
                   >
                     {busy === currency
-                      ? "Nakupuji…"
+                      ? "Purchasing…"
                       : balance !== null && price !== null && balance < price
-                        ? "Nedostatek bodů"
+                        ? "Not enough points"
                         : product.addToInventory
-                          ? "Koupit"
-                          : "Koupit a použít"}
+                          ? "Buy"
+                          : "Buy and use"}
                   </button>
                 ) : (
                   <Link
                     href="/dashboard?tab=auth"
                     className="mt-4 block rounded-lg border border-zinc-700 px-3 py-2 text-center text-sm font-semibold hover:bg-zinc-800"
                   >
-                    Propojit účet
+                    Link account
                   </Link>
                 )
               ) : (
@@ -151,7 +151,7 @@ export default function ShopProductCard({
                   href="/login"
                   className="mt-4 block rounded-lg bg-violet-600 px-3 py-2 text-center text-sm font-semibold hover:bg-violet-500"
                 >
-                  Přihlásit se
+                  Sign in
                 </Link>
               )}
             </div>
@@ -160,7 +160,7 @@ export default function ShopProductCard({
       )}
       {isLoggedIn && linked && (!linked.discord || !linked.twitch) && (
         <p className="mt-4 text-xs text-zinc-500">
-          Pro nákup danou měnou připoj příslušný účet v dashboardu → Autorizace.
+          Link the relevant account in Dashboard → Authorization to pay with that currency.
         </p>
       )}
       {message && (

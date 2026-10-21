@@ -2,6 +2,7 @@
 
 import { useState } from "react";
 import type { FormEvent } from "react";
+import { useLivePointBalances } from "@/app/useLivePointBalances";
 
 type Currency = "discord" | "twitch_custom";
 type Rate = {
@@ -19,7 +20,7 @@ export type AccountBalances = {
 };
 
 function currencyName(currency: Currency) {
-  return currency === "discord" ? "Discord body" : "Twitch CustomBody";
+  return currency === "discord" ? "Discord points" : "Twitch CustomBody";
 }
 
 export default function DashboardPoints({
@@ -30,9 +31,13 @@ export default function DashboardPoints({
   rates: Rate[];
 }) {
   const [message, setMessage] = useState("");
+  const { balances: liveBalances, error: balanceError } = useLivePointBalances({
+    discord: balances.discord,
+    twitchCustom: balances.twitchCustom,
+  });
   const linked = {
-    discord: balances.discord !== null,
-    twitch_custom: balances.twitchCustom !== null,
+    discord: liveBalances.discord !== null,
+    twitch_custom: liveBalances.twitchCustom !== null,
   };
 
   async function convert(event: FormEvent<HTMLFormElement>) {
@@ -51,52 +56,58 @@ export default function DashboardPoints({
       });
       const result: { error?: string } = await response.json();
       if (!response.ok) {
-        setMessage(result.error ?? "Konverzi se nepodařilo dokončit.");
+        setMessage(result.error ?? "The conversion could not be completed.");
         return;
       }
       window.location.reload();
     } catch (error) {
       console.error("Point conversion request failed:", error);
-      setMessage("Konverzi se nepodařilo dokončit.");
+      setMessage("The conversion could not be completed.");
     }
   }
 
   return (
     <div className="space-y-6">
       <div className="grid gap-4 sm:grid-cols-2">
-        {balances.discord !== null && (
+        {liveBalances.discord !== null && (
           <article className="rounded-xl border border-zinc-800 bg-zinc-900 p-6">
-            <p className="text-sm text-zinc-400">Discord body</p>
-            <p className="mt-2 text-3xl font-bold">{balances.discord.toLocaleString("cs-CZ")}</p>
+            <p className="text-sm text-zinc-400">Discord points</p>
+            <p className="mt-2 text-3xl font-bold">{liveBalances.discord.toLocaleString("en-US")}</p>
           </article>
         )}
-        {balances.twitchCustom !== null && (
+        {liveBalances.twitchCustom !== null && (
           <article className="rounded-xl border border-zinc-800 bg-zinc-900 p-6">
             <p className="text-sm text-zinc-400">Twitch CustomBody</p>
-            <p className="mt-2 text-3xl font-bold">{balances.twitchCustom.toLocaleString("cs-CZ")}</p>
+            <p className="mt-2 text-3xl font-bold">{liveBalances.twitchCustom.toLocaleString("en-US")}</p>
           </article>
         )}
-        {balances.twitchCustom !== null && (
+        {liveBalances.twitchCustom !== null && (
           <article className="rounded-xl border border-zinc-800 bg-zinc-900 p-6 sm:col-span-2">
             <p className="text-sm font-semibold">Twitch Channel Points</p>
             <p className="mt-2 text-sm text-zinc-400">
-              Twitch neposkytuje aplikaci API pro zobrazení osobního zůstatku Channel Points.
-              Tyto body proto nelze načíst ani převádět.
+              Twitch does not provide an API for apps to read your personal Channel Points balance.
+              These points cannot be loaded or converted.
             </p>
           </article>
         )}
       </div>
 
-      {balances.discord === null && balances.twitchCustom === null && (
+      {balanceError && (
+        <p role="status" className="text-sm text-amber-300">
+          {balanceError} Showing the last available balance.
+        </p>
+      )}
+
+      {liveBalances.discord === null && liveBalances.twitchCustom === null && (
         <p className="rounded-lg border border-zinc-800 bg-zinc-900 p-5 text-sm text-zinc-400">
-          Pro zobrazení bodů připoj Discord nebo Twitch účet v záložce Autorizace.
+          Link a Discord or Twitch account in the Authorization tab to view your points.
         </p>
       )}
 
       <section className="rounded-xl border border-zinc-800 bg-zinc-900 p-6">
-        <h2 className="text-xl font-semibold">Konverze</h2>
+        <h2 className="text-xl font-semibold">Conversions</h2>
         <p className="mt-2 text-sm text-zinc-400">
-          Channel Points nejsou do konverzí zahrnuté. Dostupné směnné kurzy spravuje administrátor.
+          Channel Points cannot be converted. An administrator manages the available exchange rates.
         </p>
         <div className="mt-5 grid gap-4 lg:grid-cols-2">
           {rates
@@ -116,7 +127,7 @@ export default function DashboardPoints({
                   {rate.source_amount} → {rate.target_amount}
                 </p>
                 <label className="mt-4 block text-sm text-zinc-300">
-                  Počet {currencyName(rate.source_currency)}
+                  Amount of {currencyName(rate.source_currency)}
                   <input
                     name="sourceAmount"
                     type="number"
@@ -127,13 +138,13 @@ export default function DashboardPoints({
                   />
                 </label>
                 <button className="mt-3 rounded-lg bg-violet-600 px-4 py-2 text-sm font-semibold hover:bg-violet-500">
-                  Směnit body
+                  Convert points
                 </button>
               </form>
             ))}
           {rates.every((rate) => !rate.enabled) && (
             <p className="text-sm text-zinc-500">
-              Konverze zatím nejsou nastavené nebo zapnuté.
+              No conversions have been configured or enabled yet.
             </p>
           )}
         </div>

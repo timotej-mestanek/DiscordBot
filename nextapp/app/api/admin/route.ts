@@ -40,16 +40,16 @@ async function revertShopOperation(adminId: string, logId: string) {
       !original.action.startsWith("shop.") ||
       original.action === "shop.reverted"
     ) {
-      throw new ShopRevertError("Shop operaci nelze vrátit.");
+      throw new ShopRevertError("This shop operation cannot be reverted.");
     }
     const existingRevert = await transaction.adminAuditLog.findUnique({
       where: { reverted_log_id: original.id },
       select: { id: true },
     });
-    if (existingRevert) throw new ShopRevertError("Tato shop operace už byla vrácena.");
+    if (existingRevert) throw new ShopRevertError("This shop operation has already been reverted.");
 
     const details = original.details;
-    if (!isRecord(details)) throw new ShopRevertError("Záznam shop operace nemá platná data.");
+    if (!isRecord(details)) throw new ShopRevertError("The shop operation record contains invalid data.");
 
     if (original.action === "shop.purchased") {
       if (
@@ -61,7 +61,7 @@ async function revertShopOperation(adminId: string, logId: string) {
         (details.addToInventory === false &&
           typeof details.redemptionId !== "string")
       ) {
-        throw new ShopRevertError("Záznam nákupu nemá potřebná data pro vrácení.");
+        throw new ShopRevertError("The purchase record is missing data required for a revert.");
       }
       const providerUserId =
         typeof details.providerUserId === "string"
@@ -79,7 +79,7 @@ async function revertShopOperation(adminId: string, logId: string) {
               })
             )?.provider_user_id;
       if (!providerUserId) {
-        throw new ShopRevertError("Pro vrácení nákupu chybí propojený účet.");
+        throw new ShopRevertError("The linked account required to revert this purchase is missing.");
       }
       const productId = details.productId;
       const redemptionId =
@@ -90,7 +90,7 @@ async function revertShopOperation(adminId: string, logId: string) {
         details.currency,
         providerUserId,
         details.price,
-        "Vrácení shop nákupu",
+        "Shop purchase reversal",
         adminId,
       );
 
@@ -104,14 +104,14 @@ async function revertShopOperation(adminId: string, logId: string) {
           data: { quantity: { decrement: 1 } },
         });
         if (removed.count !== 1) {
-          throw new ShopRevertError("Zakoupenou položku už nelze odebrat z inventáře.");
+          throw new ShopRevertError("The purchased item cannot be removed from inventory.");
         }
       } else if (redemptionId) {
         await transaction.shopRedemption.delete({
           where: { id: redemptionId },
         });
       } else {
-        throw new ShopRevertError("Záznam okamžitého nákupu nemá ID použití.");
+        throw new ShopRevertError("The instant purchase record is missing its redemption ID.");
       }
     } else if (original.action === "shop.redeemed") {
       if (
@@ -119,14 +119,14 @@ async function revertShopOperation(adminId: string, logId: string) {
         typeof details.redemptionId !== "string" ||
         !original.target_account_id
       ) {
-        throw new ShopRevertError("Záznam použití nemá potřebná data pro vrácení.");
+        throw new ShopRevertError("The redemption record is missing data required for a revert.");
       }
       const redemption = await transaction.shopRedemption.findUnique({
         where: { id: details.redemptionId },
         select: { id: true, product_id: true },
       });
       if (!redemption || redemption.product_id !== details.productId) {
-        throw new ShopRevertError("Použitou položku už nelze obnovit.");
+        throw new ShopRevertError("The redeemed item cannot be restored.");
       }
       await transaction.shopInventory.upsert({
         where: {
@@ -148,13 +148,13 @@ async function revertShopOperation(adminId: string, logId: string) {
       original.action === "shop.product_updated"
     ) {
       if (typeof details.productId !== "string") {
-        throw new ShopRevertError("Záznam položky nemá identifikátor.");
+        throw new ShopRevertError("The product record is missing an identifier.");
       }
       const product = await transaction.shopProduct.findUnique({
         where: { id: details.productId },
         select: { id: true },
       });
-      if (!product) throw new ShopRevertError("Shop položka nebyla nalezena.");
+      if (!product) throw new ShopRevertError("Shop product not found.");
       if (original.action === "shop.product_created") {
         await transaction.shopProduct.update({
           where: { id: details.productId },
@@ -171,7 +171,7 @@ async function revertShopOperation(adminId: string, logId: string) {
           typeof previous.active !== "boolean" ||
           typeof previous.addToInventory !== "boolean"
         ) {
-          throw new ShopRevertError("Původní nastavení položky chybí.");
+          throw new ShopRevertError("The product's previous settings are missing.");
         }
         await transaction.shopProduct.update({
           where: { id: details.productId },
@@ -186,7 +186,7 @@ async function revertShopOperation(adminId: string, logId: string) {
         });
       }
     } else {
-      throw new ShopRevertError("Tento typ shop operace zatím nelze vrátit.");
+      throw new ShopRevertError("This type of shop operation cannot be reverted yet.");
     }
 
     await transaction.adminAuditLog.create({
@@ -204,9 +204,9 @@ async function revertShopOperation(adminId: string, logId: string) {
 
 export async function GET() {
   const admin = await getCurrentAccount();
-  if (!admin) return NextResponse.json({ error: "Přihlas se." }, { status: 401 });
+  if (!admin) return NextResponse.json({ error: "Sign in to continue." }, { status: 401 });
   if (admin.role !== "admin") {
-    return NextResponse.json({ error: "Přístup odepřen." }, { status: 403 });
+    return NextResponse.json({ error: "Access denied." }, { status: 403 });
   }
 
   const [
@@ -273,24 +273,24 @@ export async function GET() {
 
 export async function POST(request: Request) {
   if (!isSameOriginRequest(request)) {
-    return NextResponse.json({ error: "Neplatný požadavek." }, { status: 403 });
+    return NextResponse.json({ error: "Invalid request." }, { status: 403 });
   }
   const admin = await getCurrentAccount();
   if (!admin) {
-    return NextResponse.json({ error: "Přihlas se." }, { status: 401 });
+    return NextResponse.json({ error: "Sign in to continue." }, { status: 401 });
   }
   if (admin.role !== "admin") {
-    return NextResponse.json({ error: "Přístup odepřen." }, { status: 403 });
+    return NextResponse.json({ error: "Access denied." }, { status: 403 });
   }
 
   let body: unknown;
   try {
     body = await request.json();
   } catch {
-    return NextResponse.json({ error: "Neplatná data požadavku." }, { status: 400 });
+    return NextResponse.json({ error: "Invalid request data." }, { status: 400 });
   }
   if (typeof body !== "object" || body === null || !("action" in body)) {
-    return NextResponse.json({ error: "Chybí akce." }, { status: 400 });
+    return NextResponse.json({ error: "An action is required." }, { status: 400 });
   }
 
   try {
@@ -303,13 +303,13 @@ export async function POST(request: Request) {
         !body.teammates.every(isValidPubgPlayerName)
       ) {
         return NextResponse.json(
-          { error: "Zkontroluj přezdívky hráčů (maximálně 32 znaků)." },
+          { error: "Check the player names (maximum 32 characters)." },
           { status: 400 },
         );
       }
       if (body.teammates.length > 3) {
         return NextResponse.json(
-          { error: "PUBG sestava může mít nejvýše tři spoluhráče." },
+          { error: "The PUBG roster can have no more than three teammates." },
           { status: 400 },
         );
       }
@@ -327,7 +327,7 @@ export async function POST(request: Request) {
         return NextResponse.json(
           {
             error:
-              "Jména hráčů musí být unikátní a spoluhráčů mohou být nejvýše tři.",
+              "Player names must be unique, with no more than three teammates.",
           },
           { status: 400 },
         );
@@ -398,7 +398,7 @@ export async function POST(request: Request) {
         (endsAt && (Number.isNaN(endsAt.getTime()) || endsAt <= startsAt))
       ) {
         return NextResponse.json(
-          { error: "Zkontroluj datum a čas začátku a konce streamu." },
+          { error: "Check the stream start and end date and time." },
           { status: 400 },
         );
       }
@@ -434,7 +434,7 @@ export async function POST(request: Request) {
         select: { id: true, title: true, starts_at: true },
       });
       if (!event) {
-        return NextResponse.json({ error: "Termín streamu nebyl nalezen." }, { status: 404 });
+        return NextResponse.json({ error: "Stream event not found." }, { status: 404 });
       }
       await prisma.$transaction([
         prisma.streamEvent.delete({ where: { id: event.id } }),
@@ -460,7 +460,7 @@ export async function POST(request: Request) {
       const requestedRole = body.role;
       if (targetAccountId === admin.id) {
         return NextResponse.json(
-          { error: "Vlastní roli zde změnit nelze." },
+          { error: "You cannot change your own role here." },
           { status: 400 },
         );
       }
@@ -470,12 +470,12 @@ export async function POST(request: Request) {
             where: { id: targetAccountId },
             select: { id: true, role: true },
           });
-          if (!target) throw new Error("Účet nebyl nalezen.");
+          if (!target) throw new Error("Account not found.");
           if (target.role === "admin" && requestedRole === "user") {
             const adminCount = await transaction.webAccount.count({
               where: { role: "admin" },
             });
-            if (adminCount <= 1) throw new Error("Posledního administrátora nelze odebrat.");
+            if (adminCount <= 1) throw new Error("The last administrator cannot be removed.");
           }
           if (target.role === requestedRole) return;
 
@@ -527,7 +527,7 @@ export async function POST(request: Request) {
       const identity = target?.identities[0];
       if (!target || !identity) {
         return NextResponse.json(
-          { error: "Účet nemá propojenou odpovídající identitu." },
+          { error: "The account does not have a matching linked identity." },
           { status: 400 },
         );
       }
@@ -606,23 +606,29 @@ export async function POST(request: Request) {
       return NextResponse.json({ ok: true });
     }
 
-    return NextResponse.json({ error: "Neplatná akce nebo údaje." }, { status: 400 });
+    return NextResponse.json({ error: "Invalid action or data." }, { status: 400 });
   } catch (error) {
     if (error instanceof ShopRevertError) {
       return NextResponse.json(
         { error: error.message },
-        { status: error.message === "Shop operaci nelze vrátit." ? 404 : 409 },
+        {
+          status:
+            error.message === "This shop operation cannot be reverted." ||
+            error.message === "Shop product not found."
+              ? 404
+              : 409,
+        },
       );
     }
     if (error instanceof Error) {
-      if (error.message === "Shop operaci nelze vrátit." || error.message === "Shop položka nebyla nalezena.") {
+      if (error.message === "This shop operation cannot be reverted." || error.message === "Shop product not found.") {
         return NextResponse.json({ error: error.message }, { status: 404 });
       }
       if (
-        error.message === "Tato shop operace už byla vrácena." ||
-        error.message.includes("nelze") ||
-        error.message.includes("chybí") ||
-        error.message.includes("nebyla nalezena")
+        error.message === "This shop operation has already been reverted." ||
+        error.message.includes("cannot") ||
+        error.message.includes("missing") ||
+        error.message.includes("not found")
       ) {
         return NextResponse.json({ error: error.message }, { status: 409 });
       }
@@ -632,15 +638,15 @@ export async function POST(request: Request) {
       error.code === "P2002"
     ) {
       return NextResponse.json(
-        { error: "Tato shop operace už byla vrácena." },
+        { error: "This shop operation has already been reverted." },
         { status: 409 },
       );
     }
     if (error instanceof Error) {
-      if (error.message === "Posledního administrátora nelze odebrat.") {
+      if (error.message === "The last administrator cannot be removed.") {
         return NextResponse.json({ error: error.message }, { status: 409 });
       }
-      if (error.message === "Účet nebyl nalezen.") {
+      if (error.message === "Account not found.") {
         return NextResponse.json({ error: error.message }, { status: 404 });
       }
     }
@@ -649,14 +655,14 @@ export async function POST(request: Request) {
       error.code === "P2034"
     ) {
       return NextResponse.json(
-        { error: "Změna kolidovala s jinou administrátorskou operací. Zkus ji znovu." },
+        { error: "The change conflicted with another admin operation. Try again." },
         { status: 409 },
       );
     }
     if (error instanceof Error && error.name === "InsufficientPointsError") {
-      return NextResponse.json({ error: "Zůstatek nemůže být záporný." }, { status: 409 });
+      return NextResponse.json({ error: "The balance cannot be negative." }, { status: 409 });
     }
     console.error("Admin action failed:", error);
-    return NextResponse.json({ error: "Administrátorská akce selhala." }, { status: 500 });
+    return NextResponse.json({ error: "The admin action failed." }, { status: 500 });
   }
 }

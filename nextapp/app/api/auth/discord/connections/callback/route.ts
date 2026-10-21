@@ -31,7 +31,7 @@ function isDiscordConnection(value: unknown): value is DiscordConnection {
 
 function resultPage(message: string, status = 200): NextResponse {
   return new NextResponse(
-    `<!doctype html><html lang="cs"><meta charset="utf-8"><meta name="viewport" content="width=device-width"><title>Propojení Twitch</title><body><main><h1>Propojení Twitch účtu</h1><p>${message}</p></main></body></html>`,
+    `<!doctype html><html lang="en"><meta charset="utf-8"><meta name="viewport" content="width=device-width"><title>Twitch linking</title><body><main><h1>Link Twitch account</h1><p>${message}</p></main></body></html>`,
     {
       status,
       headers: { "Content-Type": "text/html; charset=utf-8" },
@@ -88,14 +88,14 @@ export async function GET(request: NextRequest) {
   const cookieState = request.cookies.get("discord_connections_state")?.value;
   if (!matchesDiscordOAuthState(state, cookieState)) {
     return clearStateCookie(
-      resultPage("Požadavek vypršel nebo není platný. Vrať se na web a zkus propojení znovu.", 400),
+      resultPage("The request has expired or is invalid. Return to the website and try linking again.", 400),
     );
   }
 
   const code = params.get("code");
   if (params.has("error") || !code) {
     return clearStateCookie(
-      resultPage("Přístup nebyl povolen. Pokud chceš účty propojit, spusť akci znovu na webu.", 400),
+      resultPage("Access was not granted. To link accounts, start the process again from the website.", 400),
     );
   }
 
@@ -105,7 +105,7 @@ export async function GET(request: NextRequest) {
   if (!clientId || !clientSecret || !redirectUri) {
     console.error("Missing Discord OAuth client configuration.");
     return clearStateCookie(
-      resultPage("Discord propojení není nakonfigurované.", 500),
+      resultPage("Discord linking is not configured.", 500),
     );
   }
 
@@ -128,7 +128,7 @@ export async function GET(request: NextRequest) {
   ) {
     console.error("Discord OAuth token exchange failed:", tokenResponse.status);
     return clearStateCookie(
-      resultPage("Discord autorizaci se nepodařilo ověřit. Zkus propojení znovu.", 502),
+      resultPage("Could not verify Discord authorization. Try linking again.", 502),
     );
   }
 
@@ -149,13 +149,13 @@ export async function GET(request: NextRequest) {
       connectionsResponse?.status,
     );
     return clearStateCookie(
-      resultPage("Discord nevrátil propojené účty. Zkus propojení znovu.", 502),
+      resultPage("Discord did not return linked accounts. Try linking again.", 502),
     );
   }
   const userBody: unknown = await userResponse.json();
   if (!isRecord(userBody) || typeof userBody.id !== "string") {
     return clearStateCookie(
-      resultPage("Discord účet se nepodařilo ověřit.", 502),
+      resultPage("Could not verify the Discord account.", 502),
     );
   }
   if (isLocalTwitchFlow) {
@@ -171,7 +171,7 @@ export async function GET(request: NextRequest) {
   if (!Array.isArray(connectionsBody)) {
     console.error("Discord returned an unexpected connections response.");
     return clearStateCookie(
-      resultPage("Discord vrátil neplatný seznam propojených účtů.", 502),
+      resultPage("Discord returned an invalid list of linked accounts.", 502),
     );
   }
 
@@ -186,7 +186,7 @@ export async function GET(request: NextRequest) {
     );
   if (!twitchConnection) {
     const response = resultPage(
-      `V Discord Connections není připojený Twitch účet. Zkus místo toho <a href="/api/auth/discord/local">samostatné ověření přes Twitch</a>.`,
+      `No Twitch account is linked in Discord Connections. Instead, try <a href="/api/auth/discord/local">standalone Twitch verification</a>.`,
     );
     return clearStateCookie(response);
   }
@@ -203,7 +203,7 @@ export async function GET(request: NextRequest) {
   });
   if (linkedElsewhere && linkedElsewhere.discord_id !== userBody.id) {
     return clearStateCookie(
-      resultPage("Tento Twitch účet už je propojený s jiným Discord účtem.", 409),
+      resultPage("This Twitch account is already linked to another Discord account.", 409),
     );
   }
 
@@ -228,7 +228,7 @@ export async function GET(request: NextRequest) {
       error.code === "P2002"
     ) {
       return clearStateCookie(
-        resultPage("Tento Twitch účet už je propojený s jiným Discord účtem.", 409),
+        resultPage("This Twitch account is already linked to another Discord account.", 409),
       );
     }
     throw error;
@@ -240,9 +240,9 @@ export async function GET(request: NextRequest) {
     twitchConnection.name.trim(),
   );
   const nicknameMessage = nicknameErrors.length
-    ? " Twitch účet je propojený, ale přezdívku se nepodařilo aktualizovat. Zkontroluj oprávnění bota a jeho konfiguraci."
-    : " Bot aktualizoval přezdívku na Discordu.";
+    ? " The Twitch account is linked, but the nickname could not be updated. Check the bot permissions and configuration."
+    : " The bot updated the Discord nickname.";
   return clearStateCookie(
-    resultPage(`Twitch účet byl ověřen a propojen s tímto Discord účtem.${nicknameMessage}`),
+    resultPage(`The Twitch account was verified and linked to this Discord account.${nicknameMessage}`),
   );
 }

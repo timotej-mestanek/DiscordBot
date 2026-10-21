@@ -224,7 +224,7 @@ export default function WheelOverlay() {
             <svg
               viewBox="0 0 600 600"
               role="img"
-              aria-label={`Koleso ${displaySegment.title}`}
+              aria-label={`Wheel ${displaySegment.title}`}
               className="block h-auto w-full overflow-visible"
             >
               <g
