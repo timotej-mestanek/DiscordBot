@@ -2,8 +2,6 @@
 
 import { useEffect, useState } from "react";
 import type { FormEvent } from "react";
-import Link from "next/link";
-import WheelAdminPanel from "@/app/dashboard/WheelAdminPanel";
 
 type Currency = "discord" | "twitch_custom";
 type Account = {
@@ -98,7 +96,7 @@ function canRevertShopLog(log: Log): boolean {
   return false;
 }
 
-export default function AdminPanel() {
+export default function AdminPanel({ view }: { view: "settings" | "logs" }) {
   const [data, setData] = useState<AdminData | null>(null);
   const [error, setError] = useState("");
   const [revertingLogId, setRevertingLogId] = useState<string | null>(null);
@@ -138,7 +136,7 @@ export default function AdminPanel() {
 
   async function load() {
     try {
-      void loadStreamerBotLogs(true);
+      if (view === "logs") void loadStreamerBotLogs(true);
       const response = await fetch("/api/admin");
       const result = await response.json();
       if (!response.ok) {
@@ -154,7 +152,8 @@ export default function AdminPanel() {
 
   useEffect(() => {
     let active = true;
-    void fetch("/api/admin/streamerbot-logs")
+    if (view === "logs") {
+      void fetch("/api/admin/streamerbot-logs")
       .then(async (response) => ({
         response,
         result: await response.json(),
@@ -175,6 +174,7 @@ export default function AdminPanel() {
         console.error("Streamer.bot dashboard logs load failed:", loadError);
         setStreamerBotLogError("Streamer.bot logy sa nepodarilo načítať.");
       });
+    }
     void fetch("/api/admin")
       .then(async (response) => ({
         response,
@@ -196,7 +196,7 @@ export default function AdminPanel() {
     return () => {
       active = false;
     };
-  }, []);
+  }, [view]);
 
   async function submit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
@@ -319,14 +319,14 @@ export default function AdminPanel() {
 
   return (
     <div className="space-y-8">
-      <WheelAdminPanel />
-
       {error && (
         <p role="alert" className="rounded-lg border border-red-900 bg-red-950/50 p-3 text-sm text-red-200">
           {error}
         </p>
       )}
 
+      {view === "settings" && (
+      <>
       <section className="rounded-xl border border-zinc-800 bg-zinc-900 p-6">
         <h2 className="text-xl font-semibold">Kalendář streamů</h2>
         <form onSubmit={submit} className="mt-6 grid gap-3 sm:grid-cols-2">
@@ -443,19 +443,6 @@ export default function AdminPanel() {
       </section>
 
       <section className="rounded-xl border border-zinc-800 bg-zinc-900 p-6">
-        <h2 className="text-xl font-semibold">Administrace shopu</h2>
-        <p className="mt-2 text-sm text-zinc-400">
-          Všechny shop položky vytvářej a upravuj v jednom společném editoru.
-        </p>
-        <Link
-          href="/shop"
-          className="mt-4 inline-flex rounded-lg bg-violet-600 px-4 py-2 text-sm font-semibold hover:bg-violet-500"
-        >
-          Otevřít správu shopu
-        </Link>
-      </section>
-
-      <section className="rounded-xl border border-zinc-800 bg-zinc-900 p-6">
         <h2 className="text-xl font-semibold">Uživatelé a administrátoři</h2>
         <div className="mt-4 space-y-3">
           {data.accounts.map((account) => (
@@ -564,6 +551,10 @@ export default function AdminPanel() {
         </div>
       </section>
 
+      </>
+      )}
+      {view === "logs" && (
+      <>
       <section className="rounded-xl border border-zinc-800 bg-zinc-900 p-6">
         <h2 className="text-xl font-semibold">Změny bodů</h2>
         <div className="mt-4 h-72 space-y-2 overflow-y-auto overscroll-contain rounded-lg border border-zinc-800 p-2">
@@ -672,6 +663,8 @@ export default function AdminPanel() {
           </button>
         )}
       </section>
+      </>
+      )}
     </div>
   );
 }

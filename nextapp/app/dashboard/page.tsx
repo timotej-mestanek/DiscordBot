@@ -1,20 +1,43 @@
 import { redirect } from "next/navigation";
 import Link from "next/link";
 import AdminPanel from "@/app/dashboard/AdminPanel";
+import AdminShopPanel from "@/app/dashboard/AdminShopPanel";
 import DashboardPoints from "@/app/dashboard/DashboardPoints";
 import LEDTimelineEditor from "@/app/dashboard/LEDTimelineEditor";
+import WheelAdminPanel from "@/app/dashboard/WheelAdminPanel";
 import OverlayBuilder from "@/app/overlays/OverlayBuilder";
 import { getCurrentAccount } from "@/lib/auth/session";
 import { prisma } from "@/lib/prisma";
 import { getAccountPointBalances } from "@/lib/points";
 
-const tabs = [
+const userTabs = [
   { id: "points", label: "Moje body" },
   { id: "leds", label: "LEDS" },
   { id: "auth", label: "Autorizace" },
 ] as const;
 
-type DashboardTab = (typeof tabs)[number]["id"] | "admin" | "overlays";
+const adminTabs = [
+  { id: "admin", label: "Admin" },
+  { id: "admin-shop", label: "Admin Shop" },
+  { id: "wheels", label: "Wheels" },
+  { id: "logs", label: "Logs" },
+  { id: "overlays", label: "Overlaye" },
+] as const;
+
+type DashboardTab =
+  | (typeof userTabs)[number]["id"]
+  | (typeof adminTabs)[number]["id"];
+
+const dashboardTitles: Record<DashboardTab, string> = {
+  points: "Moje body",
+  leds: "LEDS",
+  auth: "Autorizace",
+  admin: "Administrace",
+  "admin-shop": "Admin Shop",
+  wheels: "Wheels",
+  logs: "Logs",
+  overlays: "Overlaye",
+};
 
 export default async function DashboardPage({
   searchParams,
@@ -35,11 +58,10 @@ export default async function DashboardPage({
       ? "auth"
       : params.tab === "leds"
         ? "leds"
-        : params.tab === "admin" && account.role === "admin"
-          ? "admin"
-          : params.tab === "overlays" && account.role === "admin"
-            ? "overlays"
-            : "points";
+        : account.role === "admin" &&
+            adminTabs.some((tab) => tab.id === params.tab)
+          ? (params.tab as (typeof adminTabs)[number]["id"])
+          : "points";
   const discordIdentity = account.identities.find(
     (identity) => identity.provider === "discord",
   );
@@ -72,7 +94,10 @@ export default async function DashboardPage({
             N4JT <span className="font-normal text-zinc-400">Dashboard</span>
           </Link>
           <div className="flex items-center gap-3">
-            <Link href="/shop" className="text-sm font-semibold text-violet-300 hover:text-violet-200">
+            <Link
+              href={account.role === "admin" ? "/shop?preview=public" : "/shop"}
+              className="text-sm font-semibold text-violet-300 hover:text-violet-200"
+            >
               Shop
             </Link>
             <span className="hidden text-sm text-zinc-300 sm:inline">
@@ -89,43 +114,64 @@ export default async function DashboardPage({
 
       <div className="mx-auto grid max-w-6xl gap-8 px-4 py-8 sm:px-6 md:grid-cols-[220px_1fr] md:py-12">
         <nav aria-label="Dashboard" className="flex gap-2 overflow-x-auto md:flex-col">
-          {[...tabs, ...(account.role === "admin" ? [
-            { id: "admin" as const, label: "Admin" },
-            { id: "overlays" as const, label: "Overlaye" },
-          ] : [])].map((tab) => (
-            <a
-              key={tab.id}
-              href={`/dashboard?tab=${tab.id}`}
-              aria-current={activeTab === tab.id ? "page" : undefined}
-              className={`rounded-lg px-4 py-3 text-sm font-medium transition-colors ${
-                activeTab === tab.id
-                  ? "bg-violet-600 text-white"
-                  : "text-zinc-400 hover:bg-zinc-900 hover:text-white"
-              }`}
+          {account.role === "admin" && (
+            <div className="flex shrink-0 flex-col gap-1 rounded-xl border border-violet-900/60 bg-violet-950/20 p-2">
+              <p className="px-3 py-2 text-xs font-bold uppercase tracking-widest text-violet-300">
+                Admin
+              </p>
+              {adminTabs.map((tab) => (
+                <a
+                  key={tab.id}
+                  href={`/dashboard?tab=${tab.id}`}
+                  aria-current={activeTab === tab.id ? "page" : undefined}
+                  className={`rounded-lg px-3 py-2.5 text-sm font-medium transition-colors ${
+                    activeTab === tab.id
+                      ? "bg-violet-600 text-white"
+                      : "text-violet-200/80 hover:bg-violet-900/40 hover:text-white"
+                  }`}
+                >
+                  {tab.label}
+                </a>
+              ))}
+              <Link
+                href="/dashboard/remote"
+                className="rounded-lg px-3 py-2.5 text-sm font-medium text-violet-200/80 transition-colors hover:bg-violet-900/40 hover:text-white"
+              >
+                Stream Deck
+              </Link>
+            </div>
+          )}
+          <div className="flex shrink-0 flex-col gap-1">
+            <p className="px-3 py-2 text-xs font-bold uppercase tracking-widest text-zinc-500">
+              Můj účet
+            </p>
+            {userTabs.map((tab) => (
+              <a
+                key={tab.id}
+                href={`/dashboard?tab=${tab.id}`}
+                aria-current={activeTab === tab.id ? "page" : undefined}
+                className={`rounded-lg px-4 py-3 text-sm font-medium transition-colors ${
+                  activeTab === tab.id
+                    ? "bg-zinc-700 text-white"
+                    : "text-zinc-400 hover:bg-zinc-900 hover:text-white"
+                }`}
+              >
+                {tab.label}
+              </a>
+            ))}
+            <Link
+              href={account.role === "admin" ? "/shop?preview=public" : "/shop"}
+              className="rounded-lg px-4 py-3 text-sm font-medium text-zinc-400 transition-colors hover:bg-zinc-900 hover:text-white"
             >
-              {tab.label}
-            </a>
-          ))}
-          <Link
-            href="/shop"
-            className="rounded-lg px-4 py-3 text-sm font-medium text-zinc-400 transition-colors hover:bg-zinc-900 hover:text-white"
-          >
-            Shop
-          </Link>
+              Shop
+            </Link>
+          </div>
         </nav>
 
         <section className="min-w-0">
           <div className="mb-7">
             <h1 className="text-3xl font-bold">
-              {activeTab === "admin"
-                ? "Administrace"
-                : activeTab === "overlays"
-                  ? "Overlaye"
-                  : activeTab === "auth"
-                    ? "Autorizace"
-                    : activeTab === "leds"
-                      ? "LEDS"
-                      : "Moje body"}
+              {dashboardTitles[activeTab]}
             </h1>
             <p className="mt-2 text-sm text-zinc-400">
               Přihlášen jako {account.display_name}
@@ -224,7 +270,18 @@ export default async function DashboardPage({
             </div>
           )}
 
-          {activeTab === "admin" && account.role === "admin" && <AdminPanel />}
+          {activeTab === "admin" && account.role === "admin" && (
+            <AdminPanel view="settings" />
+          )}
+          {activeTab === "admin-shop" && account.role === "admin" && (
+            <AdminShopPanel />
+          )}
+          {activeTab === "wheels" && account.role === "admin" && (
+            <WheelAdminPanel />
+          )}
+          {activeTab === "logs" && account.role === "admin" && (
+            <AdminPanel view="logs" />
+          )}
           {activeTab === "overlays" && account.role === "admin" && (
             <OverlayBuilder />
           )}

@@ -14,8 +14,14 @@ function isMissingShopTable(error: unknown) {
   );
 }
 
-export default async function ShopPage() {
+export default async function ShopPage({
+  searchParams,
+}: {
+  searchParams: Promise<{ preview?: string }>;
+}) {
   const account = await getCurrentAccount();
+  const params = await searchParams;
+  const isPublicPreview = account?.role === "admin" && params.preview === "public";
   const identities = account?.identities ?? [];
   const balances = account ? await getAccountPointBalances(identities) : null;
   let products: AdminShopProduct[] = [];
@@ -24,7 +30,7 @@ export default async function ShopPage() {
 
   try {
     products = await prisma.shopProduct.findMany({
-      where: account?.role === "admin" ? {} : { active: true },
+      where: account?.role === "admin" && !isPublicPreview ? {} : { active: true },
       orderBy: { name: "asc" },
       include: {
         _count: { select: { inventory: true, redemptions: true } },
@@ -72,6 +78,11 @@ export default async function ShopPage() {
           Nakup položky za Discord body nebo Twitch CustomBody. Podle nastavení se položka použije hned,
           nebo se uloží do inventáře.
         </p>
+        {isPublicPreview && (
+          <p className="mt-5 rounded-lg border border-violet-900/60 bg-violet-950/20 p-3 text-sm text-violet-200">
+            Uživatelský náhled · neaktivní produkty a administrační nástroje jsou skryté.
+          </p>
+        )}
 
         {!shopTablesReady ? (
           <section className="mt-8 rounded-xl border border-amber-900 bg-amber-950/40 p-5">
@@ -84,7 +95,7 @@ export default async function ShopPage() {
           </section>
         ) : (
           <>
-            {account?.role === "admin" && (
+            {account?.role === "admin" && !isPublicPreview && (
               <ShopAdminManager products={products} />
             )}
             <section className="mt-8 grid gap-5 lg:grid-cols-2">
@@ -126,7 +137,7 @@ export default async function ShopPage() {
             </section>
             {products.every((product) => !product.active) && (
               <p className="mt-8 rounded-xl border border-zinc-800 bg-zinc-900 p-5 text-sm text-zinc-400">
-                {account?.role === "admin"
+                {account?.role === "admin" && !isPublicPreview
                   ? "Vytvoř modul v administraci shopu níže a zapni jeho prodej."
                   : "Momentálně nejsou v prodeji žádné moduly."}
               </p>

@@ -4,3 +4,11 @@
 /ttv_spotify_extension/
 /ttv_gamestats_extension/
 /streamerbot_plugin/
+!/streamerbot_plugin/
+/streamerbot_plugin/*
+!/streamerbot_plugin/README.md
+!/streamerbot_plugin/N4JT-Moderator-Commands.sb
+!/streamerbot_plugin/N4JT-SetTitle.cs
+!/streamerbot_plugin/N4JT-SetGame.cs
+!/streamerbot_plugin/N4JT-CreateMarker.cs
+!/streamerbot_plugin/N4JT-CreateClip.cs
