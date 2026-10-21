@@ -103,30 +103,31 @@ async function getSnapshot() {
     ) {
       throw new Error(`Wheel spin ${spin.id} has an invalid result for history.`);
     }
+    const probabilityFor = (slice) => {
+      if (typeof slice !== "object" || slice === null) return null;
+      if ("probability" in slice && typeof slice.probability === "number") {
+        return slice.probability;
+      }
+      return "weight" in slice && typeof slice.weight === "number"
+        ? slice.weight
+        : null;
+    };
     const selected = segment.slices.find(
       (slice) =>
         typeof slice === "object" &&
         slice !== null &&
         "id" in slice &&
         slice.id === segment.selectedSliceId &&
-        "weight" in slice &&
-        typeof slice.weight === "number",
+        probabilityFor(slice) !== null,
     );
-    const totalWeight = segment.slices.reduce(
-      (total, slice) =>
-        typeof slice === "object" &&
-        slice !== null &&
-        "weight" in slice &&
-        typeof slice.weight === "number"
-          ? total + slice.weight
-          : total,
+    const totalProbability = segment.slices.reduce(
+      (total, slice) => total + (probabilityFor(slice) ?? 0),
       0,
     );
+    const selectedProbability = probabilityFor(selected);
     if (
-      !selected ||
-      !("weight" in selected) ||
-      typeof selected.weight !== "number" ||
-      totalWeight <= 0
+      selectedProbability === null ||
+      totalProbability <= 0
     ) {
       throw new Error(`Wheel spin ${spin.id} has an invalid selected slice.`);
     }
@@ -136,7 +137,7 @@ async function getSnapshot() {
       gameName:
         spin.game_name ?? profileMap.get(spin.profile_id)?.gameName ?? "Herná hra",
       result: segment.selectedLabel,
-      rarity: selected.weight / totalWeight,
+      rarity: selectedProbability / totalProbability,
       createdAt: spin.created_at.toISOString(),
       revealAt: new Date(spin.created_at.getTime() + segment.durationMs + 500).toISOString(),
     });

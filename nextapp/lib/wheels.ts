@@ -10,7 +10,7 @@ export function isWheelTestMode(): boolean {
 export type WheelSlice = {
   id: string;
   label: string;
-  weight: number;
+  probability: number;
   color: string;
   vipTrigger: boolean;
 };
@@ -81,7 +81,7 @@ export function isWheelConfig(value: unknown, kind: WheelKind): value is WheelCo
     return false;
   }
 
-  let totalWeight = 0;
+  let totalProbability = 0;
   let vipTriggers = 0;
   const ids = new Set<string>();
   for (const slice of config.slices) {
@@ -95,10 +95,11 @@ export function isWheelConfig(value: unknown, kind: WheelKind): value is WheelCo
       typeof slice.label !== "string" ||
       slice.label.trim().length === 0 ||
       slice.label.length > 80 ||
-      typeof slice.weight !== "number" ||
-      !Number.isInteger(slice.weight) ||
-      slice.weight < 1 ||
-      slice.weight > 10_000 ||
+      typeof slice.probability !== "number" ||
+      !Number.isFinite(slice.probability) ||
+      slice.probability < 0.01 ||
+      slice.probability > 100 ||
+      Math.abs(slice.probability * 100 - Math.round(slice.probability * 100)) > 1e-7 ||
       typeof slice.color !== "string" ||
       !/^#[0-9a-fA-F]{6}$/.test(slice.color) ||
       typeof slice.vipTrigger !== "boolean" ||
@@ -107,10 +108,12 @@ export function isWheelConfig(value: unknown, kind: WheelKind): value is WheelCo
       return false;
     }
     ids.add(slice.id);
-    totalWeight += slice.weight;
+    totalProbability += Math.round(slice.probability * 100);
     if (slice.vipTrigger) vipTriggers += 1;
   }
-  if (totalWeight > 100_000 || vipTriggers > 1) return false;
+  if ((config.slices.length > 0 && totalProbability !== 10_000) || vipTriggers > 1) {
+    return false;
+  }
 
   if (kind === "game") {
     return (
@@ -145,11 +148,15 @@ export function selectWeightedSlice(
 ): WheelSlice {
   const availableSlices = slices.filter((slice) => !excludedIds.has(slice.id));
   if (availableSlices.length === 0) throw new WheelItemsExhaustedError();
-  const totalWeight = availableSlices.reduce((total, slice) => total + slice.weight, 0);
-  let remaining = randomInt(totalWeight);
+  const totalProbability = availableSlices.reduce(
+    (total, slice) => total + Math.round(slice.probability * 100),
+    0,
+  );
+  let remaining = randomInt(totalProbability);
   for (const slice of availableSlices) {
-    if (remaining < slice.weight) return slice;
-    remaining -= slice.weight;
+    const sliceProbability = Math.round(slice.probability * 100);
+    if (remaining < sliceProbability) return slice;
+    remaining -= sliceProbability;
   }
   throw new Error("Wheel slice selection failed.");
 }
@@ -157,12 +164,13 @@ export function selectWeightedSlice(
 export function makeSpinSegment(
   profile: WheelProfileData,
   selectedSlice: WheelSlice,
+  slices = profile.config.slices,
 ): WheelSpinSegment {
   return {
     profileId: profile.id,
     title: profile.config.title,
     durationMs: profile.config.durationMs,
-    slices: profile.config.slices,
+    slices,
     selectedSliceId: selectedSlice.id,
     selectedLabel: selectedSlice.label,
   };

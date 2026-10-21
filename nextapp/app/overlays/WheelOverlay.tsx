@@ -17,6 +17,14 @@ type WheelDisplay = Pick<WheelSpinSegment, "title" | "slices">;
 const WHEEL_CENTER = 300;
 const WHEEL_RADIUS = 282;
 
+function getSliceProbability(slice: WheelSlice): number {
+  if ("probability" in slice && typeof slice.probability === "number") {
+    return slice.probability;
+  }
+  const legacySlice = slice as WheelSlice & { weight?: unknown };
+  return typeof legacySlice.weight === "number" ? legacySlice.weight : 0;
+}
+
 function polarPoint(angle: number, radius: number) {
   const radians = (angle * Math.PI) / 180;
   return {
@@ -143,8 +151,17 @@ export default function WheelOverlay() {
       return;
     }
 
-    const sectorSize = 360 / segment.slices.length;
-    const selectedAngle = (selectedIndex + 0.5) * sectorSize;
+    const probabilities = segment.slices.map(getSliceProbability);
+    const totalProbability = probabilities.reduce((total, value) => total + value, 0);
+    if (!Number.isFinite(totalProbability) || totalProbability <= 0) {
+      console.error("Wheel overlay received invalid outcome probabilities.");
+      return;
+    }
+    const selectedAngle =
+      ((probabilities.slice(0, selectedIndex).reduce((total, value) => total + value, 0) +
+        probabilities[selectedIndex] / 2) /
+        totalProbability) *
+      360;
     const currentAngle = ((rotationRef.current % 360) + 360) % 360;
     const delta = 360 * 3 + ((360 - selectedAngle - currentAngle + 360) % 360);
     const from = rotationRef.current;
@@ -240,21 +257,32 @@ export default function WheelOverlay() {
                   strokeWidth="8"
                 />
                 {displaySegment.slices.map((slice: WheelSlice, index: number) => {
-                  const sectorSize = 360 / displaySegment.slices.length;
-                  const start = polarPoint(index * sectorSize, WHEEL_RADIUS);
-                  const end = polarPoint((index + 1) * sectorSize, WHEEL_RADIUS);
-                  const middleAngle = (index + 0.5) * sectorSize;
+                  const totalProbability = displaySegment.slices.reduce(
+                    (total, item) => total + getSliceProbability(item),
+                    0,
+                  );
+                  const precedingProbability = displaySegment.slices
+                    .slice(0, index)
+                    .reduce((total, item) => total + getSliceProbability(item), 0);
+                  const sectorSize =
+                    (getSliceProbability(slice) / totalProbability) * 360;
+                  const startAngle = (precedingProbability / totalProbability) * 360;
+                  const middleAngle = startAngle + sectorSize / 2;
+                  const start = polarPoint(startAngle, WHEEL_RADIUS);
+                  const end = polarPoint(startAngle + sectorSize, WHEEL_RADIUS);
                   const fontSize = Math.max(
-                    22,
-                    Math.min(34, 780 / displaySegment.slices.length),
+                    10,
+                    Math.min(34, 780 / displaySegment.slices.length, sectorSize * 1.4),
                   );
                   const textStart = 52;
                   const textMaxWidth = WHEEL_RADIUS - textStart - 18;
                   const maxCharacters = Math.floor(textMaxWidth / (fontSize * 0.6));
                   const visibleLabel =
-                    slice.label.length > maxCharacters
-                      ? `${slice.label.slice(0, maxCharacters - 1)}…`
-                      : slice.label;
+                    sectorSize < 6
+                      ? ""
+                      : slice.label.length > maxCharacters
+                        ? `${slice.label.slice(0, maxCharacters - 1)}…`
+                        : slice.label;
                   const labelWidth = Math.min(
                     textMaxWidth,
                     Math.max(fontSize, visibleLabel.length * fontSize * 0.6),
@@ -262,7 +290,7 @@ export default function WheelOverlay() {
                   return (
                     <g key={slice.id}>
                       <path
-                        d={`M ${WHEEL_CENTER} ${WHEEL_CENTER} L ${start.x} ${start.y} A ${WHEEL_RADIUS} ${WHEEL_RADIUS} 0 0 1 ${end.x} ${end.y} Z`}
+                        d={`M ${WHEEL_CENTER} ${WHEEL_CENTER} L ${start.x} ${start.y} A ${WHEEL_RADIUS} ${WHEEL_RADIUS} 0 ${sectorSize > 180 ? 1 : 0} 1 ${end.x} ${end.y} Z`}
                         fill={slice.color}
                         stroke="#ffffff"
                         strokeOpacity="0.7"

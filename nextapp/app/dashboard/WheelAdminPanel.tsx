@@ -24,10 +24,65 @@ function createSlice(): WheelSlice {
   return {
     id: crypto.randomUUID().replaceAll("-", ""),
     label: "New prize",
-    weight: 1,
+    probability: 1,
     color: "#7c3aed",
     vipTrigger: false,
   };
+}
+
+function updateSliceProbability(
+  slices: WheelSlice[],
+  sliceId: string,
+  requestedProbability: number,
+): WheelSlice[] {
+  if (!Number.isFinite(requestedProbability) || slices.length < 2) return slices;
+
+  const points = slices.map((slice) => Math.round(slice.probability * 100));
+  const sliceIndex = slices.findIndex((slice) => slice.id === sliceId);
+  if (sliceIndex < 0) return slices;
+
+  const maxPoints = 10_000 - (slices.length - 1);
+  const nextPoints = Math.max(1, Math.min(maxPoints, Math.round(requestedProbability * 100)));
+  let difference = nextPoints - points[sliceIndex];
+  points[sliceIndex] = nextPoints;
+
+  const otherIndexes = slices
+    .map((_, index) => index)
+    .filter((index) => index !== sliceIndex)
+    .sort((left, right) => points[right] - points[left]);
+
+  for (const index of otherIndexes) {
+    if (difference > 0) {
+      const adjustment = Math.min(difference, points[index] - 1);
+      points[index] -= adjustment;
+      difference -= adjustment;
+    } else if (difference < 0) {
+      const adjustment = Math.min(-difference, 10_000 - points[index]);
+      points[index] += adjustment;
+      difference += adjustment;
+    }
+    if (difference === 0) break;
+  }
+
+  return slices.map((slice, index) => ({
+    ...slice,
+    probability: points[index] / 100,
+  }));
+}
+
+function isProbabilityTotalValid(slices: WheelSlice[]): boolean {
+  return (
+    slices.length === 0 ||
+    slices.every(
+      (slice) =>
+        Number.isFinite(slice.probability) &&
+        slice.probability >= 0.01 &&
+        slice.probability <= 100 &&
+        Math.abs(slice.probability * 100 - Math.round(slice.probability * 100)) < 1e-7,
+    ) &&
+      slices.reduce((total, slice) => total + Math.round(slice.probability * 100), 0) ===
+        10_000
+  );
 }
 
 function createGameProfile(gameId: string, gameName: string): WheelProfileData {
@@ -165,6 +220,52 @@ export default function WheelAdminPanel() {
     }));
   }
 
+  function addSlice() {
+    updateConfig((config) => {
+      if (config.slices.length === 0) {
+        return { ...config, slices: [{ ...createSlice(), probability: 100 }] };
+      }
+      const largest = config.slices.reduce((best, slice) =>
+        slice.probability > best.probability ? slice : best,
+      );
+      return {
+        ...config,
+        slices: [
+          ...config.slices.map((slice) =>
+            slice.id === largest.id
+              ? { ...slice, probability: slice.probability - 1 }
+              : slice,
+          ),
+          createSlice(),
+        ],
+      };
+    });
+  }
+
+  function removeSlice(sliceId: string) {
+    updateConfig((config) => {
+      const removed = config.slices.find((slice) => slice.id === sliceId);
+      const remaining = config.slices.filter((slice) => slice.id !== sliceId);
+      if (!removed || remaining.length === 0) return { ...config, slices: remaining };
+
+      const largest = remaining.reduce((best, slice) =>
+        slice.probability > best.probability ? slice : best,
+      );
+      return {
+        ...config,
+        slices: remaining.map((slice) =>
+          slice.id === largest.id
+            ? {
+                ...slice,
+                probability:
+                  Math.round((slice.probability + removed.probability) * 100) / 100,
+              }
+            : slice,
+        ),
+      };
+    });
+  }
+
   function addGameProfile(id: string, name: string) {
     if (!data) return;
     const normalizedId = id.trim();
@@ -191,6 +292,10 @@ export default function WheelAdminPanel() {
 
   async function save() {
     if (!data) return;
+    if (data.profiles.some((profile) => !isProbabilityTotalValid(profile.config.slices))) {
+      setError("Each wheel's outcome probabilities must add up to exactly 100%.");
+      return;
+    }
     setSaving(true);
     setError("");
     setNotice("");
@@ -285,7 +390,7 @@ export default function WheelAdminPanel() {
         <div>
           <h2 className="text-xl font-semibold">Prize wheels</h2>
           <p className="mt-2 max-w-3xl text-sm leading-6 text-zinc-400">
-            Configure prizes, weights, colors, and animation duration. A sub or donation
+            Configure prizes, probabilities, colors, and animation duration. A sub or donation
             starts the main wheel via Streamer.bot; landing on a VIP segment then
             spins the VIP wheel. The game profile is selected based on the current Twitch game.
           </p>
@@ -561,20 +666,22 @@ export default function WheelAdminPanel() {
             <div className="flex items-center justify-between gap-3">
               <div>
                 <h3 className="font-semibold">Wheel outcomes</h3>
+                {config.slices.length > 0 && (
+                  <p className="mt-1 text-xs font-semibold text-emerald-300">
+                    Total probability:{" "}
+                    {(config.slices.reduce((total, slice) => total + slice.probability, 0)).toFixed(2)}%
+                  </p>
+                )}
                 <p className="text-xs text-zinc-500">
-                  Weight is the relative number of raffle tickets, not a percentage.
-                  For example, weights 1 and 3 give chances of 25% and 75%.
-                  Decimals are unnecessary: a 0.5 : 1.5 ratio is the same as 1 : 3.
-                  In game wheels, already selected outcomes are removed until reset,
-                  and weights are recalculated among the remaining outcomes.
+                  Set each outcome&apos;s probability as a percentage. Changing a value
+                  automatically adjusts the largest other outcome, keeping the total at 100%.
+                  Previously selected outcomes are removed from game wheels until reset;
+                  the remaining probabilities are proportionally recalculated for each spin.
                 </p>
               </div>
               <button
                 type="button"
-                onClick={() => updateConfig((current) => ({
-                  ...current,
-                  slices: [...current.slices, createSlice()],
-                }))}
+                onClick={addSlice}
                 disabled={config.slices.length >= 24}
                 className="shrink-0 rounded-lg border border-zinc-700 px-3 py-2 text-sm hover:bg-zinc-800 disabled:opacity-50"
               >
@@ -599,19 +706,21 @@ export default function WheelAdminPanel() {
                     />
                   </label>
                   <label className="text-xs text-zinc-400">
-                    Weight
-                    <span className="mt-1 block text-[11px] text-zinc-500">
-                      Integer 1–10,000 · higher number = higher chance
-                    </span>
+                    Probability (%)
                     <input
                       type="number"
-                      min={1}
-                      max={10_000}
-                      value={slice.weight}
+                      min={0.01}
+                      max={100 - (config.slices.length - 1) * 0.01}
+                      step={0.01}
+                      value={slice.probability}
                       onChange={(event) =>
-                        updateSlice(slice.id, (current) => ({
+                        updateConfig((current) => ({
                           ...current,
-                          weight: Number(event.target.value),
+                          slices: updateSliceProbability(
+                            current.slices,
+                            slice.id,
+                            Number(event.target.value),
+                          ),
                         }))
                       }
                       className="mt-1 w-full rounded-lg border border-zinc-700 bg-zinc-950 px-3 py-2 text-sm text-white"
@@ -634,10 +743,7 @@ export default function WheelAdminPanel() {
                   <button
                     type="button"
                     onClick={() =>
-                      updateConfig((current) => ({
-                        ...current,
-                        slices: current.slices.filter((item) => item.id !== slice.id),
-                      }))
+                      removeSlice(slice.id)
                     }
                     className="self-end rounded-lg border border-zinc-700 px-3 py-2 text-sm text-zinc-300 hover:border-red-800 hover:text-red-300"
                   >

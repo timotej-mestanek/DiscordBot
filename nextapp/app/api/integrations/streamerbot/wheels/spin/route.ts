@@ -333,8 +333,11 @@ export async function POST(request: Request) {
               : [];
           }),
         );
-        const gameSlice = selectWeightedSlice(profile.config.slices, usedSliceIds);
-        sequence = [makeSpinSegment(profile, gameSlice)];
+        const availableSlices = profile.config.slices.filter(
+          (slice) => !usedSliceIds.has(slice.id),
+        );
+        const gameSlice = selectWeightedSlice(availableSlices);
+        sequence = [makeSpinSegment(profile, gameSlice, availableSlices)];
       }
       if (!testMode && pointMode === "n4jt_points" && pointCost !== undefined) {
         await changePointBalance(

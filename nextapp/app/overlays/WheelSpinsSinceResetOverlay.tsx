@@ -16,6 +16,17 @@ type ProfileHistory = {
   spins: WheelHistoryCard[];
 };
 
+function getSliceProbability(slice: unknown): number | null {
+  if (typeof slice !== "object" || slice === null) return null;
+  if ("probability" in slice && typeof slice.probability === "number") {
+    return slice.probability;
+  }
+  if ("weight" in slice && typeof slice.weight === "number") {
+    return slice.weight;
+  }
+  return null;
+}
+
 function historyCardFromSpin(spin: WheelRealtimeSpin): WheelHistoryCard | null {
   if (!Array.isArray(spin.sequence)) return null;
   const segment = spin.sequence[0];
@@ -40,26 +51,14 @@ function historyCardFromSpin(spin: WheelRealtimeSpin): WheelHistoryCard | null {
       slice !== null &&
       "id" in slice &&
       slice.id === segment.selectedSliceId &&
-      "weight" in slice &&
-      typeof slice.weight === "number",
+      getSliceProbability(slice) !== null,
   );
-  const totalWeight = slices.reduce<number>(
-    (total: number, slice: unknown) =>
-      typeof slice === "object" &&
-      slice !== null &&
-      "weight" in slice &&
-      typeof slice.weight === "number"
-        ? total + slice.weight
-        : total,
+  const totalProbability = slices.reduce<number>(
+    (total: number, slice: unknown) => total + (getSliceProbability(slice) ?? 0),
     0,
   );
-  if (
-    typeof selected !== "object" ||
-    selected === null ||
-    !("weight" in selected) ||
-    typeof selected.weight !== "number" ||
-    totalWeight <= 0
-  ) {
+  const selectedProbability = getSliceProbability(selected);
+  if (selectedProbability === null || totalProbability <= 0) {
     return null;
   }
   return {
@@ -67,7 +66,7 @@ function historyCardFromSpin(spin: WheelRealtimeSpin): WheelHistoryCard | null {
     displayName: spin.display_name,
     gameName: spin.game_name ?? "Game",
     result: segment.selectedLabel,
-    rarity: selected.weight / totalWeight,
+    rarity: selectedProbability / totalProbability,
     createdAt: spin.created_at,
     revealAt: new Date(Date.parse(spin.created_at) + segment.durationMs + 500).toISOString(),
   };
