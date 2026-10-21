@@ -13,6 +13,7 @@ import {
   syncMemberNickname,
 } from "./discord/services/nickname";
 import { syncAuthPanel } from "./discord/services/authPanel";
+import { scheduleDailyFact } from "./modules/interestingFacts/dailyFact";
 
 client.once("clientReady", async () => {
   console.log(`🤖 Bot ready as ${client.user?.tag}`);
@@ -21,6 +22,7 @@ client.once("clientReady", async () => {
   } catch (error) {
     console.error("Nepodařilo se připravit Discord autorizační panel:", error);
   }
+  scheduleDailyFact();
   if (leaderboardChannelId) {
     const updateLeaderboard = () =>
       createOrUpdatePointsTable().catch((error) => {

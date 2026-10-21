@@ -10,6 +10,7 @@ export const gameChannelIds = {
 
 export const leaderboardChannelId = optionalEnv("DISCORD_LEADERBOARD_CHANNEL_ID");
 export const authChannelId = optionalEnv("DISCORD_AUTH_CHANNEL_ID");
+export const funFactChannelId = optionalEnv("DISCORD_FUN_FACT_CHANNEL_ID");
 export const webBaseUrl = optionalEnv("WEB_BASE_URL");
 
 export const nicknameIcons = {
