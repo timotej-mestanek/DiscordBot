@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 
 type InterestingFact = {
   id: string;
@@ -9,29 +9,39 @@ type InterestingFact = {
   category: string | null;
 };
 
-const exampleJson = JSON.stringify(
-  [
-    {
-      title: "Why is the sky blue?",
-      body: "Air molecules scatter blue light more than red light.",
-      category: "Science",
-    },
-  ],
-  null,
-  2,
-);
+type FactEditor = {
+  id: string | null;
+  title: string;
+  body: string;
+  category: string;
+};
+
+const emptyEditor: FactEditor = { id: null, title: "", body: "", category: "" };
+
+function toEditor(fact: InterestingFact): FactEditor {
+  return { ...fact, category: fact.category ?? "" };
+}
+
+function errorMessage(result: unknown, fallback: string): string {
+  return typeof result === "object" &&
+    result !== null &&
+    "error" in result &&
+    typeof result.error === "string"
+    ? result.error
+    : fallback;
+}
 
 export default function InterestingFactsPanel() {
   const [facts, setFacts] = useState<InterestingFact[]>([]);
-  const [json, setJson] = useState(exampleJson);
+  const [editor, setEditor] = useState<FactEditor>(emptyEditor);
+  const [json, setJson] = useState("[]");
+  const [search, setSearch] = useState("");
   const [error, setError] = useState("");
   const [notice, setNotice] = useState("");
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
-  const [savingFactId, setSavingFactId] = useState<string | null>(null);
-  const [deletingFactId, setDeletingFactId] = useState<string | null>(null);
-  const mutationsBusy =
-    saving || savingFactId !== null || deletingFactId !== null;
+  const [deleting, setDeleting] = useState(false);
+  const mutationsBusy = saving || deleting;
 
   function syncFacts(nextFacts: InterestingFact[]) {
     setFacts(nextFacts);
@@ -50,19 +60,10 @@ export default function InterestingFactsPanel() {
       .then(async (response) => {
         const result: unknown = await response.json();
         if (!response.ok) {
-          const message =
-            typeof result === "object" &&
-            result !== null &&
-            "error" in result &&
-            typeof result.error === "string"
-              ? result.error
-              : "Could not load fun facts.";
-          throw new Error(message);
+          throw new Error(errorMessage(result, "Could not load fun facts."));
         }
-        if (!active) return;
         if (!Array.isArray(result)) throw new Error("Unexpected fun facts response.");
-        syncFacts(result as InterestingFact[]);
-        setError("");
+        if (active) syncFacts(result as InterestingFact[]);
       })
       .catch((loadError: unknown) => {
         if (!active) return;
@@ -81,89 +82,115 @@ export default function InterestingFactsPanel() {
     };
   }, []);
 
-  function updateFact(id: string, update: Partial<Omit<InterestingFact, "id">>) {
-    setFacts((current) =>
-      current.map((fact) => (fact.id === id ? { ...fact, ...update } : fact)),
+  const filteredFacts = useMemo(() => {
+    const query = search.trim().toLocaleLowerCase();
+    if (!query) return facts;
+    return facts.filter(
+      (fact) =>
+        fact.title.toLocaleLowerCase().includes(query) ||
+        fact.category?.toLocaleLowerCase().includes(query),
     );
+  }, [facts, search]);
+
+  const selectedFact = facts.find((fact) => fact.id === editor.id) ?? null;
+  const isDirty = editor.id === null
+    ? Boolean(editor.title || editor.body || editor.category)
+    : Boolean(
+        selectedFact &&
+          (editor.title !== selectedFact.title ||
+            editor.body !== selectedFact.body ||
+            editor.category !== (selectedFact.category ?? "")),
+      );
+
+  function canLeaveEditor(): boolean {
+    return !isDirty || window.confirm("Discard unsaved changes?");
+  }
+
+  function selectFact(fact: InterestingFact) {
+    if (fact.id === editor.id || !canLeaveEditor()) return;
+    setEditor(toEditor(fact));
+    setError("");
     setNotice("");
   }
 
-  async function saveFact(fact: InterestingFact) {
+  function addFact() {
+    if (!canLeaveEditor()) return;
+    setEditor({ ...emptyEditor });
     setError("");
     setNotice("");
-    setSavingFactId(fact.id);
+  }
+
+  async function saveFact() {
+    setError("");
+    setNotice("");
+    setSaving(true);
     try {
+      const isNew = editor.id === null;
       const response = await fetch("/api/admin/interesting", {
-        method: "PATCH",
+        method: isNew ? "POST" : "PATCH",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(fact),
+        body: JSON.stringify({
+          ...(isNew ? {} : { id: editor.id }),
+          title: editor.title,
+          body: editor.body,
+          category: editor.category || null,
+        }),
       });
       const result: unknown = await response.json();
       if (!response.ok) {
-        const message =
-          typeof result === "object" &&
-          result !== null &&
-          "error" in result &&
-          typeof result.error === "string"
-            ? result.error
-            : "Could not update this fun fact.";
-        setError(message);
+        setError(errorMessage(result, "Could not save this fun fact."));
         return;
       }
-      const updatedFact = result as InterestingFact;
-      const nextFacts = facts.map((item) =>
-        item.id === updatedFact.id ? updatedFact : item,
-      );
+
+      const savedFact = result as InterestingFact;
+      const nextFacts = isNew
+        ? [...facts, savedFact]
+        : facts.map((fact) => (fact.id === savedFact.id ? savedFact : fact));
       syncFacts(nextFacts);
-      setNotice("Fun fact updated.");
+      setEditor(toEditor(savedFact));
+      setNotice(isNew ? "Fun fact added." : "Fun fact updated.");
     } catch (saveError) {
-      console.error("Interesting fact update failed:", saveError);
-      setError("Could not update this fun fact. Check your connection and try again.");
+      console.error("Interesting fact save failed:", saveError);
+      setError("Could not save this fun fact. Check your connection and try again.");
     } finally {
-      setSavingFactId(null);
+      setSaving(false);
     }
   }
 
-  async function deleteFact(fact: InterestingFact) {
-    if (!window.confirm(`Delete "${fact.title}"? This cannot be undone.`)) return;
+  async function deleteFact() {
+    if (!editor.id) return;
+    if (!window.confirm(`Delete "${editor.title}"? This cannot be undone.`)) return;
     setError("");
     setNotice("");
-    setDeletingFactId(fact.id);
+    setDeleting(true);
     try {
       const response = await fetch("/api/admin/interesting", {
         method: "DELETE",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ id: fact.id }),
+        body: JSON.stringify({ id: editor.id }),
       });
       const result: unknown = await response.json();
       if (!response.ok) {
-        const message =
-          typeof result === "object" &&
-          result !== null &&
-          "error" in result &&
-          typeof result.error === "string"
-            ? result.error
-            : "Could not delete this fun fact.";
-        setError(message);
+        setError(errorMessage(result, "Could not delete this fun fact."));
         return;
       }
-      const nextFacts = facts.filter((item) => item.id !== fact.id);
-      syncFacts(nextFacts);
+      syncFacts(facts.filter((fact) => fact.id !== editor.id));
+      setEditor({ ...emptyEditor });
       setNotice("Fun fact deleted.");
     } catch (deleteError) {
       console.error("Interesting fact deletion failed:", deleteError);
       setError("Could not delete this fun fact. Check your connection and try again.");
     } finally {
-      setDeletingFactId(null);
+      setDeleting(false);
     }
   }
 
-  async function save() {
+  async function importJson() {
     setError("");
     setNotice("");
-    let facts: unknown;
+    let parsedFacts: unknown;
     try {
-      facts = JSON.parse(json);
+      parsedFacts = JSON.parse(json);
     } catch (parseError) {
       setError(
         parseError instanceof Error
@@ -172,48 +199,41 @@ export default function InterestingFactsPanel() {
       );
       return;
     }
+    if (!Array.isArray(parsedFacts)) {
+      setError("JSON must be an array of fun facts.");
+      return;
+    }
+    if (!canLeaveEditor()) return;
 
     setSaving(true);
     try {
       const response = await fetch("/api/admin/interesting", {
         method: "PUT",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ facts }),
+        body: JSON.stringify({ facts: parsedFacts }),
       });
       const result: unknown = await response.json();
       if (!response.ok) {
-        const message =
-          typeof result === "object" &&
-          result !== null &&
-          "error" in result &&
-          typeof result.error === "string"
-            ? result.error
-            : "Could not save fun facts.";
-        setError(message);
+        setError(errorMessage(result, "Could not import fun facts."));
         return;
       }
-      const savedCount =
-        typeof result === "object" &&
-        result !== null &&
-        "saved" in result &&
-        typeof result.saved === "number"
-          ? result.saved
-          : 0;
       const refreshResponse = await fetch("/api/admin/interesting", {
         cache: "no-store",
       });
-      if (!refreshResponse.ok) {
-        throw new Error("Saved the JSON list, but could not refresh its item IDs.");
-      }
       const refreshedFacts: unknown = await refreshResponse.json();
-      if (!Array.isArray(refreshedFacts)) {
-        throw new Error("Saved the JSON list, but received an invalid refresh response.");
+      if (!refreshResponse.ok || !Array.isArray(refreshedFacts)) {
+        throw new Error("Imported the JSON list, but could not refresh saved facts.");
       }
       syncFacts(refreshedFacts as InterestingFact[]);
-      setNotice(`Saved ${savedCount} fun facts.`);
-    } catch (saveError) {
-      console.error("Interesting facts admin save failed:", saveError);
-      setError("Could not save fun facts. Check your connection and try again.");
+      setEditor({ ...emptyEditor });
+      setNotice(`Imported ${refreshedFacts.length} fun facts.`);
+    } catch (importError) {
+      console.error("Interesting facts JSON import failed:", importError);
+      setError(
+        importError instanceof Error
+          ? importError.message
+          : "Could not import fun facts. Check your connection and try again.",
+      );
     } finally {
       setSaving(false);
     }
@@ -242,121 +262,169 @@ export default function InterestingFactsPanel() {
       <section className="rounded-xl border border-zinc-800 bg-zinc-900 p-5 sm:p-6">
         <div className="mb-5 flex flex-wrap items-center justify-between gap-3">
           <div>
-            <h2 className="text-lg font-semibold">Saved fun facts</h2>
+            <h2 className="text-lg font-semibold">Fun facts database</h2>
             <p className="mt-1 text-sm text-zinc-400">
-              Edit individual facts or remove ones you no longer want to publish.
+              Select a title to edit it, or add a new fact.
             </p>
           </div>
-          <span className="rounded-full border border-zinc-700 bg-zinc-950 px-3 py-1 text-xs text-zinc-300">
-            {facts.length} / 200 facts
-          </span>
-        </div>
-        {loading ? (
-          <p className="text-sm text-zinc-400">Loading saved fun facts…</p>
-        ) : facts.length === 0 ? (
-          <p className="rounded-lg border border-dashed border-zinc-700 p-5 text-sm text-zinc-400">
-            There are no saved facts. Import some with the JSON editor below.
-          </p>
-        ) : (
-          <div className="space-y-3">
-            {facts.map((fact, index) => (
-              <article
-                key={fact.id}
-                className="rounded-xl border border-zinc-800 bg-zinc-950/70 p-4"
-              >
-                <div className="mb-3 flex flex-wrap items-center justify-between gap-2">
-                  <h3 className="text-sm font-semibold text-violet-200">
-                    Fact {index + 1}
-                  </h3>
-                  <div className="flex gap-2">
-                    <button
-                      type="button"
-                      onClick={() => void saveFact(fact)}
-                      disabled={mutationsBusy}
-                      className="rounded-lg bg-violet-600 px-3 py-1.5 text-xs font-semibold hover:bg-violet-500 disabled:cursor-not-allowed disabled:opacity-50"
-                    >
-                      {savingFactId === fact.id ? "Saving…" : "Save changes"}
-                    </button>
-                    <button
-                      type="button"
-                      onClick={() => void deleteFact(fact)}
-                      disabled={mutationsBusy}
-                      className="rounded-lg border border-red-900/70 px-3 py-1.5 text-xs font-semibold text-red-300 hover:bg-red-950/50 disabled:cursor-not-allowed disabled:opacity-50"
-                    >
-                      {deletingFactId === fact.id ? "Deleting…" : "Delete"}
-                    </button>
-                  </div>
-                </div>
-                <div className="grid gap-3">
-                  <label className="text-xs text-zinc-400">
-                    Title
-                    <input
-                      value={fact.title}
-                      maxLength={120}
-                      disabled={mutationsBusy}
-                      onChange={(event) =>
-                        updateFact(fact.id, { title: event.target.value })
-                      }
-                      className="mt-1 w-full rounded-lg border border-zinc-700 bg-zinc-900 px-3 py-2 text-sm text-white"
-                    />
-                  </label>
-                  <label className="text-xs text-zinc-400">
-                    Explanation
-                    <textarea
-                      value={fact.body}
-                      maxLength={5_000}
-                      rows={3}
-                      disabled={mutationsBusy}
-                      onChange={(event) =>
-                        updateFact(fact.id, { body: event.target.value })
-                      }
-                      className="mt-1 w-full resize-y rounded-lg border border-zinc-700 bg-zinc-900 px-3 py-2 text-sm leading-6 text-white"
-                    />
-                  </label>
-                  <label className="text-xs text-zinc-400">
-                    Category (optional)
-                    <input
-                      value={fact.category ?? ""}
-                      maxLength={80}
-                      disabled={mutationsBusy}
-                      onChange={(event) =>
-                        updateFact(fact.id, { category: event.target.value || null })
-                      }
-                      className="mt-1 w-full rounded-lg border border-zinc-700 bg-zinc-900 px-3 py-2 text-sm text-white"
-                    />
-                  </label>
-                </div>
-              </article>
-            ))}
+          <div className="flex items-center gap-3">
+            <span className="text-xs text-zinc-400">{facts.length} / 200</span>
+            <button
+              type="button"
+              onClick={addFact}
+              disabled={mutationsBusy || facts.length >= 200}
+              className="rounded-lg bg-violet-600 px-4 py-2 text-sm font-semibold hover:bg-violet-500 disabled:cursor-not-allowed disabled:opacity-50"
+            >
+              + Add
+            </button>
           </div>
-        )}
+        </div>
+
         {error && (
-          <p role="alert" className="mt-4 text-sm text-red-300">
+          <p role="alert" className="mb-4 rounded-lg border border-red-900/60 bg-red-950/30 p-3 text-sm text-red-300">
             {error}
           </p>
         )}
         {notice && (
-          <p role="status" className="mt-4 text-sm text-emerald-300">
+          <p role="status" className="mb-4 rounded-lg border border-emerald-900/60 bg-emerald-950/30 p-3 text-sm text-emerald-300">
             {notice}
           </p>
         )}
+
+        <div className="grid gap-5 lg:grid-cols-[minmax(16rem,0.8fr)_minmax(0,1.2fr)]">
+          <aside className="min-w-0">
+            <label className="block text-xs text-zinc-400">
+              Search titles and categories
+              <input
+                value={search}
+                onChange={(event) => setSearch(event.target.value)}
+                placeholder="Search…"
+                className="mt-1 w-full rounded-lg border border-zinc-700 bg-zinc-950 px-3 py-2 text-sm text-white"
+              />
+            </label>
+            <div className="mt-3 max-h-[32rem] space-y-1 overflow-y-auto rounded-lg border border-zinc-800 bg-zinc-950/60 p-2">
+              {loading ? (
+                <p className="p-3 text-sm text-zinc-500">Loading fun facts…</p>
+              ) : filteredFacts.length === 0 ? (
+                <p className="p-3 text-sm text-zinc-500">
+                  {facts.length === 0 ? "No saved facts yet." : "No matching facts."}
+                </p>
+              ) : (
+                filteredFacts.map((fact) => (
+                  <button
+                    key={fact.id}
+                    type="button"
+                    onClick={() => selectFact(fact)}
+                    aria-pressed={editor.id === fact.id}
+                    className={`block w-full rounded-lg border px-3 py-2.5 text-left transition ${
+                      editor.id === fact.id
+                        ? "border-violet-500/70 bg-violet-500/15 text-white"
+                        : "border-transparent text-zinc-300 hover:border-zinc-700 hover:bg-zinc-900"
+                    }`}
+                  >
+                    <span className="block truncate text-sm font-medium">
+                      {fact.title}
+                    </span>
+                    {fact.category && (
+                      <span className="mt-1 block truncate text-xs text-zinc-500">
+                        {fact.category}
+                      </span>
+                    )}
+                  </button>
+                ))
+              )}
+            </div>
+          </aside>
+
+          <section className="min-w-0 rounded-xl border border-zinc-800 bg-zinc-950/60 p-4 sm:p-5">
+            <div className="mb-4 flex flex-wrap items-center justify-between gap-3">
+              <div>
+                <h3 className="font-semibold">
+                  {editor.id ? "Edit fun fact" : "New fun fact"}
+                </h3>
+                <p className="mt-1 text-xs text-zinc-500">
+                  {editor.id ? "Changes are not saved until you click Save." : "Fill in the fields and save to add it."}
+                </p>
+              </div>
+              <div className="flex gap-2">
+                {editor.id && (
+                  <button
+                    type="button"
+                    onClick={() => void deleteFact()}
+                    disabled={mutationsBusy}
+                    className="rounded-lg border border-red-900/70 px-3 py-2 text-sm font-semibold text-red-300 hover:bg-red-950/50 disabled:opacity-50"
+                  >
+                    {deleting ? "Deleting…" : "Delete"}
+                  </button>
+                )}
+                <button
+                  type="button"
+                  onClick={() => void saveFact()}
+                  disabled={mutationsBusy || loading}
+                  className="rounded-lg bg-violet-600 px-4 py-2 text-sm font-semibold hover:bg-violet-500 disabled:cursor-not-allowed disabled:opacity-50"
+                >
+                  {saving ? "Saving…" : editor.id ? "Save changes" : "Add fact"}
+                </button>
+              </div>
+            </div>
+
+            <div className="space-y-4">
+              <label className="block text-xs text-zinc-400">
+                Title
+                <input
+                  value={editor.title}
+                  onChange={(event) =>
+                    setEditor((current) => ({ ...current, title: event.target.value }))
+                  }
+                  maxLength={120}
+                  disabled={mutationsBusy || loading}
+                  placeholder="Enter a short, clear title"
+                  className="mt-1 w-full rounded-lg border border-zinc-700 bg-zinc-900 px-3 py-2.5 text-sm text-white"
+                />
+              </label>
+              <label className="block text-xs text-zinc-400">
+                Explanation
+                <textarea
+                  value={editor.body}
+                  onChange={(event) =>
+                    setEditor((current) => ({ ...current, body: event.target.value }))
+                  }
+                  maxLength={5_000}
+                  rows={8}
+                  disabled={mutationsBusy || loading}
+                  placeholder="Explain the fun fact…"
+                  className="mt-1 w-full resize-y rounded-lg border border-zinc-700 bg-zinc-900 px-3 py-2.5 text-sm leading-6 text-white"
+                />
+              </label>
+              <label className="block text-xs text-zinc-400">
+                Category (optional)
+                <input
+                  value={editor.category}
+                  onChange={(event) =>
+                    setEditor((current) => ({ ...current, category: event.target.value }))
+                  }
+                  maxLength={80}
+                  disabled={mutationsBusy || loading}
+                  placeholder="e.g. Science"
+                  className="mt-1 w-full rounded-lg border border-zinc-700 bg-zinc-900 px-3 py-2.5 text-sm text-white"
+                />
+              </label>
+            </div>
+          </section>
+        </div>
       </section>
 
-      <section className="rounded-xl border border-zinc-800 bg-zinc-900 p-5 sm:p-6">
-        <div className="flex flex-wrap items-center justify-between gap-3">
-          <div>
-            <h2 className="text-lg font-semibold">JSON database</h2>
-            <p className="mt-1 text-sm text-zinc-400">
-              Saving replaces the entire list. Category is optional.
-            </p>
-          </div>
-          <span className="text-xs text-zinc-500">
-            {loading ? "Loading…" : "Format: array of objects"}
-          </span>
-        </div>
+      <details className="rounded-xl border border-zinc-800 bg-zinc-900 p-5 sm:p-6">
+        <summary className="cursor-pointer text-lg font-semibold">
+          Bulk import or replace using JSON
+        </summary>
+        <p className="mt-2 text-sm text-zinc-400">
+          Importing replaces the entire database. Category is optional; the limit
+          is 200 facts.
+        </p>
         <textarea
           value={json}
-          disabled={mutationsBusy}
+          disabled={mutationsBusy || loading}
           onChange={(event) => {
             setJson(event.target.value);
             setNotice("");
@@ -365,33 +433,20 @@ export default function InterestingFactsPanel() {
           aria-label="JSON fun facts list"
           className="mt-4 min-h-80 w-full resize-y rounded-xl border border-zinc-700 bg-[#09090f] p-4 font-mono text-sm leading-6 text-violet-100 outline-none transition focus:border-violet-500 focus:ring-2 focus:ring-violet-500/20"
         />
-        <div className="mt-4 flex flex-wrap items-center gap-3">
-          <button
-            type="button"
-            onClick={() => void save()}
-            disabled={mutationsBusy || loading}
-            className="rounded-lg bg-violet-600 px-5 py-2.5 text-sm font-semibold transition hover:bg-violet-500 disabled:cursor-not-allowed disabled:opacity-50"
-          >
-            {saving ? "Saving…" : "Validate JSON and save"}
-          </button>
-          {notice && (
-            <p role="status" className="text-sm text-emerald-300">
-              {notice}
-            </p>
-          )}
-          {error && (
-            <p role="alert" className="text-sm text-red-300">
-              {error}
-            </p>
-          )}
-        </div>
+        <button
+          type="button"
+          onClick={() => void importJson()}
+          disabled={mutationsBusy || loading}
+          className="mt-4 rounded-lg border border-zinc-700 px-4 py-2.5 text-sm font-semibold text-zinc-200 hover:bg-zinc-800 disabled:cursor-not-allowed disabled:opacity-50"
+        >
+          {saving ? "Importing…" : "Validate JSON and replace all facts"}
+        </button>
         <p className="mt-4 text-xs leading-5 text-zinc-500">
-          Each item must have <code className="text-violet-300">title</code> and{" "}
+          Each item needs <code className="text-violet-300">title</code> and{" "}
           <code className="text-violet-300">body</code>. You can also add an
           optional <code className="text-violet-300">category</code>.
-          The limit is 200 items.
         </p>
-      </section>
+      </details>
 
       <section className="rounded-xl border border-zinc-800 bg-zinc-900 p-5 sm:p-6">
         <h2 className="text-lg font-semibold">Public API</h2>
@@ -401,18 +456,9 @@ export default function InterestingFactsPanel() {
         </p>
         <div className="mt-4 grid gap-3">
           {[
-            {
-              format: "json",
-              description: "Plain JSON for loading data on another page.",
-            },
-            {
-              format: "animated",
-              description: "Animated HTML card for embedding in an iframe.",
-            },
-            {
-              format: "static",
-              description: "Static HTML card for embedding in an iframe.",
-            },
+            { format: "json", description: "Plain JSON for loading data on another page." },
+            { format: "animated", description: "Animated HTML card for embedding in an iframe." },
+            { format: "static", description: "Static HTML card for embedding in an iframe." },
           ].map(({ format, description }) => (
             <article
               key={format}

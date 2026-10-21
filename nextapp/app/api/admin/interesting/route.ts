@@ -110,6 +110,36 @@ export async function PUT(request: Request) {
   return NextResponse.json({ saved: facts.length });
 }
 
+export async function POST(request: Request) {
+  const authorizationError = await requireAdmin(request);
+  if (authorizationError) return authorizationError;
+
+  let payload: unknown;
+  try {
+    payload = await request.json();
+  } catch {
+    return NextResponse.json({ error: "Request body must contain valid JSON." }, { status: 400 });
+  }
+
+  const fact = parseFact(payload, "Fun fact");
+  if (typeof fact === "string") {
+    return NextResponse.json({ error: fact }, { status: 400 });
+  }
+  const count = await prisma.interestingFact.count();
+  if (count >= 200) {
+    return NextResponse.json(
+      { error: "You can save up to 200 fun facts." },
+      { status: 400 },
+    );
+  }
+
+  const created = await prisma.interestingFact.create({
+    data: fact,
+    select: { id: true, title: true, body: true, category: true },
+  });
+  return NextResponse.json(created, { status: 201 });
+}
+
 export async function PATCH(request: Request) {
   const authorizationError = await requireAdmin(request);
   if (authorizationError) return authorizationError;
