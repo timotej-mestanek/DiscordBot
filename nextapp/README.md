@@ -91,6 +91,7 @@ any spins missed while disconnected.
 Streamer.bot calls `POST /api/integrations/streamerbot/wheels/spin` with the configured `STREAMERBOT_INGEST_TOKEN` as a Bearer token. Use unique source event IDs; duplicate deliveries return the original spin and never charge N4JT points twice.
 
 - Subscription or donation: `{"eventId":"<unique-event-id>","wheel":"main","source":"subscription","userId":"123456","displayName":"viewer"}`. Set `source` to `donation` for a donation event. Each event starts exactly one main-wheel spin.
+- A custom Streamer.bot trigger can spin the main wheel for any viewer with `{"eventId":"<unique-event-id>","wheel":"main","source":"streamerbot","userId":"123456","displayName":"viewer"}`.
 - N4JT game-wheel points: `{"eventId":"<unique-redemption-or-command-id>","wheel":"game","source":"n4jt_points","userId":"123456","displayName":"viewer"}`. The active game's configured `pointCost` is deducted atomically from that Twitch user's N4JT CustomBody balance; the spin is rejected without a balance change if the user cannot pay.
 - Twitch Channel Points: `{"eventId":"<redemption-id>","wheel":"game","source":"channel_points","rewardId":"<configured-reward-id>","userId":"123456","displayName":"viewer"}`. Configure a dedicated Twitch reward and select the same reward ID in the game's Admin profile. Twitch charges the redemption itself. The displayed cost in Admin is a reminder and must match the price set on Twitch; the app cannot set or refund Twitch Channel Points.
 
@@ -105,6 +106,31 @@ The profile must already exist and be enabled. N4JT points are not charged in
 this mode. Test spins still count toward the profile's spin cap and unique-item
 selection until you reset that game's profile from the admin dashboard. In
 test mode, the history overlay lists cards for all configured game profiles.
+
+Any wheel outcome can optionally award Twitch CustomBody points. Set its
+**Twitch points** amount in Dashboard → Admin → Wheels; the amount is credited
+to the `userId` sent by Streamer.bot and recorded in the point ledger atomically
+with the spin. Use outcome labels such as `POINTS` and `EXTRA POINTS` and set
+the desired award for each segment.
+
+## Streamer.bot timer and voting overlays
+
+Add `/overlays/timer` and `/overlays/voting` as OBS Browser Sources, or copy
+their URLs from Dashboard → Admin → Overlays. Both connect to the app's
+WebSocket and reconnect automatically. Streamer.bot authenticates requests
+with the existing `STREAMERBOT_INGEST_TOKEN` bearer token:
+
+- Start or replace the countdown with `POST /api/integrations/streamerbot/overlays/timer`
+  and `{"eventId":"unique-trigger-id","durationSeconds":90,"title":"BREAK"}`.
+  `durationSeconds` must be an integer from 1 to 86400. Reusing a recent timer
+  `eventId` is idempotent. When the countdown ends, it hides until another
+  timer event arrives.
+- Send current voting results with `POST /api/integrations/streamerbot/overlays/voting`
+  and `{"eventId":"poll-123","active":true,"question":"Next game?","options":[{"id":"one","label":"Game A","votes":12},{"id":"two","label":"Game B","votes":8}]}`.
+  Update the same poll by posting the current counts again. Send
+  `{"eventId":"poll-123","active":false,"question":"Next game?","options":[]}`
+  when it ends. Nextapp only displays supplied counts; Streamer.bot owns vote
+  collection and tallying.
 
 ## Streamer.bot Twitch currency commands
 

@@ -165,7 +165,8 @@ export async function POST(request: Request) {
     body.displayName.length > 80 ||
     (body.wheel === "main" &&
       body.source !== "subscription" &&
-      body.source !== "donation") ||
+      body.source !== "donation" &&
+      body.source !== "streamerbot") ||
     (body.wheel === "game" &&
       body.source !== "channel_points" &&
       body.source !== "n4jt_points") ||
@@ -348,6 +349,21 @@ export async function POST(request: Request) {
           "N4JT game wheel spin",
           null,
           `wheel-spin:${eventId}`,
+        );
+      }
+      for (const [index, segment] of sequence.entries()) {
+        const awardedPoints = segment.slices.find(
+          (slice) => slice.id === segment.selectedSliceId,
+        )?.pointsAward;
+        if (awardedPoints === undefined) continue;
+        await changePointBalance(
+          transaction,
+          "twitch_custom",
+          userId,
+          awardedPoints,
+          `Wheel prize: ${segment.selectedLabel}`,
+          null,
+          `wheel-prize:${eventId}:${index}`,
         );
       }
       return transaction.wheelSpin.create({

@@ -1,12 +1,40 @@
 "use client";
 
-import { useMemo, useState, useSyncExternalStore } from "react";
+import { useState, useSyncExternalStore } from "react";
 
-type Widget = "cs2" | "pubg" | "custom-led-effect";
+type Widget =
+  | "cs2"
+  | "pubg"
+  | "custom-led-effect"
+  | "wheel"
+  | "timer"
+  | "voting";
 
 const subscribeToOrigin = () => () => {};
 const getServerOrigin = () => "";
 const getBrowserOrigin = () => window.location.origin;
+
+function buildOverlayUrl(origin: string, player: string, widget: Widget): string {
+  if (!origin) return "";
+  const overlayPaths: Partial<Record<Widget, string>> = {
+    "custom-led-effect": "/overlays/custom-led-effect",
+    wheel: "/overlays/wheel",
+    timer: "/overlays/timer",
+    voting: "/overlays/voting",
+  };
+  const overlayPath = overlayPaths[widget];
+  if (overlayPath) return new URL(overlayPath, origin).toString();
+  if (widget === "pubg" && !player.trim()) return "";
+
+  const url = new URL("/overlays/view", origin);
+  url.searchParams.set("widget", widget);
+  url.searchParams.set("layout", "card");
+  url.searchParams.set("refresh", widget === "cs2" ? "2" : "60");
+  if (widget === "pubg" && player.trim()) {
+    url.searchParams.set("player", player.trim());
+  }
+  return url.toString();
+}
 
 export default function OverlayBuilder() {
   const [widget, setWidget] = useState<Widget>("cs2");
@@ -18,21 +46,7 @@ export default function OverlayBuilder() {
   );
   const [copied, setCopied] = useState(false);
 
-  const overlayUrl = useMemo(() => {
-    if (!origin) return "";
-    if (widget === "custom-led-effect") {
-      return new URL("/overlays/custom-led-effect", origin).toString();
-    }
-    if (widget === "pubg" && !player.trim()) return "";
-    const url = new URL("/overlays/view", origin);
-    url.searchParams.set("widget", widget);
-    url.searchParams.set("layout", "card");
-    url.searchParams.set("refresh", widget === "cs2" ? "2" : "60");
-    if (widget === "pubg" && player.trim()) {
-      url.searchParams.set("player", player.trim());
-    }
-    return url.toString();
-  }, [origin, player, widget]);
+  const overlayUrl = buildOverlayUrl(origin, player, widget);
 
   async function copyUrl() {
     if (!overlayUrl) return;
@@ -52,7 +66,9 @@ export default function OverlayBuilder() {
       <p className="mt-2 text-sm text-zinc-400">
         {widget === "custom-led-effect"
           ? "Add the public URL as a Browser Source. The LED layout has a transparent background."
-          : "Add the public URL as a Browser Source. The card animates along the bottom edge of the image."}
+          : widget === "wheel" || widget === "timer" || widget === "voting"
+            ? "Add the public URL as a Browser Source. It connects to Streamer.bot updates in real time."
+            : "Add the public URL as a Browser Source. The card animates along the bottom edge of the image."}
       </p>
       <div className="mt-5 grid gap-5 sm:grid-cols-2">
         <label className="text-sm font-medium">
@@ -64,6 +80,9 @@ export default function OverlayBuilder() {
           >
             <option value="cs2">CS2 live stats</option>
             <option value="pubg">PUBG ranked stats for today</option>
+            <option value="wheel">Points prize wheel</option>
+            <option value="timer">Countdown timer</option>
+            <option value="voting">Live voting results</option>
             <option value="custom-led-effect">Custom LED effect</option>
           </select>
         </label>
@@ -115,6 +134,17 @@ export default function OverlayBuilder() {
       {widget === "custom-led-effect" ? (
         <p className="mt-5 text-xs text-zinc-500">
           Transparent LED overlay using the Custom LED effect layout.
+        </p>
+      ) : widget === "wheel" ? (
+        <p className="mt-5 text-xs text-zinc-500">
+          Prize wheel URL: configure point rewards under Dashboard → Wheels. The wheel spins for
+          the viewer sent by Streamer.bot.
+        </p>
+      ) : widget === "timer" || widget === "voting" ? (
+        <p className="mt-5 text-xs text-zinc-500">
+          {widget === "timer"
+            ? "Streamer.bot starts or replaces the countdown through the timer POST endpoint."
+            : "Streamer.bot sends vote totals through the voting POST endpoint; Nextapp only displays them."}
         </p>
       ) : (
         <p className="mt-5 text-xs text-zinc-500">

@@ -406,9 +406,11 @@ export default function WheelAdminPanel() {
         <div>
           <h2 className="text-xl font-semibold">Prize wheels</h2>
           <p className="mt-2 max-w-3xl text-sm leading-6 text-zinc-400">
-            Configure prizes, probabilities, colors, and animation duration. A sub or donation
-            starts the main wheel via Streamer.bot; landing on a VIP segment then
-            spins the VIP wheel. The game profile is selected based on the current Twitch game.
+            Configure prizes, probabilities, colors, and animation duration. A sub, donation,
+            or custom Streamer.bot event can start the main wheel; landing on a VIP segment then
+            spins the VIP wheel. Add a Twitch CustomBody point reward to any outcome to
+            automatically credit the viewer who spun it. The game profile is selected based on
+            the current Twitch game.
           </p>
         </div>
         <div className="flex flex-wrap gap-2">
@@ -706,7 +708,7 @@ export default function WheelAdminPanel() {
             </div>
             <div className="space-y-3">
               {config.slices.map((slice, index) => (
-                <article key={slice.id} className="grid gap-3 rounded-lg border border-zinc-800 p-3 sm:grid-cols-[minmax(0,1fr)_6rem_4rem_auto]">
+                <article key={slice.id} className="grid gap-3 rounded-lg border border-zinc-800 p-3 sm:grid-cols-[minmax(0,1fr)_6rem_6rem_4rem_auto]">
                   <label className="text-xs text-zinc-400">
                     Outcome {index + 1}
                     <input
@@ -746,6 +748,26 @@ export default function WheelAdminPanel() {
                     />
                   </label>
                   <label className="text-xs text-zinc-400">
+                    Twitch points
+                    <input
+                      type="number"
+                      min={1}
+                      max={1_000_000}
+                      step={1}
+                      value={slice.pointsAward ?? ""}
+                      onChange={(event) =>
+                        updateSlice(slice.id, (current) => ({
+                          ...current,
+                          pointsAward:
+                            event.target.value === ""
+                              ? undefined
+                              : Number(event.target.value),
+                        }))
+                      }
+                      className="mt-1 w-full rounded-lg border border-zinc-700 bg-zinc-950 px-3 py-2 text-sm text-white"
+                    />
+                  </label>
+                  <label className="text-xs text-zinc-400">
                     Color
                     <input
                       type="color"
@@ -769,7 +791,7 @@ export default function WheelAdminPanel() {
                     Remove
                   </button>
                   {selectedProfile.kind === "main" && (
-                    <label className="flex items-center gap-2 text-xs text-amber-200 sm:col-span-4">
+                    <label className="flex items-center gap-2 text-xs text-amber-200 sm:col-span-5">
                       <input
                         type="checkbox"
                         checked={slice.vipTrigger}

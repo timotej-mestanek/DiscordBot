@@ -13,6 +13,33 @@ globalThis.__wheelRealtimeListeners = new Set();
 globalThis.__wheelRealtimePublish = (event) => {
   for (const listener of globalThis.__wheelRealtimeListeners) listener(event);
 };
+globalThis.__streamOverlayListeners = new Set();
+globalThis.__streamOverlayTimerEventIds = new Set();
+globalThis.__streamOverlayState = {
+  type: "snapshot",
+  timer: null,
+  voting: null,
+};
+globalThis.__streamOverlayPublish = (event) => {
+  if (
+    event.type === "timer" &&
+    globalThis.__streamOverlayTimerEventIds.has(event.eventId)
+  ) {
+    return false;
+  }
+  if (event.type === "timer") {
+    globalThis.__streamOverlayTimerEventIds.add(event.eventId);
+    if (globalThis.__streamOverlayTimerEventIds.size > 500) {
+      const oldest = globalThis.__streamOverlayTimerEventIds.values().next().value;
+      if (oldest) globalThis.__streamOverlayTimerEventIds.delete(oldest);
+    }
+    globalThis.__streamOverlayState.timer = event;
+  } else {
+    globalThis.__streamOverlayState.voting = event;
+  }
+  for (const listener of globalThis.__streamOverlayListeners) listener(event);
+  return true;
+};
 const server = createServer((request, response) => {
   void nextApp.getRequestHandler()(request, response);
 });
@@ -198,6 +225,12 @@ async function sendMissedSpins(socket, cursor) {
 
 server.on("upgrade", (request, socket, head) => {
   const url = new URL(request.url ?? "/", `http://${request.headers.host ?? "localhost"}`);
+  if (url.pathname === "/api/overlays/stream/live") {
+    websocketServer.handleUpgrade(request, socket, head, (client) => {
+      websocketServer.emit("connection", client, { channel: "stream" });
+    });
+    return;
+  }
   if (url.pathname !== "/api/overlays/wheels/live") return;
 
   const cursor = cursorFromUrl(url);
@@ -207,11 +240,20 @@ server.on("upgrade", (request, socket, head) => {
     return;
   }
   websocketServer.handleUpgrade(request, socket, head, (client) => {
-    websocketServer.emit("connection", client, cursor);
+    websocketServer.emit("connection", client, { channel: "wheel", cursor });
   });
 });
 
-websocketServer.on("connection", (socket, cursor) => {
+websocketServer.on("connection", (socket, context) => {
+  if (context.channel === "stream") {
+    const listener = (event) => send(socket, event);
+    globalThis.__streamOverlayListeners.add(listener);
+    socket.once("close", () => globalThis.__streamOverlayListeners.delete(listener));
+    send(socket, globalThis.__streamOverlayState);
+    return;
+  }
+
+  const { cursor } = context;
   let initializing = true;
   const bufferedEvents = [];
   const listener = (event) => {

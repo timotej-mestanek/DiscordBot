@@ -13,6 +13,7 @@ export type WheelSlice = {
   probability: number;
   color: string;
   vipTrigger: boolean;
+  pointsAward?: number;
 };
 
 export type WheelConfig = {
@@ -103,6 +104,10 @@ export function isWheelConfig(value: unknown, kind: WheelKind): value is WheelCo
       typeof slice.color !== "string" ||
       !/^#[0-9a-fA-F]{6}$/.test(slice.color) ||
       typeof slice.vipTrigger !== "boolean" ||
+      (slice.pointsAward !== undefined &&
+        (!Number.isSafeInteger(slice.pointsAward) ||
+          slice.pointsAward < 1 ||
+          slice.pointsAward > 1_000_000)) ||
       (kind !== "main" && slice.vipTrigger)
     ) {
       return false;
