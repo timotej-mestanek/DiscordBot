@@ -49,6 +49,27 @@ The package contains no secret. The endpoint URL is set to the app's production
 domain; if the app is hosted elsewhere, change the `endpoint` constant in each
 imported C# sub-action before enabling the commands.
 
+## Local alert UDP actions
+
+Import `N4JT-Alerts.sb` in Streamer.bot. This is separate from **N4JT Wheels**:
+it only sends UDP alert messages and does not call the wheel API or start a
+wheel.
+
+The package sends UTF-8 messages to `192.168.1.252:4210`:
+
+| Action | Trigger | UDP payload |
+| --- | --- | --- |
+| `N4JT Alerts - Follow` | Twitch Follow (included) | `FOLLOW` |
+| `N4JT Alerts - Subscription` | Twitch Subscription (included) | `SUBSCRIBE` |
+| `N4JT Alerts - Donation` | No provider trigger yet; attach one when ready | `DONATE 1`, `DONATE 2`, or `DONATE 3` |
+
+The donation action reads an amount argument named `amount`, `donationAmount`,
+`donation`, or `tipAmount`, in EUR. Amounts below 5 send `DONATE 1`; amounts
+from 5 to under 20 send `DONATE 2`; 20 or more send `DONATE 3`. The action only
+sends the UDP alert; connect it to your donation provider's trigger yourself
+when that provider is configured. These alert actions do not add delays, start
+wheels, or post chat messages.
+
 ## Wheels of Fortune
 
 Import `N4JT-Wheels.sb` as a separate package. It adds five actions under

@@ -20,12 +20,34 @@ export type StreamVotingEvent = {
   options: StreamVotingOption[];
 };
 
-export type StreamOverlayEvent = StreamTimerEvent | StreamVotingEvent;
+export type StreamAlertSeverity = "info" | "attention" | "warning" | "critical";
+
+export type StreamAlertEvent = {
+  type: "alert";
+  eventId: string;
+  active: true;
+  severity: StreamAlertSeverity;
+  title: string;
+  message: string;
+};
+
+export type StreamAlertHideEvent = {
+  type: "alert";
+  eventId: string;
+  active: false;
+};
+
+export type StreamOverlayEvent =
+  | StreamTimerEvent
+  | StreamVotingEvent
+  | StreamAlertEvent
+  | StreamAlertHideEvent;
 
 export type StreamOverlaySnapshot = {
   type: "snapshot";
   timer: StreamTimerEvent | null;
   voting: StreamVotingEvent | null;
+  alert: StreamAlertEvent | null;
 };
 
 export type StreamOverlayMessage = StreamOverlayEvent | StreamOverlaySnapshot;

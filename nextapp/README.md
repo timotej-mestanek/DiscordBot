@@ -131,6 +131,14 @@ with the existing `STREAMERBOT_INGEST_TOKEN` bearer token:
   `{"eventId":"poll-123","active":false,"question":"Next game?","options":[]}`
   when it ends. Nextapp only displays supplied counts; Streamer.bot owns vote
   collection and tallying.
+- Show or hide an alert with `POST /api/integrations/streamerbot/overlays/alert`
+  and add `/overlays/alert` as an OBS Browser Source. Show an alert with
+  `{"eventId":"alert-123","active":true,"severity":"warning","title":"Attention","message":"Stream will end soon."}`.
+  Supported severities are `info`, `attention`, `warning`, and `critical`.
+  Keep the alert visible until a hide request such as
+  `{"eventId":"alert-hide-123","active":false}` is sent. All alert requests use
+  the same bearer token; active alerts are included in the WebSocket snapshot
+  for newly connected overlays.
 
 ## Streamer.bot Twitch currency commands
 

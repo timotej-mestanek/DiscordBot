@@ -3,6 +3,7 @@
 import { useEffect, useRef } from "react";
 import type {
   StreamOverlayMessage,
+  StreamAlertEvent,
   StreamTimerEvent,
   StreamVotingEvent,
 } from "@/lib/stream-overlay-realtime";
@@ -45,14 +46,37 @@ function isVotingEvent(value: unknown): value is StreamVotingEvent {
   );
 }
 
+function isAlertEvent(value: unknown): value is StreamAlertEvent {
+  return (
+    isRecord(value) &&
+    value.type === "alert" &&
+    typeof value.eventId === "string" &&
+    value.active === true &&
+    (value.severity === "info" ||
+      value.severity === "attention" ||
+      value.severity === "warning" ||
+      value.severity === "critical") &&
+    typeof value.title === "string" &&
+    typeof value.message === "string"
+  );
+}
+
 function isStreamOverlayMessage(value: unknown): value is StreamOverlayMessage {
   if (!isRecord(value)) return false;
   if (value.type === "timer") return isTimerEvent(value);
   if (value.type === "voting") return isVotingEvent(value);
+  if (value.type === "alert") {
+    return (
+      (value.active === false &&
+        typeof value.eventId === "string") ||
+      isAlertEvent(value)
+    );
+  }
   return (
     value.type === "snapshot" &&
     (value.timer === null || isTimerEvent(value.timer)) &&
-    (value.voting === null || isVotingEvent(value.voting))
+    (value.voting === null || isVotingEvent(value.voting)) &&
+    (value.alert === null || isAlertEvent(value.alert))
   );
 }
 

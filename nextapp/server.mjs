@@ -22,6 +22,7 @@ globalThis.__streamOverlayState = {
   type: "snapshot",
   timer: null,
   voting: null,
+  alert: null,
 };
 globalThis.__streamOverlayPublish = (event) => {
   if (
@@ -37,8 +38,10 @@ globalThis.__streamOverlayPublish = (event) => {
       if (oldest) globalThis.__streamOverlayTimerEventIds.delete(oldest);
     }
     globalThis.__streamOverlayState.timer = event;
-  } else {
+  } else if (event.type === "voting") {
     globalThis.__streamOverlayState.voting = event;
+  } else {
+    globalThis.__streamOverlayState.alert = event.active ? event : null;
   }
   for (const listener of globalThis.__streamOverlayListeners) listener(event);
   return true;

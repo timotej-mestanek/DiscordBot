@@ -8,7 +8,8 @@ type Widget =
   | "custom-led-effect"
   | "wheel"
   | "timer"
-  | "voting";
+  | "voting"
+  | "alert";
 
 const subscribeToOrigin = () => () => {};
 const getServerOrigin = () => "";
@@ -21,6 +22,7 @@ function buildOverlayUrl(origin: string, player: string, widget: Widget): string
     wheel: "/overlays/wheel",
     timer: "/overlays/timer",
     voting: "/overlays/voting",
+    alert: "/overlays/alert",
   };
   const overlayPath = overlayPaths[widget];
   if (overlayPath) return new URL(overlayPath, origin).toString();
@@ -66,7 +68,7 @@ export default function OverlayBuilder() {
       <p className="mt-2 text-sm text-zinc-400">
         {widget === "custom-led-effect"
           ? "Add the public URL as a Browser Source. The LED layout has a transparent background."
-          : widget === "wheel" || widget === "timer" || widget === "voting"
+          : widget === "wheel" || widget === "timer" || widget === "voting" || widget === "alert"
             ? "Add the public URL as a Browser Source. It connects to Streamer.bot updates in real time."
             : "Add the public URL as a Browser Source. The card animates along the bottom edge of the image."}
       </p>
@@ -83,6 +85,7 @@ export default function OverlayBuilder() {
             <option value="wheel">Points prize wheel</option>
             <option value="timer">Countdown timer</option>
             <option value="voting">Live voting results</option>
+            <option value="alert">Alert banner</option>
             <option value="custom-led-effect">Custom LED effect</option>
           </select>
         </label>
@@ -140,11 +143,13 @@ export default function OverlayBuilder() {
           Prize wheel URL: configure point rewards under Dashboard → Wheels. The wheel spins for
           the viewer sent by Streamer.bot.
         </p>
-      ) : widget === "timer" || widget === "voting" ? (
+      ) : widget === "timer" || widget === "voting" || widget === "alert" ? (
         <p className="mt-5 text-xs text-zinc-500">
           {widget === "timer"
             ? "Streamer.bot starts or replaces the countdown through the timer POST endpoint."
-            : "Streamer.bot sends vote totals through the voting POST endpoint; Nextapp only displays them."}
+            : widget === "voting"
+              ? "Streamer.bot sends vote totals through the voting POST endpoint; Nextapp only displays them."
+              : "Streamer.bot shows or hides this alert through the alert POST endpoint."}
         </p>
       ) : (
         <p className="mt-5 text-xs text-zinc-500">
