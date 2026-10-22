@@ -1,4 +1,5 @@
 import { createServer } from "node:http";
+import { timingSafeEqual } from "node:crypto";
 import next from "next";
 import { PrismaClient } from "@prisma/client";
 import { WebSocket, WebSocketServer } from "ws";
@@ -9,6 +10,8 @@ const port = Number.parseInt(process.env.PORT || "3000", 10);
 const nextApp = next({ dev, hostname, port });
 const prisma = new PrismaClient();
 const websocketServer = new WebSocketServer({ noServer: true });
+let ledBridgeSocket = null;
+const ledPendingAcks = new Map();
 globalThis.__wheelRealtimeListeners = new Set();
 globalThis.__wheelRealtimePublish = (event) => {
   for (const listener of globalThis.__wheelRealtimeListeners) listener(event);
@@ -43,6 +46,39 @@ globalThis.__streamOverlayPublish = (event) => {
 const server = createServer((request, response) => {
   void nextApp.getRequestHandler()(request, response);
 });
+
+globalThis.__ledRealtimeIsConnected = () =>
+  ledBridgeSocket?.readyState === WebSocket.OPEN;
+globalThis.__ledRealtimePublish = (packet, requestId) =>
+  new Promise((resolve, reject) => {
+    if (!globalThis.__ledRealtimeIsConnected()) {
+      reject(new Error("Streamer.bot LED bridge is not connected."));
+      return;
+    }
+
+    const socket = ledBridgeSocket;
+    const timeout = setTimeout(() => {
+      ledPendingAcks.delete(requestId);
+      reject(new Error("Streamer.bot did not acknowledge the LED effect in time."));
+    }, 15_000);
+    ledPendingAcks.set(requestId, {
+      socket,
+      resolve: () => {
+        clearTimeout(timeout);
+        ledPendingAcks.delete(requestId);
+        resolve();
+      },
+      reject: (error) => {
+        clearTimeout(timeout);
+        ledPendingAcks.delete(requestId);
+        reject(error);
+      },
+    });
+    socket.send(packet, { binary: true }, (error) => {
+      if (!error) return;
+      ledPendingAcks.get(requestId)?.reject(error);
+    });
+  });
 
 function send(socket, event) {
   if (socket.readyState === WebSocket.OPEN) socket.send(JSON.stringify(event));
@@ -231,6 +267,36 @@ server.on("upgrade", (request, socket, head) => {
     });
     return;
   }
+  if (url.pathname === "/api/integrations/streamerbot/led/live") {
+    const expectedToken = process.env.STREAMERBOT_INGEST_TOKEN;
+    const authorization = request.headers.authorization ?? "";
+    const suppliedToken = Buffer.from(
+      authorization.startsWith("Bearer ") ? authorization.slice(7) : "",
+    );
+    const expected = Buffer.from(expectedToken ?? "");
+    if (!expectedToken) {
+      socket.write("HTTP/1.1 503 Service Unavailable\r\n\r\n");
+      socket.destroy();
+      return;
+    }
+    if (
+      suppliedToken.length !== expected.length ||
+      !timingSafeEqual(suppliedToken, expected)
+    ) {
+      socket.write("HTTP/1.1 401 Unauthorized\r\n\r\n");
+      socket.destroy();
+      return;
+    }
+    if (globalThis.__ledRealtimeIsConnected()) {
+      socket.write("HTTP/1.1 409 Conflict\r\n\r\n");
+      socket.destroy();
+      return;
+    }
+    websocketServer.handleUpgrade(request, socket, head, (client) => {
+      websocketServer.emit("connection", client, { channel: "led" });
+    });
+    return;
+  }
   if (url.pathname !== "/api/overlays/wheels/live") return;
 
   const cursor = cursorFromUrl(url);
@@ -245,6 +311,44 @@ server.on("upgrade", (request, socket, head) => {
 });
 
 websocketServer.on("connection", (socket, context) => {
+  if (context.channel === "led") {
+    ledBridgeSocket = socket;
+    socket.on("message", (data, isBinary) => {
+      if (isBinary) {
+        socket.close(1003, "Only text acknowledgements are accepted");
+        return;
+      }
+      let message;
+      try {
+        message = JSON.parse(data.toString());
+      } catch {
+        socket.close(1007, "Invalid acknowledgement");
+        return;
+      }
+      if (
+        message?.type !== "led-ack" ||
+        typeof message.id !== "string" ||
+        typeof message.ok !== "boolean"
+      ) {
+        socket.close(1007, "Invalid acknowledgement");
+        return;
+      }
+      const pending = ledPendingAcks.get(message.id);
+      if (!pending || pending.socket !== socket) return;
+      if (message.ok) pending.resolve();
+      else pending.reject(new Error("Streamer.bot could not deliver the LED effect."));
+    });
+    socket.once("close", () => {
+      if (ledBridgeSocket === socket) ledBridgeSocket = null;
+      for (const [requestId, pending] of ledPendingAcks) {
+        if (pending.socket === socket) {
+          pending.reject(new Error("Streamer.bot LED bridge disconnected."));
+          ledPendingAcks.delete(requestId);
+        }
+      }
+    });
+    return;
+  }
   if (context.channel === "stream") {
     const listener = (event) => send(socket, event);
     globalThis.__streamOverlayListeners.add(listener);

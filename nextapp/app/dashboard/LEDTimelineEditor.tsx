@@ -617,15 +617,15 @@ export default function LEDTimelineEditor({ initialUses }: { initialUses: number
         }),
       });
       const result: { error?: string; quantity?: number } = await response.json();
+      if (typeof result.quantity === "number") setUses(result.quantity);
       if (!response.ok || typeof result.quantity !== "number") {
         setMessage(result.error ?? "Could not apply the effect.");
         return;
       }
-      setUses(result.quantity);
       setMessage(
         result.quantity > 0
-          ? `Effect saved. Uses remaining: ${result.quantity}. The lights are not connected yet.`
-          : "Effect saved and use consumed. Buy another in the shop to apply another effect. The lights are not connected yet.",
+          ? `Effect forwarded through Streamer.bot to the local ESP32. Uses remaining: ${result.quantity}.`
+          : "Effect forwarded through Streamer.bot to the local ESP32. This use was consumed; buy another in the shop to apply another effect.",
       );
     } catch (error) {
       console.error("LED effect request failed:", error);
