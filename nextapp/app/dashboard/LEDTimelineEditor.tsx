@@ -599,22 +599,24 @@ export default function LEDTimelineEditor({ initialUses }: { initialUses: number
     setBusy(true);
     setMessage("");
     try {
+      const requestBody = JSON.stringify({
+        effect: {
+          name: name.trim(),
+          durationSeconds,
+          keyframes: sortedFrames.map(({ time, color, animation, opacity, ledIds }) => ({
+            time,
+            color,
+            animation,
+            opacity,
+            ledIds,
+          })),
+        },
+      });
+      console.log("Custom LED effect payload sent to /api/shop/redeem:", requestBody);
       const response = await fetch("/api/shop/redeem", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          effect: {
-            name: name.trim(),
-            durationSeconds,
-            keyframes: sortedFrames.map(({ time, color, animation, opacity, ledIds }) => ({
-              time,
-              color,
-              animation,
-              opacity,
-              ledIds,
-            })),
-          },
-        }),
+        body: requestBody,
       });
       const result: { error?: string; quantity?: number } = await response.json();
       if (typeof result.quantity === "number") setUses(result.quantity);
