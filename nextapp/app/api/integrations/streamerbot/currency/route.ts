@@ -217,6 +217,9 @@ export async function POST(request: Request) {
           operation === "add" ? "Streamer.bot: add points" : "Streamer.bot: remove points",
           null,
           eventId,
+          isTwitchLogin(twitchUserLogin)
+            ? twitchUserLogin.toLowerCase()
+            : undefined,
         );
         const balance = await transaction.twitchCustomPointBalance.findUniqueOrThrow({
           where: { twitch_user_id: twitchUserId },
@@ -332,6 +335,9 @@ export async function POST(request: Request) {
           "Streamer.bot: points transfer",
           null,
           `${eventId}:to`,
+          isTwitchLogin(toTwitchUserLogin)
+            ? toTwitchUserLogin.toLowerCase()
+            : undefined,
         );
         const updated = await transaction.twitchCustomPointBalance.findMany({
           where: {

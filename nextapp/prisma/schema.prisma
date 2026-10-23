@@ -139,9 +139,10 @@ model WebSession {
 }
 
 model TwitchCustomPointBalance {
-  twitch_user_id String   @id
-  points         Int      @default(0)
-  updated_at     DateTime @updatedAt
+  twitch_user_id    String   @id
+  twitch_user_login String?
+  points            Int      @default(0)
+  updated_at        DateTime @updatedAt
 }
 
 model PointLedgerEntry {

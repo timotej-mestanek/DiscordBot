@@ -68,7 +68,7 @@ export async function getPointRanking(
       : prisma.twitchCustomPointBalance.findMany({
           where: { points: { gt: 0 } },
           orderBy: { points: "desc" },
-          select: { twitch_user_id: true, points: true },
+          select: { twitch_user_id: true, twitch_user_login: true, points: true },
         }),
   ]);
 
@@ -113,7 +113,7 @@ export async function getPointRanking(
         : twitchBalances.map((item) => {
             const identity = identityByKey.get(`twitch:${item.twitch_user_id}`);
             return {
-              name: identity?.display_name ?? item.twitch_user_id,
+              name: identity?.display_name ?? item.twitch_user_login ?? item.twitch_user_id,
               points: item.points,
             };
           });
@@ -140,7 +140,12 @@ export async function getPointRanking(
     addBalance("discord", item.discord_id, item.name, item.points);
   }
   for (const item of twitchBalances) {
-    addBalance("twitch", item.twitch_user_id, item.twitch_user_id, item.points);
+    addBalance(
+      "twitch",
+      item.twitch_user_id,
+      item.twitch_user_login ?? item.twitch_user_id,
+      item.points,
+    );
   }
 
   return [...combined.values()]
@@ -156,6 +161,7 @@ export async function changePointBalance(
   reason: string,
   actorAccountId: string | null,
   sourceEventId: string | null = null,
+  twitchUserLogin?: string,
 ): Promise<void> {
   if (currency === "discord") {
     if (delta > 0) {
@@ -174,13 +180,23 @@ export async function changePointBalance(
   } else if (delta > 0) {
     await transaction.twitchCustomPointBalance.upsert({
       where: { twitch_user_id: providerUserId },
-      create: { twitch_user_id: providerUserId, points: delta },
-      update: { points: { increment: delta } },
+      create: {
+        twitch_user_id: providerUserId,
+        twitch_user_login: twitchUserLogin,
+        points: delta,
+      },
+      update: {
+        points: { increment: delta },
+        ...(twitchUserLogin ? { twitch_user_login: twitchUserLogin } : {}),
+      },
     });
   } else {
     const update = await transaction.twitchCustomPointBalance.updateMany({
       where: { twitch_user_id: providerUserId, points: { gte: -delta } },
-      data: { points: { decrement: -delta } },
+      data: {
+        points: { decrement: -delta },
+        ...(twitchUserLogin ? { twitch_user_login: twitchUserLogin } : {}),
+      },
     });
     if (update.count !== 1) throw new InsufficientPointsError();
   }

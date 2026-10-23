@@ -4,6 +4,31 @@ Import `N4JT-Currency.sb` in Streamer.bot (`Import` → choose the file). It add
 `!points`, `!addpoints`, `!removepoints`, and `!givepoints`, connected to
 `https://najtik.stream/api/integrations/streamerbot/currency`.
 
+## Activity points
+
+`N4JT-Activity-Points.cs` is a C# sub-action for Streamer.bot 1.0.7. It adds 50
+N4JT Twitch CustomBody points to each user who sent a chat message in the last
+five minutes, or 65 points for subscribers (50 × 1.3).
+
+To set it up:
+
+1. Create one action and add both a Twitch **Chat Message** trigger and a
+   **Timer** trigger set to repeat every 5 minutes.
+2. Add a **Core → C# → Execute C# Code** sub-action and paste in the contents
+   of `N4JT-Activity-Points.cs`.
+3. In Streamer.bot's **Global Variables**, create a persistent string variable
+   named `n4jtStreamerBotToken` with the same `STREAMERBOT_INGEST_TOKEN` used by
+   the app.
+4. Ensure the Chat Message trigger supplies the `userId` and `isSubscriber`
+   arguments. The action records chat activity and only awards users active in
+   the preceding five minutes.
+
+The script posts to the app's `/api/integrations/streamerbot/points` endpoint.
+For a different app domain, change the `Endpoint` constant in the script.
+Failures are written to the Streamer.bot log. This source is not an importable
+`.sb` export; create/export an action in Streamer.bot itself if you need a
+one-click import file.
+
 ## Twitch moderator commands and clips
 
 Import `N4JT-Moderator-Commands.sb` to add these Twitch chat commands:
