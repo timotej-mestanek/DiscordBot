@@ -95,6 +95,7 @@ export default function WheelOverlay() {
   const [idleWheel, setIdleWheel] = useState<WheelDisplay | null>(null);
   const [lastSegment, setLastSegment] = useState<WheelSpinSegment | null>(null);
   const [lastPick, setLastPick] = useState<string | null>(null);
+  const [lastPickColor, setLastPickColor] = useState<string | null>(null);
   const [resultPhase, setResultPhase] = useState<"entering" | "leaving" | null>(null);
   const [wheelVisible, setWheelVisible] = useState(true);
   const wheelRef = useRef<SVGGElement | null>(null);
@@ -124,6 +125,7 @@ export default function WheelOverlay() {
     }
     setWheelVisible(true);
     setLastPick(null);
+    setLastPickColor(null);
     setResultPhase(null);
     setQueue((current) =>
       current.some((queuedSpin) => queuedSpin.id === spin.id)
@@ -193,6 +195,9 @@ export default function WheelOverlay() {
         } else {
           setLastSegment(segment);
           setLastPick(segment.selectedLabel);
+          setLastPickColor(
+            segment.slices.find((slice) => slice.id === segment.selectedSliceId)?.color ?? null,
+          );
           setResultPhase("entering");
           setActiveStep(0);
           setQueue((current) => current.slice(1));
@@ -202,6 +207,7 @@ export default function WheelOverlay() {
               setWheelVisible(false);
               setResultPhase(null);
               setLastPick(null);
+              setLastPickColor(null);
               hideWheelTimer.current = null;
             }, 700);
           }, 2_000);
@@ -272,7 +278,7 @@ export default function WheelOverlay() {
                   const end = polarPoint(startAngle + sectorSize, WHEEL_RADIUS);
                   const fontSize = Math.max(
                     10,
-                    Math.min(34, 780 / displaySegment.slices.length, sectorSize * 1.4),
+                    Math.min(30, 780 / displaySegment.slices.length, sectorSize * 1.25),
                   );
                   const textStart = 52;
                   const textMaxWidth = WHEEL_RADIUS - textStart - 18;
@@ -336,9 +342,18 @@ export default function WheelOverlay() {
               <p
                 key={lastPick}
                 aria-live="polite"
-                className="wheel-result-enter max-w-[85%] break-words rounded-2xl border-2 border-white/90 bg-zinc-950/95 px-7 py-5 text-center text-3xl font-black leading-tight text-white sm:px-10 sm:py-7 sm:text-5xl"
+                className="wheel-result-enter max-w-[85%] break-words rounded-2xl border-2 border-white/90 bg-zinc-950/95 px-7 py-5 text-center text-2xl font-black leading-tight text-white sm:px-10 sm:py-7 sm:text-4xl"
               >
-                {lastPick}
+                <span className="flex items-center justify-center gap-3">
+                  {lastPickColor && (
+                    <span
+                      aria-label={`Prize color ${lastPickColor}`}
+                      className="h-5 w-5 shrink-0 rounded-full border-2 border-white"
+                      style={{ backgroundColor: lastPickColor }}
+                    />
+                  )}
+                  {lastPick}
+                </span>
               </p>
             </div>
           )}

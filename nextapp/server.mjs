@@ -221,7 +221,7 @@ async function getSnapshot() {
     ) {
       throw new Error("Main wheel profile has an invalid configuration.");
     }
-    if (config.slices.length >= 2) {
+    if (config.enabled === true && config.slices.length >= 2) {
       wheel = { title: config.title, slices: config.slices };
     }
   }

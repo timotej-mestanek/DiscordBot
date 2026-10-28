@@ -81,6 +81,27 @@ function getSpinResult(sequence: unknown, index = 0): string | null {
   return segment.selectedLabel;
 }
 
+function getSpinResultColor(sequence: unknown, index = 0): string | null {
+  if (!Array.isArray(sequence)) return null;
+  const segment = sequence[index];
+  if (
+    !isRecord(segment) ||
+    typeof segment.selectedSliceId !== "string" ||
+    !Array.isArray(segment.slices)
+  ) {
+    return null;
+  }
+  const selectedSlice = segment.slices.find(
+    (slice) =>
+      isRecord(slice) &&
+      slice.id === segment.selectedSliceId &&
+      typeof slice.color === "string",
+  );
+  return isRecord(selectedSlice) && typeof selectedSlice.color === "string"
+    ? selectedSlice.color
+    : null;
+}
+
 async function persistLog(input: {
   requestId: string;
   operation: string | null;
@@ -192,7 +213,9 @@ export async function POST(request: Request) {
           spinId: existingSpin.id,
           gameName: existingSpin.game_name,
           result: getSpinResult(existingSpin.sequence),
+          resultColor: getSpinResultColor(existingSpin.sequence),
           vipResult: getSpinResult(existingSpin.sequence, 1),
+          vipResultColor: getSpinResultColor(existingSpin.sequence, 1),
           sequence: existingSpin.sequence,
         },
         true,
@@ -394,7 +417,9 @@ export async function POST(request: Request) {
         spinId: spin.id,
         gameName,
         result: getSpinResult(spin.sequence),
+        resultColor: getSpinResultColor(spin.sequence),
         vipResult: getSpinResult(spin.sequence, 1),
+        vipResultColor: getSpinResultColor(spin.sequence, 1),
         sequence: spin.sequence,
       },
       true,
@@ -426,7 +451,9 @@ export async function POST(request: Request) {
             spinId: duplicate.id,
             gameName: duplicate.game_name,
             result: getSpinResult(duplicate.sequence),
+            resultColor: getSpinResultColor(duplicate.sequence),
             vipResult: getSpinResult(duplicate.sequence, 1),
+            vipResultColor: getSpinResultColor(duplicate.sequence, 1),
             sequence: duplicate.sequence,
           },
           true,

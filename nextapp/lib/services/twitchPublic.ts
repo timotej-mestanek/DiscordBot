@@ -56,6 +56,46 @@ async function getAppToken(): Promise<string> {
   return body.access_token;
 }
 
+export async function getTwitchUserNames(
+  userIds: string[],
+): Promise<Map<string, string>> {
+  const names = new Map<string, string>();
+  const uniqueIds = [...new Set(userIds)];
+  if (uniqueIds.length === 0) return names;
+  const clientId = process.env.TWITCH_CLIENT_ID;
+  if (!clientId) throw new Error("Missing Twitch app client ID.");
+  const token = await getAppToken();
+
+  for (let offset = 0; offset < uniqueIds.length; offset += 100) {
+    const url = new URL("https://api.twitch.tv/helix/users");
+    for (const id of uniqueIds.slice(offset, offset + 100)) {
+      url.searchParams.append("id", id);
+    }
+    const response = await fetch(url, {
+      headers: {
+        Authorization: `Bearer ${token}`,
+        "Client-Id": clientId,
+      },
+    });
+    const body: unknown = await response.json();
+    if (!response.ok || !isRecord(body) || !Array.isArray(body.data)) {
+      console.error("Twitch leaderboard name lookup failed:", response.status);
+      throw new Error("Twitch leaderboard name lookup failed.");
+    }
+    for (const user of body.data) {
+      if (!isRecord(user) || typeof user.id !== "string") continue;
+      const name =
+        typeof user.display_name === "string"
+          ? user.display_name
+          : typeof user.login === "string"
+            ? user.login
+            : null;
+      if (name) names.set(user.id, name);
+    }
+  }
+  return names;
+}
+
 export async function getTopTwitchClip(): Promise<TwitchClip | null> {
   if (cachedTopClip && cachedTopClip.expiresAt > Date.now()) {
     return cachedTopClip.clip;

@@ -1,5 +1,6 @@
 import { Prisma } from "@prisma/client";
 import { prisma } from "@/lib/prisma";
+import { getTwitchUserNames } from "@/lib/services/twitchPublic";
 
 export const POINT_CURRENCIES = ["discord", "twitch_custom"] as const;
 export type SupportedPointCurrency = (typeof POINT_CURRENCIES)[number];
@@ -12,6 +13,10 @@ type AccountIdentity = {
 
 type PointTransactionClient = Prisma.TransactionClient;
 
+const POINT_NAME_CACHE_TTL_MS = 5 * 60_000;
+const pointNameCache = new Map<string, { name: string | null; expiresAt: number }>();
+const pendingPointNameLookups = new Map<string, Promise<string | null>>();
+
 export class InsufficientPointsError extends Error {
   constructor() {
     super("Insufficient points.");
@@ -23,6 +28,74 @@ export function isSupportedPointCurrency(
   value: unknown,
 ): value is SupportedPointCurrency {
   return value === "discord" || value === "twitch_custom";
+}
+
+async function lookupPointName(
+  provider: "discord" | "twitch",
+  providerUserId: string,
+): Promise<string | null> {
+  const key = `${provider}:${providerUserId}`;
+  const cached = pointNameCache.get(key);
+  if (cached && cached.expiresAt > Date.now()) return cached.name;
+  const pending = pendingPointNameLookups.get(key);
+  if (pending) return pending;
+
+  const lookup = (async () => {
+    try {
+      if (provider === "discord") {
+        const token = process.env.DISCORD_BOT_TOKEN;
+        if (!token) return null;
+        const response = await fetch(
+          `https://discord.com/api/v10/users/${encodeURIComponent(providerUserId)}`,
+          { headers: { Authorization: `Bot ${token}` } },
+        );
+        if (!response.ok) {
+          console.error("Discord leaderboard name lookup failed:", response.status);
+          return null;
+        }
+        const body: unknown = await response.json();
+        if (
+          typeof body !== "object" ||
+          body === null ||
+          !("username" in body) ||
+          typeof body.username !== "string"
+        ) {
+          console.error("Discord leaderboard name lookup returned an invalid response.");
+          return null;
+        }
+        const name =
+          "global_name" in body && typeof body.global_name === "string"
+            ? body.global_name.trim()
+            : "";
+        return name || body.username.trim() || null;
+      }
+
+      const names = await getTwitchUserNames([providerUserId]);
+      return names.get(providerUserId) ?? null;
+    } catch (error) {
+      console.error(`${provider} leaderboard name lookup failed:`, error);
+      return null;
+    }
+  })();
+  pendingPointNameLookups.set(key, lookup);
+  const name = await lookup;
+  pendingPointNameLookups.delete(key);
+  pointNameCache.set(key, { name, expiresAt: Date.now() + POINT_NAME_CACHE_TTL_MS });
+  return name;
+}
+
+async function getPointDisplayName(
+  provider: "discord" | "twitch",
+  providerUserId: string,
+  ...candidates: Array<string | null | undefined>
+): Promise<string> {
+  const usableName = candidates.find(
+    (candidate) => candidate?.trim() && candidate.trim() !== providerUserId,
+  );
+  if (usableName) return usableName.trim();
+  const resolvedName = await lookupPointName(provider, providerUserId);
+  if (resolvedName && resolvedName !== providerUserId) return resolvedName;
+  return provider === "discord" ? "Discord user" : "Twitch user";
 }
 
 export async function getAccountPointBalances(identities: AccountIdentity[]) {
@@ -101,26 +174,56 @@ export async function getPointRanking(
   );
 
   if (mode !== "overall") {
-    const rows =
+    const rows: Array<{
+      provider: "discord" | "twitch";
+      providerUserId: string;
+      fallbackName: string;
+      identityName?: string;
+      points: number;
+    }> =
       mode === "discord"
         ? discordBalances.map((item) => {
             const identity = identityByKey.get(`discord:${item.discord_id}`);
             return {
-              name: identity?.display_name ?? item.name,
+              provider: "discord",
+              providerUserId: item.discord_id,
+              fallbackName: item.name,
+              identityName: identity?.display_name,
               points: item.points,
             };
           })
         : twitchBalances.map((item) => {
             const identity = identityByKey.get(`twitch:${item.twitch_user_id}`);
             return {
-              name: identity?.display_name ?? item.twitch_user_login ?? item.twitch_user_id,
+              provider: "twitch",
+              providerUserId: item.twitch_user_id,
+              fallbackName: item.twitch_user_login ?? item.twitch_user_id,
+              identityName: identity?.display_name,
               points: item.points,
             };
           });
-    return rows.slice(0, limit);
+    return Promise.all(
+      rows.slice(0, limit).map(async (row) => ({
+        name: await getPointDisplayName(
+          row.provider,
+          row.providerUserId,
+          row.identityName,
+          row.fallbackName,
+        ),
+        points: row.points,
+      })),
+    );
   }
 
-  const combined = new Map<string, { name: string; points: number }>();
+  const combined = new Map<
+    string,
+    {
+      name: string;
+      nameProvider: "discord" | "twitch";
+      nameProviderUserId: string;
+      points: number;
+    }
+  >();
   const addBalance = (
     provider: "discord" | "twitch",
     providerUserId: string,
@@ -130,8 +233,24 @@ export async function getPointRanking(
     const identity = identityByKey.get(`${provider}:${providerUserId}`);
     const key = identity?.account_id ?? `${provider}:${providerUserId}`;
     const current = combined.get(key);
+    const accountName = identity?.account.display_name;
+    const identityName = identity?.display_name;
+    const name =
+      accountName && accountName !== providerUserId
+        ? accountName
+        : identityName && identityName !== providerUserId
+          ? identityName
+          : fallbackName;
+    const currentHasReadableName =
+      current && current.name !== current.nameProviderUserId;
+    const hasReadableName = name !== providerUserId;
     combined.set(key, {
-      name: identity?.account.display_name ?? identity?.display_name ?? fallbackName,
+      name: currentHasReadableName && !hasReadableName ? current.name : name,
+      nameProvider: currentHasReadableName && !hasReadableName ? current.nameProvider : provider,
+      nameProviderUserId:
+        currentHasReadableName && !hasReadableName
+          ? current.nameProviderUserId
+          : providerUserId,
       points: (current?.points ?? 0) + points,
     });
   };
@@ -148,9 +267,19 @@ export async function getPointRanking(
     );
   }
 
-  return [...combined.values()]
+  const ranked = [...combined.values()]
     .sort((left, right) => right.points - left.points)
     .slice(0, limit);
+  return Promise.all(
+    ranked.map(async (entry) => ({
+      name: await getPointDisplayName(
+        entry.nameProvider,
+        entry.nameProviderUserId,
+        entry.name,
+      ),
+      points: entry.points,
+    })),
+  );
 }
 
 export async function changePointBalance(
