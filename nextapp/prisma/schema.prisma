@@ -110,6 +110,9 @@ model WebAccount {
   spotify_oauth_states SpotifyOAuthState[]
   shop_inventory ShopInventory[]
   shop_redemptions ShopRedemption[]
+  golden_eggs Int @default(0)
+  black_market_inventory BlackMarketInventory[]
+  black_market_crate_inventory BlackMarketCrateInventory[]
 }
 
 model OAuthIdentity {
@@ -311,6 +314,81 @@ model ShopDeliveryEvent {
 
   @@index([delivered_at, cancelled_at, created_at])
   @@index([product_id, created_at])
+}
+
+model BlackMarketCrate {
+  id         String   @id
+  name       String
+  active     Boolean  @default(true)
+  starts_at  DateTime?
+  ends_at    DateTime?
+  created_at DateTime @default(now())
+
+  inventories BlackMarketCrateInventory[]
+  items       BlackMarketCrateItem[]
+}
+
+model BlackMarketCrateItem {
+  crate_id String
+  item_id  String
+  weight   Int    @default(1)
+
+  crate BlackMarketCrate @relation(fields: [crate_id], references: [id], onDelete: Cascade)
+  item  BlackMarketItem @relation(fields: [item_id], references: [id], onDelete: Cascade)
+
+  @@id([crate_id, item_id])
+}
+
+model BlackMarketCrateInventory {
+  account_id String
+  crate_id   String
+  quantity   Int    @default(0)
+
+  account WebAccount @relation(fields: [account_id], references: [id], onDelete: Cascade)
+  crate   BlackMarketCrate @relation(fields: [crate_id], references: [id], onDelete: Cascade)
+
+  @@id([account_id, crate_id])
+}
+
+model BlackMarketItem {
+  id         String   @id
+  name       String
+  group      String   @default("chat")
+  max_level  Int      @default(6)
+  created_at DateTime @default(now())
+
+  levels   BlackMarketItemLevel[]
+  owned_by BlackMarketInventory[]
+  crates   BlackMarketCrateItem[]
+}
+
+model BlackMarketItemLevel {
+  id           String @id @default(cuid())
+  item_id      String
+  level        Int
+  upgrade_cost Int?
+  image_url    String
+
+  item BlackMarketItem @relation(fields: [item_id], references: [id], onDelete: Cascade)
+
+  @@unique([item_id, level])
+}
+
+model BlackMarketInventory {
+  id            String   @id @default(cuid())
+  account_id    String
+  item_id       String
+  group         String
+  current_level Int      @default(1)
+  is_equipped   Boolean  @default(false)
+  created_at    DateTime @default(now())
+
+  account WebAccount @relation(fields: [account_id], references: [id], onDelete: Cascade)
+  item    BlackMarketItem @relation(fields: [item_id], references: [id], onDelete: Cascade)
+
+  @@unique([account_id, item_id])
+  @@index([account_id])
+  @@index([account_id, is_equipped])
 }
 
 model SpotifyOAuthState {

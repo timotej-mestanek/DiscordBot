@@ -115,6 +115,12 @@ export default async function DashboardPage({
           </Link>
           <div className="flex items-center gap-3">
             <Link
+              href="/black-market"
+              className="text-sm font-semibold text-amber-200 hover:text-amber-100"
+            >
+              Black Market
+            </Link>
+            <Link
               href={account.role === "admin" ? "/shop?preview=public" : "/shop"}
               className="text-sm font-semibold text-violet-300 hover:text-violet-200"
             >
