@@ -103,7 +103,7 @@ export default async function ShopPage({
             {account?.role === "admin" && !isPublicPreview && (
               <ShopAdminManager products={products} deliveries={deliveries} />
             )}
-            <section className="mt-8 grid gap-5 lg:grid-cols-2">
+            <section className="mt-8 grid auto-rows-fr gap-5 lg:grid-cols-2">
               {products
                 .filter((product) => product.active)
                 .map((product) => (
@@ -113,6 +113,7 @@ export default async function ShopPage({
                       id: product.id,
                       name: product.name,
                       description: product.description,
+                      cardColor: product.card_color,
                       discordPrice: product.discord_price,
                       twitchPrice: product.twitch_price,
                       active: product.active,

@@ -50,6 +50,9 @@ export async function POST(request: Request) {
     !("description" in body) ||
     typeof body.description !== "string" ||
     body.description.trim().length > 500 ||
+    !("cardColor" in body) ||
+    typeof body.cardColor !== "string" ||
+    !/^#[0-9a-fA-F]{6}$/u.test(body.cardColor) ||
     !("addToInventory" in body) ||
     typeof body.addToInventory !== "boolean" ||
     !("streamerbotAction" in body) ||
@@ -81,6 +84,7 @@ export async function POST(request: Request) {
 
   const name = body.name.trim();
   const description = body.description.trim();
+  const cardColor = body.cardColor;
   const discordPrice = body.discordPrice;
   const twitchPrice = body.twitchPrice;
   const active = body.active;
@@ -102,6 +106,7 @@ export async function POST(request: Request) {
             data: {
               name,
               description,
+              card_color: cardColor,
               discord_price: discordPrice,
               twitch_price: twitchPrice,
               active,
@@ -113,6 +118,7 @@ export async function POST(request: Request) {
             data: {
               name,
               description,
+              card_color: cardColor,
               discord_price: discordPrice,
               twitch_price: twitchPrice,
               active,
@@ -131,6 +137,7 @@ export async function POST(request: Request) {
               ? {
                   name: previous.name,
                   description: previous.description,
+                  cardColor: previous.card_color,
                   discordPrice: previous.discord_price,
                   twitchPrice: previous.twitch_price,
                   active: previous.active,
@@ -141,6 +148,7 @@ export async function POST(request: Request) {
             after: {
               name,
               description,
+              cardColor,
               discordPrice,
               twitchPrice,
               active,

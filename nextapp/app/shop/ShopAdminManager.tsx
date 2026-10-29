@@ -7,6 +7,7 @@ export type AdminShopProduct = {
   id: string;
   name: string;
   description: string;
+  card_color: string;
   discord_price: number | null;
   twitch_price: number | null;
   active: boolean;
@@ -52,6 +53,7 @@ export default function ShopAdminManager({
       productId: selected?.id,
       name: String(form.get("name") ?? ""),
       description: String(form.get("description") ?? ""),
+      cardColor: String(form.get("cardColor") ?? "#7c3aed"),
       discordPrice: discordPrice ? Number(discordPrice) : null,
       twitchPrice: twitchPrice ? Number(twitchPrice) : null,
       active: form.get("active") === "true",
@@ -181,6 +183,21 @@ export default function ShopAdminManager({
             defaultValue={selected?.description ?? ""}
             className="mt-1 w-full resize-y rounded-lg border border-zinc-700 bg-zinc-950 px-3 py-2 text-sm text-white"
           />
+        </label>
+        <label className="text-xs font-medium text-zinc-400">
+          Card accent color
+          <div className="mt-1 flex items-center gap-3 rounded-lg border border-zinc-700 bg-zinc-950 px-3 py-2">
+            <input
+              name="cardColor"
+              type="color"
+              defaultValue={selected?.card_color ?? "#7c3aed"}
+              aria-label="Shop card accent color"
+              className="h-8 w-12 cursor-pointer rounded border-0 bg-transparent p-0"
+            />
+            <span className="text-xs text-zinc-500">
+              Used for the product card gradient and accent.
+            </span>
+          </div>
         </label>
         <label className="text-xs font-medium text-zinc-400 sm:col-span-2">
           Streamer.bot action key

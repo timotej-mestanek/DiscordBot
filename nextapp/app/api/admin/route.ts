@@ -220,6 +220,9 @@ async function revertShopOperation(adminId: string, logId: string) {
           !isRecord(previous) ||
           typeof previous.name !== "string" ||
           typeof previous.description !== "string" ||
+          (previous.cardColor !== undefined &&
+            (typeof previous.cardColor !== "string" ||
+              !/^#[0-9a-fA-F]{6}$/u.test(previous.cardColor))) ||
           !(previous.discordPrice === null || typeof previous.discordPrice === "number") ||
           !(previous.twitchPrice === null || typeof previous.twitchPrice === "number") ||
           typeof previous.active !== "boolean" ||
@@ -234,6 +237,9 @@ async function revertShopOperation(adminId: string, logId: string) {
           data: {
             name: previous.name,
             description: previous.description,
+            ...(typeof previous.cardColor === "string"
+              ? { card_color: previous.cardColor }
+              : {}),
             discord_price: previous.discordPrice,
             twitch_price: previous.twitchPrice,
             active: previous.active,
