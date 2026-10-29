@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from "react";
 import type { FormEvent } from "react";
+import PersistentAdminCard from "@/app/dashboard/PersistentAdminCard";
 
 type Currency = "discord" | "twitch_custom";
 type Account = {
@@ -327,8 +328,7 @@ export default function AdminPanel({ view }: { view: "settings" | "logs" }) {
 
       {view === "settings" && (
       <>
-      <section className="rounded-xl border border-zinc-800 bg-zinc-900 p-6">
-        <h2 className="text-xl font-semibold">Stream schedule</h2>
+      <PersistentAdminCard id="stream-schedule" title="Stream schedule">
         <form onSubmit={submit} className="mt-6 grid gap-3 sm:grid-cols-2">
           <input type="hidden" name="action" value="stream-event-create" />
           <label className="text-sm text-zinc-300 sm:col-span-2">
@@ -394,10 +394,9 @@ export default function AdminPanel({ view }: { view: "settings" | "logs" }) {
             <p className="text-sm text-zinc-500">There are no scheduled events yet.</p>
           )}
         </div>
-      </section>
+      </PersistentAdminCard>
 
-      <section className="rounded-xl border border-zinc-800 bg-zinc-900 p-6">
-        <h2 className="text-xl font-semibold">Game stats · PUBG sestava</h2>
+      <PersistentAdminCard id="pubg-roster" title="Game stats · PUBG sestava">
         <p className="mt-2 text-sm text-zinc-400">
           Set the PUBG account and up to three teammates. Names are saved for a future game-statistics source;
           the extension currently only receives and displays data.
@@ -440,10 +439,9 @@ export default function AdminPanel({ view }: { view: "settings" | "logs" }) {
             )}
           </div>
         </form>
-      </section>
+      </PersistentAdminCard>
 
-      <section className="rounded-xl border border-zinc-800 bg-zinc-900 p-6">
-        <h2 className="text-xl font-semibold">Users and administrators</h2>
+      <PersistentAdminCard id="users-admins" title="Users and administrators">
         <div className="mt-4 space-y-3">
           {data.accounts.map((account) => (
             <form
@@ -477,10 +475,9 @@ export default function AdminPanel({ view }: { view: "settings" | "logs" }) {
             </form>
           ))}
         </div>
-      </section>
+      </PersistentAdminCard>
 
-      <section className="rounded-xl border border-zinc-800 bg-zinc-900 p-6">
-        <h2 className="text-xl font-semibold">Add or remove points</h2>
+      <PersistentAdminCard id="point-adjustments" title="Add or remove points">
         <form onSubmit={submit} className="mt-4 grid gap-3 sm:grid-cols-2">
           <input type="hidden" name="action" value="adjust" />
           <label className="text-sm text-zinc-300">
@@ -510,10 +507,9 @@ export default function AdminPanel({ view }: { view: "settings" | "logs" }) {
             Apply adjustment
           </button>
         </form>
-      </section>
+      </PersistentAdminCard>
 
-      <section className="rounded-xl border border-zinc-800 bg-zinc-900 p-6">
-        <h2 className="text-xl font-semibold">Exchange rates</h2>
+      <PersistentAdminCard id="exchange-rates" title="Exchange rates">
         <p className="mt-2 text-sm text-zinc-400">
           Twitch Channel Points are intentionally excluded from conversions.
         </p>
@@ -549,14 +545,13 @@ export default function AdminPanel({ view }: { view: "settings" | "logs" }) {
             );
           })}
         </div>
-      </section>
+      </PersistentAdminCard>
 
       </>
       )}
       {view === "logs" && (
       <>
-      <section className="rounded-xl border border-zinc-800 bg-zinc-900 p-6">
-        <h2 className="text-xl font-semibold">Point changes</h2>
+      <PersistentAdminCard id="point-changes" title="Point changes">
         <div className="mt-4 h-72 space-y-2 overflow-y-auto overscroll-contain rounded-lg border border-zinc-800 p-2">
           {data.pointEvents.map((event) => (
             <article key={event.id} className="rounded-lg border border-zinc-800 p-3 text-sm">
@@ -571,10 +566,9 @@ export default function AdminPanel({ view }: { view: "settings" | "logs" }) {
           ))}
           {data.pointEvents.length === 0 && <p className="text-sm text-zinc-500">No changes yet.</p>}
         </div>
-      </section>
+      </PersistentAdminCard>
 
-      <section className="rounded-xl border border-zinc-800 bg-zinc-900 p-6">
-        <h2 className="text-xl font-semibold">Audit log</h2>
+      <PersistentAdminCard id="audit-log" title="Audit log">
         <div className="mt-4 h-96 space-y-2 overflow-y-auto overscroll-contain rounded-lg border border-zinc-800 p-2">
           {data.logs.map((log) => (
             <article key={log.id} className="rounded-lg border border-zinc-800 p-3 text-sm">
@@ -605,12 +599,11 @@ export default function AdminPanel({ view }: { view: "settings" | "logs" }) {
           ))}
           {data.logs.length === 0 && <p className="text-sm text-zinc-500">No entries yet.</p>}
         </div>
-      </section>
+      </PersistentAdminCard>
 
-      <section className="rounded-xl border border-zinc-800 bg-zinc-900 p-6">
+      <PersistentAdminCard id="streamerbot-api-log" title="Streamer.bot API log">
         <div className="flex flex-wrap items-center justify-between gap-3">
           <div>
-            <h2 className="text-xl font-semibold">Streamer.bot API log</h2>
             <p className="mt-1 text-sm text-zinc-400">
               Successful and failed Streamer.bot integration requests, including currency and wheel operations.
             </p>
@@ -662,7 +655,7 @@ export default function AdminPanel({ view }: { view: "settings" | "logs" }) {
             {loadingOlderStreamerBotLogs ? "Loading…" : "Load older logs"}
           </button>
         )}
-      </section>
+      </PersistentAdminCard>
       </>
       )}
     </div>

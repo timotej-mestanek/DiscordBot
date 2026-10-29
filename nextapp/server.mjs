@@ -97,7 +97,7 @@ async function pumpShopDeliveries() {
       if ((shopRetryAfter.get(event.event_id) ?? 0) > Date.now()) continue;
       const claimed = await prisma.shopDeliveryEvent.updateMany({
         where: { id: event.id, delivered_at: null, cancelled_at: null },
-        data: { attempts: { increment: 1 } },
+        data: { attempts: { increment: 1 }, last_error: null },
       });
       if (claimed.count !== 1) continue;
       const timeout = setTimeout(() => {

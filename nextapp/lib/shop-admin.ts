@@ -20,7 +20,6 @@ export async function getAdminShopDeliveries() {
   return Promise.all(
     deliveries.map(async (delivery) => {
       if (
-        delivery.attempts > 0 ||
         delivery.delivered_at ||
         delivery.cancelled_at
       ) {

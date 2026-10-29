@@ -88,18 +88,22 @@ async function revertShopOperation(adminId: string, logId: string) {
       if (!addToInventory && typeof details.deliveryEventId === "string") {
         const delivery = await transaction.shopDeliveryEvent.findUnique({
           where: { event_id: details.deliveryEventId },
-          select: { attempts: true, delivered_at: true, cancelled_at: true },
+          select: { attempts: true, last_error: true, delivered_at: true, cancelled_at: true },
         });
-        if (delivery?.delivered_at || (delivery && delivery.attempts > 0)) {
+        if (
+          delivery?.delivered_at ||
+          (delivery && delivery.attempts > 0 && !delivery.last_error)
+        ) {
           throw new ShopRevertError(
-            "This item has already been sent to Streamer.bot and cannot be safely reverted.",
+            "This item is being delivered or may already have been applied. Wait for a delivery error before cancelling it.",
           );
         }
         if (delivery && !delivery.cancelled_at) {
           const cancelled = await transaction.shopDeliveryEvent.updateMany({
             where: {
               event_id: details.deliveryEventId,
-              attempts: 0,
+              attempts: delivery.attempts,
+              last_error: delivery.last_error,
               delivered_at: null,
               cancelled_at: null,
             },
@@ -158,18 +162,22 @@ async function revertShopOperation(adminId: string, logId: string) {
       if (typeof details.deliveryEventId === "string") {
         const delivery = await transaction.shopDeliveryEvent.findUnique({
           where: { event_id: details.deliveryEventId },
-          select: { attempts: true, delivered_at: true, cancelled_at: true },
+          select: { attempts: true, last_error: true, delivered_at: true, cancelled_at: true },
         });
-        if (delivery?.delivered_at || (delivery && delivery.attempts > 0)) {
+        if (
+          delivery?.delivered_at ||
+          (delivery && delivery.attempts > 0 && !delivery.last_error)
+        ) {
           throw new ShopRevertError(
-            "This item has already been sent to Streamer.bot and cannot be safely restored.",
+            "This item is being delivered or may already have been applied. Wait for a delivery error before cancelling it.",
           );
         }
         if (delivery && !delivery.cancelled_at) {
           const cancelled = await transaction.shopDeliveryEvent.updateMany({
             where: {
               event_id: details.deliveryEventId,
-              attempts: 0,
+              attempts: delivery.attempts,
+              last_error: delivery.last_error,
               delivered_at: null,
               cancelled_at: null,
             },
@@ -443,6 +451,64 @@ export async function POST(request: Request) {
     ) {
       await revertShopOperation(admin.id, body.logId);
       return NextResponse.json({ ok: true });
+    }
+
+    if (body.action === "shop-cancel-failed") {
+      const failedDeliveries = await prisma.shopDeliveryEvent.findMany({
+        where: {
+          delivered_at: null,
+          cancelled_at: null,
+          last_error: { not: null },
+        },
+        orderBy: [{ created_at: "asc" }, { id: "asc" }],
+        take: 500,
+        select: { event_id: true, account_id: true },
+      });
+      let cancelled = 0;
+      const failed: Array<{ eventId: string; error: string }> = [];
+      for (const delivery of failedDeliveries) {
+        try {
+          const sourceLog = await prisma.adminAuditLog.findFirst({
+            where: {
+              action: { in: ["shop.purchased", "shop.redeemed"] },
+              target_account_id: delivery.account_id,
+              details: {
+                path: ["deliveryEventId"],
+                equals: delivery.event_id,
+              },
+            },
+            select: { id: true },
+          });
+          if (!sourceLog) {
+            failed.push({
+              eventId: delivery.event_id,
+              error: "Could not find the original shop audit entry.",
+            });
+            continue;
+          }
+          await revertShopOperation(admin.id, sourceLog.id);
+          cancelled += 1;
+        } catch (error) {
+          if (!(error instanceof ShopRevertError)) {
+            console.error("Failed to cancel a failed shop delivery:", delivery.event_id, error);
+          }
+          failed.push({
+            eventId: delivery.event_id,
+            error:
+              error instanceof Error
+                ? error.message
+                : "Could not safely cancel this delivery.",
+          });
+        }
+      }
+      const remaining = await prisma.shopDeliveryEvent.count({
+        where: {
+          delivered_at: null,
+          cancelled_at: null,
+          last_error: { not: null },
+        },
+      });
+      return NextResponse.json({ ok: true, cancelled, failed, remaining });
     }
 
     if (

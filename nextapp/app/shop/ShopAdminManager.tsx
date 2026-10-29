@@ -45,6 +45,9 @@ export default function ShopAdminManager({
   const [busy, setBusy] = useState(false);
   const [revertingEventId, setRevertingEventId] = useState<string | null>(null);
   const [imageBusy, setImageBusy] = useState(false);
+  const [bulkCancelBusy, setBulkCancelBusy] = useState(false);
+  const [notice, setNotice] = useState("");
+  const [visibilityBusyId, setVisibilityBusyId] = useState<string | null>(null);
 
   async function save(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
@@ -84,8 +87,47 @@ export default function ShopAdminManager({
     }
   }
 
+  async function toggleProductVisibility(product: AdminShopProduct) {
+    setError("");
+    setVisibilityBusyId(product.id);
+    try {
+      const response = await fetch("/api/shop/admin", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          productId: product.id,
+          name: product.name,
+          description: product.description,
+          cardColor: product.card_color,
+          discordPrice: product.discord_price,
+          twitchPrice: product.twitch_price,
+          active: !product.active,
+          addToInventory: product.add_to_inventory,
+          streamerbotAction: product.streamerbot_action,
+        }),
+      });
+      const result: { error?: string } = await response.json();
+      if (!response.ok) {
+        setError(result.error ?? "Could not change product visibility.");
+        return;
+      }
+      window.location.reload();
+    } catch (requestError) {
+      console.error("Shop product visibility update failed:", requestError);
+      setError("Could not change product visibility.");
+    } finally {
+      setVisibilityBusyId(null);
+    }
+  }
+
   async function cancelDelivery(delivery: AdminShopDelivery) {
     if (!delivery.source_log_id) return;
+    if (
+      delivery.attempts > 0 &&
+      !window.confirm(
+        "Stop retries and reverse this purchase? Streamer.bot may already have applied the action before its error was recorded.",
+      )
+    ) return;
     setError("");
     setRevertingEventId(delivery.event_id);
     try {
@@ -108,6 +150,48 @@ export default function ShopAdminManager({
       setError("Could not cancel and revert this delivery.");
     } finally {
       setRevertingEventId(null);
+    }
+  }
+
+  async function cancelFailedDeliveries() {
+    if (
+      !window.confirm(
+        "Cancel every failed, still-pending shop delivery and refund/restore its item? Streamer.bot may already have applied some actions before their errors were recorded.",
+      )
+    ) return;
+    setError("");
+    setNotice("");
+    setBulkCancelBusy(true);
+    try {
+      const response = await fetch("/api/admin", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ action: "shop-cancel-failed" }),
+      });
+      const result: {
+        error?: string;
+        cancelled?: number;
+        failed?: Array<{ eventId: string; error: string }>;
+        remaining?: number;
+      } = await response.json();
+      if (!response.ok) {
+        setError(result.error ?? "Could not cancel failed deliveries.");
+        return;
+      }
+      setNotice(
+        `${result.cancelled ?? 0} failed deliver${result.cancelled === 1 ? "y" : "ies"} cancelled and reversed.` +
+          (result.failed?.length ? ` ${result.failed.length} could not be cancelled; see errors below.` : "") +
+          (result.remaining ? ` ${result.remaining} failed deliver${result.remaining === 1 ? "y" : "ies"} remain.` : ""),
+      );
+      if (result.failed?.length) {
+        setError(result.failed.map((item) => `${item.eventId}: ${item.error}`).join("\n"));
+      }
+      window.setTimeout(() => window.location.reload(), 1800);
+    } catch (requestError) {
+      console.error("Bulk shop delivery cancellation failed:", requestError);
+      setError("Could not cancel failed deliveries.");
+    } finally {
+      setBulkCancelBusy(false);
     }
   }
 
@@ -186,21 +270,42 @@ export default function ShopAdminManager({
 
       <div className="mt-5 flex flex-wrap gap-2">
         {products.map((product) => (
-          <button
+          <div
             key={product.id}
-            type="button"
-            onClick={() => {
-              setSelected(product);
-              setError("");
-            }}
-            className={`rounded-lg border px-3 py-2 text-sm font-semibold ${
-              selected?.id === product.id
-                ? "border-violet-500 bg-violet-950 text-white"
-                : "border-zinc-700 text-zinc-300 hover:bg-zinc-800"
-            }`}
+            className="flex items-center overflow-hidden rounded-lg border border-zinc-700"
           >
-            Edit: {product.name}
-          </button>
+            <button
+              type="button"
+              onClick={() => {
+                setSelected(product);
+                setError("");
+              }}
+              className={`px-3 py-2 text-sm font-semibold transition-colors ${
+                selected?.id === product.id
+                  ? "bg-violet-950 text-white"
+                  : "text-zinc-300 hover:bg-zinc-800"
+              }`}
+            >
+              Edit: {product.name}
+            </button>
+            <button
+              type="button"
+              disabled={visibilityBusyId !== null}
+              onClick={() => void toggleProductVisibility(product)}
+              aria-label={`${product.active ? "Hide" : "Show"} ${product.name} in shop`}
+              className={`border-l border-zinc-700 px-2.5 py-2 text-xs font-semibold transition-colors disabled:cursor-not-allowed disabled:opacity-50 ${
+                product.active
+                  ? "text-amber-200 hover:bg-amber-950/60"
+                  : "text-emerald-200 hover:bg-emerald-950/60"
+              }`}
+            >
+              {visibilityBusyId === product.id
+                ? "…"
+                : product.active
+                  ? "Hide"
+                  : "Show"}
+            </button>
+          </div>
         ))}
         <button
           type="button"
@@ -391,13 +496,30 @@ export default function ShopAdminManager({
         </button>
       </form>
       <section className="mt-8 rounded-xl border border-zinc-800 bg-zinc-950/50 p-4">
-        <h3 className="font-semibold">Streamer.bot delivery queue</h3>
-        <p className="mt-1 text-xs text-zinc-500">
-          Events remain queued until the authenticated Streamer.bot bridge acknowledges them.
-          Only deliveries that have not started can be cancelled safely.
-        </p>
+        <div className="flex flex-wrap items-start justify-between gap-3">
+          <div>
+            <h3 className="font-semibold">Streamer.bot delivery queue</h3>
+            <p className="mt-1 text-xs text-zinc-500">
+              Events remain queued until acknowledged. Failed events can be stopped and reversed;
+              the action may already have run if its acknowledgement was lost.
+            </p>
+          </div>
+          <button
+            type="button"
+            disabled={bulkCancelBusy || revertingEventId !== null}
+            onClick={() => void cancelFailedDeliveries()}
+            className="rounded-lg border border-red-800 px-3 py-2 text-xs font-semibold text-red-200 transition hover:bg-red-950/60 disabled:cursor-not-allowed disabled:opacity-50"
+          >
+            {bulkCancelBusy ? "Cancelling failed…" : "Cancel all failed deliveries"}
+          </button>
+        </div>
+        {notice && (
+          <p role="status" className="mt-3 rounded-lg border border-emerald-900 bg-emerald-950/40 p-3 text-sm text-emerald-200">
+            {notice}
+          </p>
+        )}
         {error && (
-          <p role="alert" className="mt-3 rounded-lg border border-red-900 bg-red-950/50 p-3 text-sm text-red-200">
+          <p role="alert" className="mt-3 whitespace-pre-wrap rounded-lg border border-red-900 bg-red-950/50 p-3 text-sm text-red-200">
             {error}
           </p>
         )}
@@ -421,7 +543,9 @@ export default function ShopAdminManager({
                     ? "Cancelled"
                     : delivery.delivered_at
                       ? "Delivered"
-                      : "Queued"}
+                      : delivery.last_error
+                        ? "Failed · will retry"
+                        : "Queued"}
                 </span>
               </div>
               <p className="mt-1 break-all font-mono text-xs text-zinc-500">
@@ -433,7 +557,7 @@ export default function ShopAdminManager({
               </p>
               {!delivery.cancelled_at &&
                 !delivery.delivered_at &&
-                delivery.attempts === 0 &&
+                (delivery.attempts === 0 || delivery.last_error !== null) &&
                 delivery.source_log_id &&
                 (delivery.source_action === "shop.purchased" ||
                   delivery.source_action === "shop.redeemed") && (
@@ -446,8 +570,12 @@ export default function ShopAdminManager({
                     {revertingEventId === delivery.event_id
                       ? "Cancelling…"
                       : delivery.source_action === "shop.purchased"
-                        ? "Refund points & cancel"
-                        : "Restore item & cancel"}
+                        ? delivery.attempts > 0
+                          ? "Refund & stop retries"
+                          : "Refund points & cancel"
+                        : delivery.attempts > 0
+                          ? "Restore item & stop retries"
+                          : "Restore item & cancel"}
                   </button>
                 )}
             </li>

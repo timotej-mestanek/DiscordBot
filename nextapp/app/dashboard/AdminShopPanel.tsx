@@ -1,6 +1,7 @@
 import { Prisma } from "@prisma/client";
 import Link from "next/link";
 import { prisma } from "@/lib/prisma";
+import PersistentAdminCard from "@/app/dashboard/PersistentAdminCard";
 import { getAdminShopDeliveries } from "@/lib/shop-admin";
 import ShopAdminManager from "@/app/shop/ShopAdminManager";
 import type {
@@ -48,6 +49,7 @@ export default async function AdminShopPanel() {
   }
 
   return (
+    <PersistentAdminCard id="shop-management" title="Shop management">
     <div className="space-y-5">
       <div className="flex flex-wrap items-center justify-between gap-3 rounded-xl border border-violet-900/60 bg-violet-950/20 p-5">
         <div>
@@ -65,5 +67,6 @@ export default async function AdminShopPanel() {
       </div>
       <ShopAdminManager products={products} deliveries={deliveries} />
     </div>
+    </PersistentAdminCard>
   );
 }

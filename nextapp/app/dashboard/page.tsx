@@ -20,12 +20,12 @@ const userTabs = [
 ] as const;
 
 const adminTabs = [
-  { id: "interesting", label: "Fun facts" },
-  { id: "admin", label: "Admin" },
-  { id: "admin-shop", label: "Admin Shop" },
+  { id: "admin", label: "Stream Settings" },
+  { id: "admin-shop", label: "Shop" },
   { id: "wheels", label: "Wheels" },
-  { id: "logs", label: "Logs" },
   { id: "overlays", label: "Overlays" },
+  { id: "interesting", label: "Fun facts" },
+  { id: "logs", label: "Logs" },
 ] as const;
 
 type DashboardTab =
@@ -38,8 +38,8 @@ const dashboardTitles: Record<DashboardTab, string> = {
   leds: "LEDS",
   auth: "Authorization",
   interesting: "Fun facts",
-  admin: "Administration",
-  "admin-shop": "Admin Shop",
+  admin: "Stream Settings",
+  "admin-shop": "Shop",
   wheels: "Wheels",
   logs: "Logs",
   overlays: "Overlays",
