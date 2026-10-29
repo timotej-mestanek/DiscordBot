@@ -1,6 +1,7 @@
 import { Prisma } from "@prisma/client";
 import Link from "next/link";
 import { prisma } from "@/lib/prisma";
+import { getAdminShopDeliveries } from "@/lib/shop-admin";
 import ShopAdminManager from "@/app/shop/ShopAdminManager";
 import type {
   AdminShopDelivery,
@@ -25,20 +26,7 @@ export default async function AdminShopPanel() {
           _count: { select: { inventory: true, redemptions: true } },
         },
       }),
-      prisma.shopDeliveryEvent.findMany({
-        orderBy: { created_at: "desc" },
-        take: 30,
-        select: {
-          event_id: true,
-          product_id: true,
-          action_key: true,
-          attempts: true,
-          last_error: true,
-          delivered_at: true,
-          cancelled_at: true,
-          created_at: true,
-        },
-      }),
+      getAdminShopDeliveries(),
     ]);
   } catch (error) {
     if (!isMissingShopTable(error)) throw error;

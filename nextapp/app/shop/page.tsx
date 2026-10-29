@@ -3,6 +3,7 @@ import Link from "next/link";
 import { getCurrentAccount } from "@/lib/auth/session";
 import { getAccountPointBalances } from "@/lib/points";
 import { prisma } from "@/lib/prisma";
+import { getAdminShopDeliveries } from "@/lib/shop-admin";
 import ShopAdminManager from "./ShopAdminManager";
 import type { AdminShopDelivery, AdminShopProduct } from "./ShopAdminManager";
 import ShopProductCard from "./ShopProductCard";
@@ -47,20 +48,7 @@ export default async function ShopPage({
       );
     }
     if (account?.role === "admin" && !isPublicPreview) {
-      deliveries = await prisma.shopDeliveryEvent.findMany({
-        orderBy: { created_at: "desc" },
-        take: 30,
-        select: {
-          event_id: true,
-          product_id: true,
-          action_key: true,
-          attempts: true,
-          last_error: true,
-          delivered_at: true,
-          cancelled_at: true,
-          created_at: true,
-        },
-      });
+      deliveries = await getAdminShopDeliveries();
     }
   } catch (error) {
     if (!isMissingShopTable(error)) throw error;

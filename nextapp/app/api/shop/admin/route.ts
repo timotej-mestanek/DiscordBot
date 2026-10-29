@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { getCurrentAccount } from "@/lib/auth/session";
 import { isSameOriginRequest } from "@/lib/auth/admin";
 import { prisma } from "@/lib/prisma";
+import { getAdminShopDeliveries } from "@/lib/shop-admin";
 
 export async function GET() {
   const account = await getCurrentAccount();
@@ -17,20 +18,7 @@ export async function GET() {
         _count: { select: { inventory: true, redemptions: true } },
       },
     }),
-    prisma.shopDeliveryEvent.findMany({
-      orderBy: { created_at: "desc" },
-      take: 30,
-      select: {
-        event_id: true,
-        product_id: true,
-        action_key: true,
-        attempts: true,
-        last_error: true,
-        delivered_at: true,
-        cancelled_at: true,
-        created_at: true,
-      },
-    }),
+    getAdminShopDeliveries(),
   ]);
   return NextResponse.json({ products, deliveries });
 }

@@ -18,12 +18,15 @@ export type AdminShopProduct = {
 export type AdminShopDelivery = {
   event_id: string;
   product_id: string;
+  account_id: string;
   action_key: string;
   attempts: number;
   last_error: string | null;
   delivered_at: Date | null;
   cancelled_at: Date | null;
   created_at: Date;
+  source_log_id: string | null;
+  source_action: string | null;
 };
 
 export default function ShopAdminManager({
@@ -36,6 +39,7 @@ export default function ShopAdminManager({
   const [selected, setSelected] = useState<AdminShopProduct | null>(null);
   const [error, setError] = useState("");
   const [busy, setBusy] = useState(false);
+  const [revertingEventId, setRevertingEventId] = useState<string | null>(null);
 
   async function save(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
@@ -71,6 +75,33 @@ export default function ShopAdminManager({
       setError("The product could not be saved.");
     } finally {
       setBusy(false);
+    }
+  }
+
+  async function cancelDelivery(delivery: AdminShopDelivery) {
+    if (!delivery.source_log_id) return;
+    setError("");
+    setRevertingEventId(delivery.event_id);
+    try {
+      const response = await fetch("/api/admin", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          action: "shop-revert",
+          logId: delivery.source_log_id,
+        }),
+      });
+      const result: { error?: string } = await response.json();
+      if (!response.ok) {
+        setError(result.error ?? "Could not cancel and revert this delivery.");
+        return;
+      }
+      window.location.reload();
+    } catch (requestError) {
+      console.error("Shop delivery cancellation failed:", requestError);
+      setError("Could not cancel and revert this delivery.");
+    } finally {
+      setRevertingEventId(null);
     }
   }
 
@@ -227,7 +258,13 @@ export default function ShopAdminManager({
         <h3 className="font-semibold">Streamer.bot delivery queue</h3>
         <p className="mt-1 text-xs text-zinc-500">
           Events remain queued until the authenticated Streamer.bot bridge acknowledges them.
+          Only deliveries that have not started can be cancelled safely.
         </p>
+        {error && (
+          <p role="alert" className="mt-3 rounded-lg border border-red-900 bg-red-950/50 p-3 text-sm text-red-200">
+            {error}
+          </p>
+        )}
         <ol className="mt-3 divide-y divide-zinc-800">
           {deliveries.map((delivery) => (
             <li key={delivery.event_id} className="py-3 text-sm">
@@ -258,6 +295,25 @@ export default function ShopAdminManager({
                 Attempts: {delivery.attempts}
                 {delivery.last_error ? ` · Last error: ${delivery.last_error}` : ""}
               </p>
+              {!delivery.cancelled_at &&
+                !delivery.delivered_at &&
+                delivery.attempts === 0 &&
+                delivery.source_log_id &&
+                (delivery.source_action === "shop.purchased" ||
+                  delivery.source_action === "shop.redeemed") && (
+                  <button
+                    type="button"
+                    disabled={revertingEventId !== null}
+                    onClick={() => void cancelDelivery(delivery)}
+                    className="mt-2 rounded-lg border border-amber-700 px-3 py-1.5 text-xs font-semibold text-amber-200 hover:bg-amber-950/50 disabled:opacity-50"
+                  >
+                    {revertingEventId === delivery.event_id
+                      ? "Cancelling…"
+                      : delivery.source_action === "shop.purchased"
+                        ? "Refund points & cancel"
+                        : "Restore item & cancel"}
+                  </button>
+                )}
             </li>
           ))}
           {deliveries.length === 0 && (

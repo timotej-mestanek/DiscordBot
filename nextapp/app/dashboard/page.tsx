@@ -4,6 +4,7 @@ import AdminPanel from "@/app/dashboard/AdminPanel";
 import AdminShopPanel from "@/app/dashboard/AdminShopPanel";
 import DashboardPoints from "@/app/dashboard/DashboardPoints";
 import InterestingFactsPanel from "@/app/dashboard/InterestingFactsPanel";
+import InventoryPanel from "@/app/dashboard/InventoryPanel";
 import LEDTimelineEditor from "@/app/dashboard/LEDTimelineEditor";
 import WheelAdminPanel from "@/app/dashboard/WheelAdminPanel";
 import OverlayBuilder from "@/app/overlays/OverlayBuilder";
@@ -13,6 +14,7 @@ import { getAccountPointBalances } from "@/lib/points";
 
 const userTabs = [
   { id: "points", label: "My points" },
+  { id: "inventory", label: "Inventory" },
   { id: "leds", label: "LEDS" },
   { id: "auth", label: "Authorization" },
 ] as const;
@@ -32,6 +34,7 @@ type DashboardTab =
 
 const dashboardTitles: Record<DashboardTab, string> = {
   points: "My points",
+  inventory: "Inventory",
   leds: "LEDS",
   auth: "Authorization",
   interesting: "Fun facts",
@@ -57,7 +60,9 @@ export default async function DashboardPage({
 
   const params = await searchParams;
   const activeTab: DashboardTab =
-    params.tab === "auth"
+    params.tab === "inventory"
+      ? "inventory"
+      : params.tab === "auth"
       ? "auth"
       : params.tab === "leds"
         ? "leds"
@@ -88,6 +93,18 @@ export default async function DashboardPage({
           _sum: { quantity: true },
         })
       : null;
+  const inventory =
+    activeTab === "inventory"
+      ? await prisma.shopInventory.findMany({
+          where: { account_id: account.id, quantity: { gt: 0 } },
+          orderBy: { product: { name: "asc" } },
+          select: {
+            product_id: true,
+            quantity: true,
+            product: { select: { name: true, description: true } },
+          },
+        })
+      : [];
 
   return (
     <main className="min-h-screen bg-zinc-950 text-white">
@@ -203,6 +220,10 @@ export default async function DashboardPage({
 
           {activeTab === "points" && (
             <DashboardPoints balances={balances} rates={rates} />
+          )}
+
+          {activeTab === "inventory" && (
+            <InventoryPanel initialItems={inventory} />
           )}
 
           {activeTab === "leds" && (
