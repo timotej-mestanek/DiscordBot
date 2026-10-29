@@ -612,22 +612,38 @@ export default function LEDTimelineEditor({ initialUses }: { initialUses: number
           })),
         },
       });
-      console.log("Custom LED effect payload sent to /api/shop/redeem:", requestBody);
       const response = await fetch("/api/shop/redeem", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: requestBody,
       });
-      const result: { error?: string; quantity?: number } = await response.json();
-      if (typeof result.quantity === "number") setUses(result.quantity);
-      if (!response.ok || typeof result.quantity !== "number") {
-        setMessage(result.error ?? "Could not apply the effect.");
+      const result: unknown = await response.json().catch(() => null);
+      if (typeof result !== "object" || result === null) {
+        console.error(
+          "LED effect endpoint returned a non-JSON response:",
+          response.status,
+        );
+        setMessage(
+          `The server returned an invalid response (HTTP ${response.status}). Refresh to check whether this use was consumed before trying again.`,
+        );
+        return;
+      }
+      const quantity =
+        "quantity" in result && typeof result.quantity === "number"
+          ? result.quantity
+          : undefined;
+      const error = "error" in result && typeof result.error === "string"
+        ? result.error
+        : undefined;
+      if (quantity !== undefined) setUses(quantity);
+      if (!response.ok || quantity === undefined) {
+        setMessage(error ?? `Could not apply the effect (HTTP ${response.status}).`);
         return;
       }
       setMessage(
-        result.quantity > 0
-          ? `Effect forwarded through Streamer.bot to the local ESP32. Uses remaining: ${result.quantity}.`
-          : "Effect forwarded through Streamer.bot to the local ESP32. This use was consumed; buy another in the shop to apply another effect.",
+        quantity > 0
+          ? `Effect queued for Streamer.bot. Uses remaining: ${quantity}.`
+          : "Effect queued for Streamer.bot. This use was consumed; buy another in the shop to apply another effect.",
       );
     } catch (error) {
       console.error("LED effect request failed:", error);

@@ -63,36 +63,41 @@ Copy the new integration settings from `.env.example` into `.env` and configure:
 
 The public Twitch Channel Points balance is not available through the supported Twitch API. Twitch CustomBody is the tracked Twitch currency; only Discord points and Twitch CustomBody can be converted. Admin conversion rates are configured in the dashboard.
 
-The public home page checks the broadcaster's current live status through the Twitch Helix API (`TWITCH_BROADCASTER_LOGIN`) and refreshes it while open; Spotify playback and its overlay stay hidden when Twitch reports the channel offline. Upcoming stream times are managed in Dashboard → Admin. Admins manage all shop entries through one shared editor on `/shop`; each entry can be configured to be used immediately when purchased or added to the account inventory for later use. Shop purchases, uses, and configuration changes are recorded in the admin log and can be reverted there. LED editor access uses inventory purchases; keyframes snap to 60 fps and effects are stored when redeemed. When the authenticated Streamer.bot LED bridge is connected, redeeming an effect pushes a versioned binary packet over WSS and waits for a delivery acknowledgement. The bridge forwards it over a length-prefixed TCP connection on the local network to the ESP32; no ESP32 port is exposed publicly. See `../streamerbot_plugin/README.md` for bridge setup and the binary packet layout. Public point, chat profanity, gambling, and event-statistic rankings are available at `/leaderboards`.
+The public home page checks the broadcaster's current live status through the Twitch Helix API (`TWITCH_BROADCASTER_LOGIN`) and refreshes it while open; Spotify playback and its overlay stay hidden when Twitch reports the channel offline. Upcoming stream times are managed in Dashboard → Admin. Admins manage all shop entries through one shared editor on `/shop`; each entry can be configured to be used immediately when purchased or added to the account inventory for later use. Shop purchases, uses, and configuration changes are recorded in the admin log and can be reverted there. LED editor access uses inventory purchases; keyframes snap to 60 fps and the effect is included in the same queued shop event as any other redemption. Its configured Streamer.bot action decides how to apply the effect (for example, forward it to a device). Public point, chat profanity, gambling, and event-statistic rankings are available at `/leaderboards`.
 
 ### Shop actions in Streamer.bot
 
-Each shop product has a **Streamer.bot action key** containing the exact name
-of a Streamer.bot action. Buying an immediate-use product queues that action;
+Each shop product has a **Streamer.bot action** containing the exact name of a
+Streamer.bot action. Buying an immediate-use product queues that action;
 buying an inventory product only adds it to inventory, and using **Redeem from
 inventory** queues the action later. Shop events are saved in PostgreSQL in the
 same transaction as the point deduction or inventory decrement, then delivered
-over an authenticated outbound WebSocket at
+over one authenticated outbound WebSocket at
 `wss://<your-domain>/api/integrations/streamerbot/shop/live`. If Streamer.bot is
 offline, events remain queued and are retried after reconnect. The dashboard's
 Shop administration section shows attempts, errors, and acknowledgements.
 
 To receive the events, configure the persistent `n4jtStreamerBotToken` global
-with the same value as `STREAMERBOT_INGEST_TOKEN`, create a C# action that uses
-`../streamerbot_plugin/N4JT-Shop-Bridge.cs`, and run it from a Streamer.bot
-startup trigger. Change its `Endpoint` constant if the site uses a different
-domain. Create one Streamer.bot action per shop action key. Each action receives
-`shopEventId`, `shopActionKey`, `shopEventJson`, `shopProductId`,
-`shopProductName`, `shopRedemptionId`, `shopAccountId`, buyer identity fields,
-and payment fields (payment is `null` for later inventory redemption).
+with the same value as `STREAMERBOT_INGEST_TOKEN`. Add
+`../streamerbot_plugin/N4JT-WSSClient.cs` as one long-running C# action and
+start that client when Streamer.bot starts. It reconnects automatically. The
+product's configured action name selects which Streamer.bot action receives the
+event; no chat command is involved. Change the client's `Endpoint` constant if
+the site uses a different domain. The selected action receives `shopEventId`,
+`shopEventType`, `shopActionKey`, `shopEventJson`, `shopEffectJson`,
+`shopProductId`, `shopProductName`, `shopRedemptionId`, `shopAccountId`, buyer
+identity fields, and payment fields (payment is `null` for later inventory
+redemption). `shopEffectJson` contains the event's effect payload: for a custom
+LED editor redemption it is the full timeline; for a generic shop item it is
+the item's name and description. The selected action decides what to do with it.
 
-The bridge acknowledges an event after it has started the matching Streamer.bot
-action and stored the event ID in the persistent
+The WSS client acknowledges an event after it has started the matching action
+and stored the event ID in the persistent
 `n4jtShopProcessedEventIds` global. Delivery is at-least-once: an interrupted
 connection may cause a retry, so custom actions should use `shopEventId` as an
 idempotency key. A dashboard **Delivered** status means Streamer.bot accepted
-the action, not that a downstream physical effect completed. Reverting an
-instant purchase is only allowed before the event has started delivery.
+the action, not that a downstream effect completed. Reverting a redemption is
+only allowed before its event has started delivery.
 
 ## Wheel of Fortune
 

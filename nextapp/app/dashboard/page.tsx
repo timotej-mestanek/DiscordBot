@@ -84,7 +84,7 @@ export default async function DashboardPage({
   const ledInventory =
     activeTab === "leds"
       ? await prisma.shopInventory.aggregate({
-          where: { account_id: account.id },
+          where: { account_id: account.id, product_id: "custom-led-effect" },
           _sum: { quantity: true },
         })
       : null;

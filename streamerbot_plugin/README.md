@@ -146,61 +146,38 @@ post the API's error message if the spin is rejected. An idempotent duplicate
 event is not announced a second time. The main wheel message includes the VIP
 result too when that spin triggered the VIP wheel.
 
-## Custom LED effect bridge
+## N4JT WSS client for shop events
 
-Import `N4JT-Led-Bridge.sb` in Streamer.bot (`Import` → choose the file). The
-package includes the C# bridge action and its **Streamer.bot Started** trigger;
-it starts automatically with Streamer.bot and reconnects every five seconds.
-The app pushes redeemed LED effects over an authenticated, outbound `wss://`
-connection. The ESP32 does not need a public address or an inbound firewall
-rule.
+The WSS client keeps one authenticated outbound connection from Streamer.bot to
+`wss://najtik.stream/api/integrations/streamerbot/shop/live`. The app queues a
+shop event when an immediate-use item is bought or an inventory item is
+redeemed, then sends it over this connection. If Streamer.bot is offline, the
+event remains queued and is retried after reconnect.
 
-After import:
+1. Set `STREAMERBOT_INGEST_TOKEN` in the app environment.
+2. In Streamer.bot, create the persistent string global
+   `n4jtStreamerBotToken` with that same token.
+3. Add `N4JT-WSSClient.cs` as a C# action and start it once when Streamer.bot
+   starts. The client reconnects automatically; it is not a chat command.
+4. In Shop administration, set each product's **Streamer.bot action** to the
+   exact name of the Streamer.bot action that should handle that product.
 
-1. Set the app's `STREAMERBOT_INGEST_TOKEN` and Streamer.bot's persistent
-   `n4jtStreamerBotToken` global variable to the same long random value.
-2. Create persistent globals `n4jtLedEspHost` (string: the ESP32's private LAN
-   IP or hostname) and `n4jtLedEspPort` (integer: the TCP port your ESP32
-   firmware listens on).
-3. Implement a TCP server in the ESP32 firmware at the configured host and
-   port. It receives a four-byte big-endian payload length, then exactly that
-   many bytes. The body is the `N4LD` packet described below. The ESP32 should
-   reply/close according to its own firmware protocol; the PC bridge waits for
-   the full TCP write before acknowledging the WebSocket event.
+The WSS client dispatches each event to the configured action and makes these
+arguments available: `shopEventId`, `shopEventType`, `shopActionKey`,
+`shopEventJson`, `shopEffectJson`, `shopProductId`, `shopProductName`,
+`shopRedemptionId`, `shopAccountId`, buyer identity, and payment details.
+`shopEffectJson` contains the event's effect payload: a custom LED timeline
+when using the LED editor, or a basic item description for a generic shop
+redemption. The selected action can interpret it and choose what to do, such as
+setting colors, spinning a wheel, playing a sound, or communicating with a
+device. The app does not open a separate LED socket or prescribe UDP/TCP for
+that action.
 
-The binary packet uses little-endian integers except for the TCP length prefix:
-
-| Offset | Size | Value |
-| --- | --- | --- |
-| 0 | 4 | ASCII `N4LD` magic |
-| 4 | 1 | Version (`1`) |
-| 5 | 1 | Flags (`bit 0` means loop forever) |
-| 6 | 2 | Duration in milliseconds |
-| 8 | 2 | LED count (`333`) |
-| 10 | 2 | Keyframe count |
-| 12 | 36 | Request ID as ASCII UUID |
-| 48 | 1 | UTF-8 effect-name byte length |
-| 49 | variable | Effect name |
-| following | variable | Keyframes in ascending time order |
-
-Each keyframe begins with a 9-byte header: time in milliseconds (`uint16`),
-red, green, blue (`uint8` each), opacity (`uint8`, 0–255), animation (`uint8`),
-and selected LED count (`uint16`). A selected count of `65535` means all LEDs;
-otherwise that many zero-based LED IDs (`uint16` each) follow. Animation IDs
-are `0` steady, `1` linear, `2` ease-in, `3` ease-out, `4` ease-in-out, `5`
-pulse, and `6` fill. The ESP32 should cycle the timeline at the packet duration.
-For each LED, only consider frames that target that LED (or all LEDs), ordered
-by time; interpolate from each frame to the next matching frame, including the
-wrap from the last frame to the first frame in the next cycle. `steady` holds
-the current color/opacity until the next frame, `pulse` performs four sinusoidal
-pulses within that frame's interval, and `fill` reveals selected IDs in
-ascending order during the interval.
-The Streamer.bot action sends a Twitch chat confirmation only after the TCP
-write succeeds, then acknowledges the delivery to the app. If the bridge is
-offline, the app rejects redemption before consuming an inventory use. If a
-delivery fails after redemption, the app reports the consumed use and the
-delivery error; check Streamer.bot and ESP32 before retrying. The server accepts
-one authenticated bridge connection at a time.
+The WSS client acknowledges an event after it has started the configured
+action. Delivery is at-least-once, so use `shopEventId` as an idempotency key
+for effects that must not run twice. A dashboard **Delivered** status means
+Streamer.bot accepted the action, not that the action's downstream effect
+finished.
 
 For persistent cards showing each result since each game's latest reset, add
 `https://najtik.stream/overlays/wheel-history` as a second OBS Browser Source.

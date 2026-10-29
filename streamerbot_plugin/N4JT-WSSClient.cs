@@ -3,9 +3,10 @@ using System.Collections.Generic;
 using System.IO;
 using System.Net.WebSockets;
 using System.Text;
-using System.Text.Json;
 using System.Threading;
 using System.Threading.Tasks;
+using Newtonsoft.Json;
+using Newtonsoft.Json.Linq;
 
 public class CPHInline
 {
@@ -14,6 +15,7 @@ public class CPHInline
     private const string Endpoint =
         "wss://najtik.stream/api/integrations/streamerbot/shop/live";
     private const int MaxRememberedEvents = 500;
+    private const int MaxMessageBytes = 2 * 1024 * 1024;
     private static readonly object WorkerLock = new object();
     private static Task worker;
 
@@ -38,7 +40,7 @@ public class CPHInline
             if (string.IsNullOrWhiteSpace(token))
             {
                 CPH.LogError(
-                    "Shop bridge: persistent global variable n4jtStreamerBotToken is missing.");
+                    "WSS client: persistent global variable n4jtStreamerBotToken is missing.");
                 await Task.Delay(TimeSpan.FromSeconds(5));
                 continue;
             }
@@ -49,13 +51,13 @@ public class CPHInline
                 {
                     socket.Options.SetRequestHeader("Authorization", "Bearer " + token);
                     await socket.ConnectAsync(new Uri(Endpoint), CancellationToken.None);
-                    CPH.LogInfo("N4JT shop bridge connected.");
+                    CPH.LogInfo("N4JT WSS client connected to the app.");
                     await ReceiveEvents(socket);
                 }
             }
             catch (Exception ex)
             {
-                CPH.LogError("N4JT shop bridge connection failed: " + ex.Message);
+                CPH.LogError("N4JT WSS client connection failed: " + ex.Message);
             }
 
             await Task.Delay(TimeSpan.FromSeconds(5));
@@ -80,7 +82,7 @@ public class CPHInline
                         return;
                     }
                     if (result.MessageType != WebSocketMessageType.Text ||
-                        message.Length + result.Count > 65536)
+                        message.Length + result.Count > MaxMessageBytes)
                     {
                         throw new InvalidDataException("Invalid or oversized shop event.");
                     }
@@ -98,50 +100,49 @@ public class CPHInline
         string eventId = null;
         try
         {
-            using (JsonDocument document = JsonDocument.Parse(json))
+            JObject root = JObject.Parse(json);
+            eventId = ReadString(root, "eventId");
+            string actionKey = ReadString(root, "actionKey");
+            if (ReadString(root, "type") != "shop-redemption" ||
+                string.IsNullOrWhiteSpace(eventId) ||
+                string.IsNullOrWhiteSpace(actionKey))
             {
-                JsonElement root = document.RootElement;
-                eventId = ReadString(root, "eventId");
-                string actionKey = ReadString(root, "actionKey");
-                if (ReadString(root, "type") != "shop-redemption" ||
-                    string.IsNullOrWhiteSpace(eventId) ||
-                    string.IsNullOrWhiteSpace(actionKey))
-                {
-                    throw new InvalidDataException("Shop event is missing its type, ID, or action key.");
-                }
-
-                if (IsProcessed(eventId))
-                {
-                    await SendAcknowledgement(socket, eventId, true, null);
-                    return;
-                }
-                if (!CPH.ActionExists(actionKey))
-                {
-                    throw new InvalidOperationException(
-                        "Streamer.bot action does not exist: " + actionKey);
-                }
-
-                CPH.SetArgument("shopEventId", eventId);
-                CPH.SetArgument("shopActionKey", actionKey);
-                CPH.SetArgument("shopEventJson", json);
-                CPH.SetArgument("shopProductId", ReadNestedString(root, "product", "id"));
-                CPH.SetArgument("shopProductName", ReadNestedString(root, "product", "name"));
-                CPH.SetArgument("shopRedemptionId", ReadString(root, "redemptionId"));
-                CPH.SetArgument("shopAccountId", ReadNestedString(root, "account", "id"));
-                CPH.SetArgument("shopBuyerDisplayName", ReadNestedString(root, "buyer", "displayName"));
-                CPH.SetArgument("shopBuyerProvider", ReadNestedString(root, "buyer", "provider"));
-                CPH.SetArgument("shopBuyerProviderUserId", ReadNestedString(root, "buyer", "providerUserId"));
-                CPH.SetArgument("shopPaymentCurrency", ReadNestedString(root, "payment", "currency"));
-                CPH.SetArgument("shopPaymentAmount", ReadNestedInt(root, "payment", "amount"));
-
-                CPH.RunAction(actionKey, true);
-                RememberProcessed(eventId);
-                await SendAcknowledgement(socket, eventId, true, null);
+                throw new InvalidDataException("Shop event is missing its type, ID, or action key.");
             }
+
+            if (IsProcessed(eventId))
+            {
+                await SendAcknowledgement(socket, eventId, true, null);
+                return;
+            }
+            if (!CPH.ActionExists(actionKey))
+            {
+                throw new InvalidOperationException(
+                    "Streamer.bot action does not exist: " + actionKey);
+            }
+
+            CPH.SetArgument("shopEventId", eventId);
+            CPH.SetArgument("shopEventType", ReadString(root, "type"));
+            CPH.SetArgument("shopActionKey", actionKey);
+            CPH.SetArgument("shopEventJson", json);
+            CPH.SetArgument("shopEffectJson", ReadNestedRawJson(root, "effect"));
+            CPH.SetArgument("shopProductId", ReadNestedString(root, "product", "id"));
+            CPH.SetArgument("shopProductName", ReadNestedString(root, "product", "name"));
+            CPH.SetArgument("shopRedemptionId", ReadString(root, "redemptionId"));
+            CPH.SetArgument("shopAccountId", ReadNestedString(root, "account", "id"));
+            CPH.SetArgument("shopBuyerDisplayName", ReadNestedString(root, "buyer", "displayName"));
+            CPH.SetArgument("shopBuyerProvider", ReadNestedString(root, "buyer", "provider"));
+            CPH.SetArgument("shopBuyerProviderUserId", ReadNestedString(root, "buyer", "providerUserId"));
+            CPH.SetArgument("shopPaymentCurrency", ReadNestedString(root, "payment", "currency"));
+            CPH.SetArgument("shopPaymentAmount", ReadNestedInt(root, "payment", "amount"));
+
+            CPH.RunAction(actionKey, true);
+            RememberProcessed(eventId);
+            await SendAcknowledgement(socket, eventId, true, null);
         }
         catch (Exception ex)
         {
-            CPH.LogError("N4JT shop event failed: " + ex.Message);
+            CPH.LogError("N4JT WSS event failed: " + ex.Message);
             if (!string.IsNullOrWhiteSpace(eventId))
             {
                 try
@@ -150,7 +151,7 @@ public class CPHInline
                 }
                 catch (Exception ackError)
                 {
-                    CPH.LogError("N4JT shop event acknowledgement failed: " + ackError.Message);
+                    CPH.LogError("N4JT WSS event acknowledgement failed: " + ackError.Message);
                 }
             }
         }
@@ -172,7 +173,7 @@ public class CPHInline
         }
         CPH.SetGlobalVar(
             ProcessedEventsVariable,
-            JsonSerializer.Serialize(eventIds),
+            JsonConvert.SerializeObject(eventIds),
             true);
     }
 
@@ -186,12 +187,12 @@ public class CPHInline
 
         try
         {
-            return JsonSerializer.Deserialize<List<string>>(stored) ?? new List<string>();
+            return JsonConvert.DeserializeObject<List<string>>(stored) ?? new List<string>();
         }
         catch (JsonException ex)
         {
             throw new InvalidDataException(
-                "Persistent shop event IDs are invalid; fix or clear n4jtShopProcessedEventIds.",
+                "Persistent event IDs are invalid; fix or clear n4jtShopProcessedEventIds.",
                 ex);
         }
     }
@@ -213,7 +214,7 @@ public class CPHInline
             acknowledgement["error"] = error.Length > 500 ? error.Substring(0, 500) : error;
         }
 
-        byte[] bytes = Encoding.UTF8.GetBytes(JsonSerializer.Serialize(acknowledgement));
+        byte[] bytes = Encoding.UTF8.GetBytes(JsonConvert.SerializeObject(acknowledgement));
         await socket.SendAsync(
             new ArraySegment<byte>(bytes),
             WebSocketMessageType.Text,
@@ -221,38 +222,44 @@ public class CPHInline
             CancellationToken.None);
     }
 
-    private string ReadString(JsonElement element, string propertyName)
+    private string ReadString(JToken element, string propertyName)
     {
-        return element.ValueKind == JsonValueKind.Object &&
-            element.TryGetProperty(propertyName, out JsonElement value) &&
-            value.ValueKind == JsonValueKind.String
-                ? value.GetString()
-                : null;
+        JToken value = element[propertyName];
+        return value != null && value.Type == JTokenType.String
+            ? value.Value<string>()
+            : null;
     }
 
     private string ReadNestedString(
-        JsonElement element,
+        JToken element,
         string objectName,
         string propertyName)
     {
-        return element.ValueKind == JsonValueKind.Object &&
-            element.TryGetProperty(objectName, out JsonElement child)
+        JToken child = element[objectName];
+        return child is JObject
                 ? ReadString(child, propertyName)
                 : null;
     }
 
+    private string ReadNestedRawJson(JToken element, string propertyName)
+    {
+        JToken value = element[propertyName];
+        return value != null && value.Type != JTokenType.Null
+                ? value.ToString(Formatting.None)
+                : null;
+    }
+
     private object ReadNestedInt(
-        JsonElement element,
+        JToken element,
         string objectName,
         string propertyName)
     {
-        return element.ValueKind == JsonValueKind.Object &&
-            element.TryGetProperty(objectName, out JsonElement child) &&
-            child.ValueKind == JsonValueKind.Object &&
-            child.TryGetProperty(propertyName, out JsonElement value) &&
-            value.ValueKind == JsonValueKind.Number &&
-            value.TryGetInt32(out int number)
-                ? (object)number
+        JToken child = element[objectName];
+        JToken value = child is JObject ? child[propertyName] : null;
+        return value != null &&
+            value.Type == JTokenType.Integer &&
+            value.ToObject<int?>().HasValue
+                ? (object)value.ToObject<int>()
                 : null;
     }
 }

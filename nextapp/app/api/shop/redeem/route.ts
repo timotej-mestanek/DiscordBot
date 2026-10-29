@@ -2,7 +2,6 @@ import { NextResponse } from "next/server";
 import type { Prisma } from "@prisma/client";
 import { getCurrentAccount } from "@/lib/auth/session";
 import { isSameOriginRequest } from "@/lib/auth/admin";
-import { encodeLedEffect, isLedBridgeConnected, publishLedEffect } from "@/lib/led-realtime";
 import { redeemCustomLedEffect, ShopActionError } from "@/lib/shop";
 
 type EffectKeyframe = {
@@ -147,34 +146,13 @@ export async function POST(request: Request) {
   if (!effect) {
     return NextResponse.json({ error: "The LED effect or its keyframes are invalid." }, { status: 400 });
   }
-  if (!isLedBridgeConnected()) {
-    return NextResponse.json(
-      { error: "Streamer.bot LED bridge is offline. Connect it and try again." },
-      { status: 503 },
-    );
-  }
 
   try {
     const result = await redeemCustomLedEffect({
       accountId: account.id,
+      identities: account.identities,
       effect: effect as Prisma.InputJsonValue,
     });
-    const requestId = crypto.randomUUID();
-    try {
-      await publishLedEffect(
-        encodeLedEffect(effect, requestId),
-        requestId,
-      );
-    } catch (error) {
-      console.error("LED effect delivery failed after redemption:", error);
-      return NextResponse.json(
-        {
-          error: "The effect use was consumed, but Streamer.bot did not confirm delivery. Check the bridge before retrying.",
-          quantity: result.quantity,
-        },
-        { status: 502 },
-      );
-    }
     return NextResponse.json({ ok: true, ...result });
   } catch (error) {
     if (error instanceof ShopActionError) {

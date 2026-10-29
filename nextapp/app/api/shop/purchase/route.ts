@@ -2,7 +2,7 @@ import { NextResponse } from "next/server";
 import { getCurrentAccount } from "@/lib/auth/session";
 import { isSameOriginRequest } from "@/lib/auth/admin";
 import { isSupportedPointCurrency, InsufficientPointsError } from "@/lib/points";
-import { purchaseCustomLedEffect, ShopActionError } from "@/lib/shop";
+import { purchaseShopProduct, ShopActionError } from "@/lib/shop";
 
 export async function POST(request: Request) {
   if (!isSameOriginRequest(request)) {
@@ -31,7 +31,7 @@ export async function POST(request: Request) {
   }
 
   try {
-    const result = await purchaseCustomLedEffect({
+    const result = await purchaseShopProduct({
       accountId: account.id,
       identities: account.identities,
       currency: body.currency,
