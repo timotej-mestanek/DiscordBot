@@ -55,27 +55,6 @@ button:disabled {
   }
 }
 
-.black-market-reveal {
-  animation: black-market-reveal 420ms ease-out both;
-}
-
-@keyframes black-market-reveal {
-  from {
-    opacity: 0;
-    transform: translateY(8px) scale(0.96);
-  }
-  to {
-    opacity: 1;
-    transform: translateY(0) scale(1);
-  }
-}
-
-@media (prefers-reduced-motion: reduce) {
-  .black-market-reveal {
-    animation: none;
-  }
-}
-
 body:has(.overlay-canvas) {
   background: transparent;
   color: #fff;
