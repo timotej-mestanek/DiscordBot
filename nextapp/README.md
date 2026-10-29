@@ -65,6 +65,35 @@ The public Twitch Channel Points balance is not available through the supported 
 
 The public home page checks the broadcaster's current live status through the Twitch Helix API (`TWITCH_BROADCASTER_LOGIN`) and refreshes it while open; Spotify playback and its overlay stay hidden when Twitch reports the channel offline. Upcoming stream times are managed in Dashboard → Admin. Admins manage all shop entries through one shared editor on `/shop`; each entry can be configured to be used immediately when purchased or added to the account inventory for later use. Shop purchases, uses, and configuration changes are recorded in the admin log and can be reverted there. LED editor access uses inventory purchases; keyframes snap to 60 fps and effects are stored when redeemed. When the authenticated Streamer.bot LED bridge is connected, redeeming an effect pushes a versioned binary packet over WSS and waits for a delivery acknowledgement. The bridge forwards it over a length-prefixed TCP connection on the local network to the ESP32; no ESP32 port is exposed publicly. See `../streamerbot_plugin/README.md` for bridge setup and the binary packet layout. Public point, chat profanity, gambling, and event-statistic rankings are available at `/leaderboards`.
 
+### Shop actions in Streamer.bot
+
+Each shop product has a **Streamer.bot action key** containing the exact name
+of a Streamer.bot action. Buying an immediate-use product queues that action;
+buying an inventory product only adds it to inventory, and using **Redeem from
+inventory** queues the action later. Shop events are saved in PostgreSQL in the
+same transaction as the point deduction or inventory decrement, then delivered
+over an authenticated outbound WebSocket at
+`wss://<your-domain>/api/integrations/streamerbot/shop/live`. If Streamer.bot is
+offline, events remain queued and are retried after reconnect. The dashboard's
+Shop administration section shows attempts, errors, and acknowledgements.
+
+To receive the events, configure the persistent `n4jtStreamerBotToken` global
+with the same value as `STREAMERBOT_INGEST_TOKEN`, create a C# action that uses
+`../streamerbot_plugin/N4JT-Shop-Bridge.cs`, and run it from a Streamer.bot
+startup trigger. Change its `Endpoint` constant if the site uses a different
+domain. Create one Streamer.bot action per shop action key. Each action receives
+`shopEventId`, `shopActionKey`, `shopEventJson`, `shopProductId`,
+`shopProductName`, `shopRedemptionId`, `shopAccountId`, buyer identity fields,
+and payment fields (payment is `null` for later inventory redemption).
+
+The bridge acknowledges an event after it has started the matching Streamer.bot
+action and stored the event ID in the persistent
+`n4jtShopProcessedEventIds` global. Delivery is at-least-once: an interrupted
+connection may cause a retry, so custom actions should use `shopEventId` as an
+idempotency key. A dashboard **Delivered** status means Streamer.bot accepted
+the action, not that a downstream physical effect completed. Reverting an
+instant purchase is only allowed before the event has started delivery.
+
 ## Wheel of Fortune
 
 Dashboard → Admin → **Wheels** configures the main subscription/donation wheel, its VIP follow-up wheel, and any number of game-specific wheels. Add game profiles by Twitch Game ID; while spinning, the app chooses the profile matching the current live Twitch category. Each profile supports a title, enabled state, 3–30 second animation, 2–24 outcomes, an outcome color, and a probability percentage for each outcome. Probabilities are kept at exactly 100% and determine both the server-side draw and the visible wheel sector sizes. Game wheels remove previously selected outcomes until reset and renormalize the remaining probabilities for each spin. Game profiles also set a spin cap from 1 to 100 (default 2), shared across all viewers. Once reached, the cap must be reset by an admin in the dashboard or by a Twitch moderator/broadcaster using the Streamer.bot reset action. One outcome on the main wheel can be marked to trigger the VIP wheel.

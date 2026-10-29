@@ -29,7 +29,7 @@ export default function ShopProductCard({
 }) {
   const [message, setMessage] = useState("");
   const [success, setSuccess] = useState(false);
-  const [busy, setBusy] = useState<Currency | null>(null);
+  const [busy, setBusy] = useState<Currency | "redeem" | null>(null);
 
   async function purchase(currency: Currency) {
     setBusy(currency);
@@ -41,14 +41,22 @@ export default function ShopProductCard({
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ currency, productId: product.id }),
       });
-      const result: { error?: string; addToInventory?: boolean } = await response.json();
+      const result: {
+        error?: string;
+        addToInventory?: boolean;
+        deliveryEventId?: string | null;
+      } = await response.json();
       if (!response.ok) {
         setMessage(result.error ?? "The purchase could not be completed.");
         return;
       }
       if (!result.addToInventory) {
         setSuccess(true);
-        setMessage("The item was purchased and used immediately.");
+        setMessage(
+          result.deliveryEventId
+            ? "Purchased and queued for Streamer.bot."
+            : "Purchased. The item was not configured for Streamer.bot delivery.",
+        );
         window.setTimeout(() => window.location.reload(), 900);
         return;
       }
@@ -56,6 +64,32 @@ export default function ShopProductCard({
     } catch (error) {
       console.error("Shop purchase request failed:", error);
       setMessage("The purchase could not be completed.");
+    } finally {
+      setBusy(null);
+    }
+  }
+
+  async function redeem() {
+    setBusy("redeem");
+    setMessage("");
+    setSuccess(false);
+    try {
+      const response = await fetch("/api/shop/redeem-item", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ productId: product.id }),
+      });
+      const result: { error?: string; deliveryEventId?: string } = await response.json();
+      if (!response.ok) {
+        setMessage(result.error ?? "The item could not be redeemed.");
+        return;
+      }
+      setSuccess(true);
+      setMessage("Redeemed and queued for Streamer.bot.");
+      window.setTimeout(() => window.location.reload(), 900);
+    } catch (error) {
+      console.error("Shop item redemption request failed:", error);
+      setMessage("The item could not be redeemed.");
     } finally {
       setBusy(null);
     }
@@ -96,8 +130,8 @@ export default function ShopProductCard({
       <p className="mt-3 text-sm leading-6 text-zinc-400">{product.description}</p>
       <p className="mt-2 text-sm leading-6 text-zinc-500">
         {product.addToInventory
-          ? "After purchase, the item is added to your inventory for later use."
-          : "After purchase, the item is used immediately and is not added to your inventory."}
+            ? "After purchase, the item is added to your inventory. Redeeming it sends the configured action to Streamer.bot."
+            : "After purchase, the configured action is queued for Streamer.bot immediately."}
       </p>
 
       {!product.active ? (
@@ -158,6 +192,18 @@ export default function ShopProductCard({
           ))}
         </div>
       )}
+      {quantity > 0 &&
+        product.id !== "custom-led-effect" &&
+        isLoggedIn && (
+          <button
+            type="button"
+            disabled={busy !== null}
+            onClick={() => void redeem()}
+            className="mt-4 w-full rounded-lg border border-emerald-800 bg-emerald-950/40 px-3 py-2 text-sm font-semibold text-emerald-200 hover:bg-emerald-900/50 disabled:opacity-50"
+          >
+            {busy === "redeem" ? "Redeeming…" : "Redeem from inventory"}
+          </button>
+        )}
       {isLoggedIn && linked && (!linked.discord || !linked.twitch) && (
         <p className="mt-4 text-xs text-zinc-500">
           Link the relevant account in Dashboard → Authorization to pay with that currency.

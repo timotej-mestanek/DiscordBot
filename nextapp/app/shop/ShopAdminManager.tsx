@@ -11,13 +11,27 @@ export type AdminShopProduct = {
   twitch_price: number | null;
   active: boolean;
   add_to_inventory: boolean;
+  streamerbot_action: string;
   _count: { inventory: number; redemptions: number };
+};
+
+export type AdminShopDelivery = {
+  event_id: string;
+  product_id: string;
+  action_key: string;
+  attempts: number;
+  last_error: string | null;
+  delivered_at: Date | null;
+  cancelled_at: Date | null;
+  created_at: Date;
 };
 
 export default function ShopAdminManager({
   products,
+  deliveries,
 }: {
   products: AdminShopProduct[];
+  deliveries: AdminShopDelivery[];
 }) {
   const [selected, setSelected] = useState<AdminShopProduct | null>(null);
   const [error, setError] = useState("");
@@ -38,6 +52,7 @@ export default function ShopAdminManager({
       twitchPrice: twitchPrice ? Number(twitchPrice) : null,
       active: form.get("active") === "true",
       addToInventory: form.get("addToInventory") === "true",
+      streamerbotAction: String(form.get("streamerbotAction") ?? ""),
     };
     try {
       const response = await fetch("/api/shop/admin", {
@@ -67,7 +82,8 @@ export default function ShopAdminManager({
       <h2 className="mt-2 text-xl font-bold">Manage shop products</h2>
       <p className="mt-2 text-sm leading-6 text-zinc-400">
         Manage all products in one editor. Select a product or create a new one.
-        A product is either added to inventory or consumed immediately after purchase.
+        Set an action key that Streamer.bot receives when an item is used. Items
+        bought for inventory are sent only when redeemed.
       </p>
 
       <div className="mt-5 flex flex-wrap gap-2">
@@ -135,6 +151,20 @@ export default function ShopAdminManager({
             className="mt-1 w-full resize-y rounded-lg border border-zinc-700 bg-zinc-950 px-3 py-2 text-sm text-white"
           />
         </label>
+        <label className="text-xs font-medium text-zinc-400 sm:col-span-2">
+          Streamer.bot action key
+          <input
+            name="streamerbotAction"
+            required
+            maxLength={100}
+            defaultValue={selected?.streamerbot_action ?? "shop.redeemed"}
+            placeholder="shop.redeemed"
+            className="mt-1 w-full rounded-lg border border-zinc-700 bg-zinc-950 px-3 py-2 text-sm text-white"
+          />
+          <span className="mt-1 block text-zinc-500">
+            Enter the exact Streamer.bot action name to run. The action receives the product and buyer details.
+          </span>
+        </label>
         <label className="text-xs font-medium text-zinc-400">
           Price · Discord points
           <input
@@ -193,6 +223,48 @@ export default function ShopAdminManager({
           {busy ? "Saving…" : selected ? "Save product" : "Create product"}
         </button>
       </form>
+      <section className="mt-8 rounded-xl border border-zinc-800 bg-zinc-950/50 p-4">
+        <h3 className="font-semibold">Streamer.bot delivery queue</h3>
+        <p className="mt-1 text-xs text-zinc-500">
+          Events remain queued until the authenticated Streamer.bot bridge acknowledges them.
+        </p>
+        <ol className="mt-3 divide-y divide-zinc-800">
+          {deliveries.map((delivery) => (
+            <li key={delivery.event_id} className="py-3 text-sm">
+              <div className="flex flex-wrap items-center justify-between gap-2">
+                <span className="font-medium">
+                  {delivery.product_id} · {delivery.action_key}
+                </span>
+                <span
+                  className={
+                    delivery.cancelled_at
+                      ? "text-zinc-400"
+                      : delivery.delivered_at
+                        ? "text-emerald-300"
+                        : "text-amber-300"
+                  }
+                >
+                  {delivery.cancelled_at
+                    ? "Cancelled"
+                    : delivery.delivered_at
+                      ? "Delivered"
+                      : "Queued"}
+                </span>
+              </div>
+              <p className="mt-1 break-all font-mono text-xs text-zinc-500">
+                {delivery.event_id}
+              </p>
+              <p className="mt-1 text-xs text-zinc-500">
+                Attempts: {delivery.attempts}
+                {delivery.last_error ? ` · Last error: ${delivery.last_error}` : ""}
+              </p>
+            </li>
+          ))}
+          {deliveries.length === 0 && (
+            <li className="py-3 text-sm text-zinc-500">No delivery events yet.</li>
+          )}
+        </ol>
+      </section>
     </section>
   );
 }

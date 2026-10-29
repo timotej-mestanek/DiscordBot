@@ -10,13 +10,29 @@ export async function GET() {
     return NextResponse.json({ error: "Access denied." }, { status: 403 });
   }
 
-  const products = await prisma.shopProduct.findMany({
-    orderBy: { name: "asc" },
-    include: {
-      _count: { select: { inventory: true, redemptions: true } },
-    },
-  });
-  return NextResponse.json({ products });
+  const [products, deliveries] = await Promise.all([
+    prisma.shopProduct.findMany({
+      orderBy: { name: "asc" },
+      include: {
+        _count: { select: { inventory: true, redemptions: true } },
+      },
+    }),
+    prisma.shopDeliveryEvent.findMany({
+      orderBy: { created_at: "desc" },
+      take: 30,
+      select: {
+        event_id: true,
+        product_id: true,
+        action_key: true,
+        attempts: true,
+        last_error: true,
+        delivered_at: true,
+        cancelled_at: true,
+        created_at: true,
+      },
+    }),
+  ]);
+  return NextResponse.json({ products, deliveries });
 }
 
 export async function POST(request: Request) {
@@ -48,6 +64,11 @@ export async function POST(request: Request) {
     body.description.trim().length > 500 ||
     !("addToInventory" in body) ||
     typeof body.addToInventory !== "boolean" ||
+    !("streamerbotAction" in body) ||
+    typeof body.streamerbotAction !== "string" ||
+    body.streamerbotAction.trim().length < 1 ||
+    body.streamerbotAction.trim().length > 100 ||
+    /[\u0000-\u001f\u007f]/u.test(body.streamerbotAction) ||
     !("discordPrice" in body) ||
     !(body.discordPrice === null || (
       typeof body.discordPrice === "number" &&
@@ -76,6 +97,7 @@ export async function POST(request: Request) {
   const twitchPrice = body.twitchPrice;
   const active = body.active;
   const addToInventory = body.addToInventory;
+  const streamerbotAction = body.streamerbotAction.trim();
   const productId =
     "productId" in body && typeof body.productId === "string" ? body.productId : null;
 
@@ -96,6 +118,7 @@ export async function POST(request: Request) {
               twitch_price: twitchPrice,
               active,
               add_to_inventory: addToInventory,
+              streamerbot_action: streamerbotAction,
             },
           })
         : await transaction.shopProduct.create({
@@ -106,6 +129,7 @@ export async function POST(request: Request) {
               twitch_price: twitchPrice,
               active,
               add_to_inventory: addToInventory,
+              streamerbot_action: streamerbotAction,
             },
           });
 
@@ -123,6 +147,7 @@ export async function POST(request: Request) {
                   twitchPrice: previous.twitch_price,
                   active: previous.active,
                   addToInventory: previous.add_to_inventory,
+                  streamerbotAction: previous.streamerbot_action,
                 }
               : null,
             after: {
@@ -132,6 +157,7 @@ export async function POST(request: Request) {
               twitchPrice,
               active,
               addToInventory,
+              streamerbotAction,
             },
           },
         },

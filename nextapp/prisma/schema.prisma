@@ -263,6 +263,7 @@ model ShopProduct {
   twitch_price    Int?
   active          Boolean         @default(false)
   add_to_inventory Boolean        @default(false)
+  streamerbot_action String       @default("shop.redeemed")
   updated_at      DateTime        @updatedAt
   inventory       ShopInventory[]
   redemptions     ShopRedemption[]
@@ -290,6 +291,23 @@ model ShopRedemption {
   product    ShopProduct @relation(fields: [product_id], references: [id], onDelete: Restrict)
 
   @@index([account_id, created_at])
+}
+
+model ShopDeliveryEvent {
+  id           String   @id @default(cuid())
+  event_id     String   @unique
+  product_id   String
+  account_id   String
+  action_key   String
+  payload      Json
+  attempts     Int      @default(0)
+  last_error   String?
+  delivered_at DateTime?
+  cancelled_at DateTime?
+  created_at   DateTime @default(now())
+
+  @@index([delivered_at, cancelled_at, created_at])
+  @@index([product_id, created_at])
 }
 
 model SpotifyOAuthState {

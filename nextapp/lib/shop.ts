@@ -6,6 +6,7 @@ import type { Prisma } from "@prisma/client";
 type Identity = {
   provider: string;
   provider_user_id: string;
+  display_name?: string;
 };
 
 export class ShopActionError extends Error {
@@ -19,6 +20,62 @@ function getProvider(identity: Identity, currency: SupportedPointCurrency) {
   return currency === "discord"
     ? identity.provider === "discord"
     : identity.provider === "twitch";
+}
+
+async function queueShopDelivery(
+  transaction: Prisma.TransactionClient,
+  input: {
+    accountId: string;
+    identity: Identity;
+    payment: { currency: SupportedPointCurrency; amount: number } | null;
+    product: {
+      id: string;
+      name: string;
+      description: string;
+      streamerbot_action: string;
+    };
+    redemptionId: string;
+    effect: Prisma.InputJsonValue;
+  },
+) {
+  const eventId = crypto.randomUUID();
+  const account = await transaction.webAccount.findUniqueOrThrow({
+    where: { id: input.accountId },
+    select: { display_name: true },
+  });
+  const payload = {
+    type: "shop-redemption",
+    eventId,
+    actionKey: input.product.streamerbot_action,
+    product: {
+      id: input.product.id,
+      name: input.product.name,
+      description: input.product.description,
+    },
+    redemptionId: input.redemptionId,
+    account: {
+      id: input.accountId,
+      displayName: account.display_name,
+    },
+    buyer: {
+      provider: input.identity.provider,
+      providerUserId: input.identity.provider_user_id,
+      displayName: input.identity.display_name ?? account.display_name,
+    },
+    payment: input.payment,
+    effect: input.effect,
+  } satisfies Prisma.InputJsonObject;
+
+  await transaction.shopDeliveryEvent.create({
+    data: {
+      event_id: eventId,
+      product_id: input.product.id,
+      account_id: input.accountId,
+      action_key: input.product.streamerbot_action,
+      payload,
+    },
+  });
+  return eventId;
 }
 
 export async function purchaseCustomLedEffect(input: {
@@ -43,6 +100,7 @@ export async function purchaseCustomLedEffect(input: {
         description: true,
         active: true,
         add_to_inventory: true,
+        streamerbot_action: true,
         discord_price: true,
         twitch_price: true,
       },
@@ -66,6 +124,7 @@ export async function purchaseCustomLedEffect(input: {
     );
     let inventoryQuantity = 0;
     let redemptionId: string | null = null;
+    let deliveryEventId: string | null = null;
     if (product.add_to_inventory) {
       const inventory = await transaction.shopInventory.upsert({
         where: {
@@ -88,15 +147,23 @@ export async function purchaseCustomLedEffect(input: {
         data: {
           account_id: input.accountId,
           product_id: product.id,
-          effect: {
-            type: "shop-item",
-            name: product.name,
-            description: product.description,
-          },
+          effect: { type: "shop-item", name: product.name, description: product.description },
         },
         select: { id: true },
       });
       redemptionId = redemption.id;
+      deliveryEventId = await queueShopDelivery(transaction, {
+        accountId: input.accountId,
+        identity,
+        payment: { currency: input.currency, amount: price },
+        product,
+        redemptionId,
+        effect: {
+          type: "shop-item",
+          name: product.name,
+          description: product.description,
+        },
+      });
     }
 
     const providerUserId = identity.provider_user_id;
@@ -121,6 +188,7 @@ export async function purchaseCustomLedEffect(input: {
           providerUserId,
           addToInventory: product.add_to_inventory,
           redemptionId,
+          deliveryEventId,
           inventoryQuantityAfter: inventorySnapshot?.quantity ?? 0,
         },
       },
@@ -128,6 +196,92 @@ export async function purchaseCustomLedEffect(input: {
     return {
       quantity: inventoryQuantity,
       addToInventory: product.add_to_inventory,
+      deliveryEventId,
+    };
+  });
+}
+
+export async function redeemShopProduct(input: {
+  accountId: string;
+  identities: Identity[];
+  productId: string;
+}) {
+  return prisma.$transaction(async (transaction) => {
+    const product = await transaction.shopProduct.findUnique({
+      where: { id: input.productId },
+      select: {
+        id: true,
+        name: true,
+        description: true,
+        add_to_inventory: true,
+        streamerbot_action: true,
+      },
+    });
+    if (!product || product.id === "custom-led-effect") {
+      throw new ShopActionError("This item cannot be redeemed from the shop.");
+    }
+
+    const identity = input.identities.find(
+      (item) => item.provider === "discord" || item.provider === "twitch",
+    );
+    if (!identity) {
+      throw new ShopActionError("Link a Discord or Twitch account before redeeming this item.");
+    }
+
+    const used = await transaction.shopInventory.updateMany({
+      where: {
+        account_id: input.accountId,
+        product_id: product.id,
+        quantity: { gt: 0 },
+      },
+      data: { quantity: { decrement: 1 } },
+    });
+    if (used.count !== 1) {
+      throw new ShopActionError("You do not have this item in your inventory.");
+    }
+
+    const effect = {
+      type: "shop-item",
+      name: product.name,
+      description: product.description,
+    } satisfies Prisma.InputJsonObject;
+    const redemption = await transaction.shopRedemption.create({
+      data: {
+        account_id: input.accountId,
+        product_id: product.id,
+        effect,
+      },
+      select: { id: true },
+    });
+    const deliveryEventId = await queueShopDelivery(transaction, {
+      accountId: input.accountId,
+      identity,
+      payment: null,
+      product,
+      redemptionId: redemption.id,
+      effect,
+    });
+    const remaining = await transaction.shopInventory.findUnique({
+      where: {
+        account_id_product_id: {
+          account_id: input.accountId,
+          product_id: product.id,
+        },
+      },
+      select: { quantity: true },
+    });
+    await transaction.adminAuditLog.create({
+      data: {
+        actor_account_id: input.accountId,
+        target_account_id: input.accountId,
+        action: "shop.redeemed",
+        details: { productId: product.id, redemptionId: redemption.id, deliveryEventId },
+      },
+    });
+
+    return {
+      quantity: remaining?.quantity ?? 0,
+      deliveryEventId,
     };
   });
 }

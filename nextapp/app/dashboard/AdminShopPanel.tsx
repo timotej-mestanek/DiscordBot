@@ -2,7 +2,10 @@ import { Prisma } from "@prisma/client";
 import Link from "next/link";
 import { prisma } from "@/lib/prisma";
 import ShopAdminManager from "@/app/shop/ShopAdminManager";
-import type { AdminShopProduct } from "@/app/shop/ShopAdminManager";
+import type {
+  AdminShopDelivery,
+  AdminShopProduct,
+} from "@/app/shop/ShopAdminManager";
 
 function isMissingShopTable(error: unknown) {
   return (
@@ -13,13 +16,30 @@ function isMissingShopTable(error: unknown) {
 
 export default async function AdminShopPanel() {
   let products: AdminShopProduct[];
+  let deliveries: AdminShopDelivery[];
   try {
-    products = await prisma.shopProduct.findMany({
-      orderBy: { name: "asc" },
-      include: {
-        _count: { select: { inventory: true, redemptions: true } },
-      },
-    });
+    [products, deliveries] = await Promise.all([
+      prisma.shopProduct.findMany({
+        orderBy: { name: "asc" },
+        include: {
+          _count: { select: { inventory: true, redemptions: true } },
+        },
+      }),
+      prisma.shopDeliveryEvent.findMany({
+        orderBy: { created_at: "desc" },
+        take: 30,
+        select: {
+          event_id: true,
+          product_id: true,
+          action_key: true,
+          attempts: true,
+          last_error: true,
+          delivered_at: true,
+          cancelled_at: true,
+          created_at: true,
+        },
+      }),
+    ]);
   } catch (error) {
     if (!isMissingShopTable(error)) throw error;
     console.error("Shop tables are missing; apply pending Prisma migrations:", error);
@@ -55,7 +75,7 @@ export default async function AdminShopPanel() {
           Preview as a user
         </Link>
       </div>
-      <ShopAdminManager products={products} />
+      <ShopAdminManager products={products} deliveries={deliveries} />
     </div>
   );
 }

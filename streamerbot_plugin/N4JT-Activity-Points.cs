@@ -1,8 +1,8 @@
 using System;
 using System.Collections.Generic;
+using System.Globalization;
 using System.Net.Http;
 using System.Text;
-using System.Text.Json;
 
 public class CPHInline
 {
@@ -30,11 +30,20 @@ public class CPHInline
 
     private bool RecordActivity(string userId)
     {
-        if (!TryGetArgument(args, "isSubscriber", out string subscriberValue) ||
+        if (!IsTwitchUserId(userId))
+        {
+            CPH.LogError("Activity points: chat trigger did not provide a valid Twitch userId.");
+            return false;
+        }
+
+        bool hasSubscriberArgument =
+            TryGetArgument(args, "isSubscribed", out string subscriberValue) ||
+            TryGetArgument(args, "isSubscriber", out subscriberValue);
+        if (!hasSubscriberArgument ||
             !bool.TryParse(subscriberValue, out bool isSubscriber))
         {
             CPH.LogError(
-                "Activity points: chat trigger did not provide a valid isSubscriber argument.");
+                "Activity points: chat trigger did not provide a valid isSubscribed or isSubscriber argument.");
             return false;
         }
 
@@ -104,16 +113,20 @@ public class CPHInline
         }
 
         long fiveMinuteBucket = DateTimeOffset.UtcNow.ToUnixTimeSeconds() / 300;
+        bool succeeded = true;
         foreach (KeyValuePair<string, ActiveUser> entry in eligibleUsers)
         {
             int points = entry.Value.IsSubscriber ? 65 : 50;
-            string eventId = $"activity-{fiveMinuteBucket}-{entry.Key}";
-            string json = JsonSerializer.Serialize(new
-            {
-                eventId,
-                twitchUserId = entry.Key,
-                delta = points,
-            });
+            string eventId =
+                "activity-" +
+                fiveMinuteBucket.ToString(CultureInfo.InvariantCulture) +
+                "-" +
+                entry.Key;
+            string json =
+                "{\"eventId\":\"" + eventId +
+                "\",\"twitchUserId\":\"" + entry.Key +
+                "\",\"delta\":" + points.ToString(CultureInfo.InvariantCulture) +
+                "}";
 
             using (var request = new HttpRequestMessage(HttpMethod.Post, Endpoint))
             {
@@ -128,6 +141,7 @@ public class CPHInline
                     {
                         if (!response.IsSuccessStatusCode)
                         {
+                            succeeded = false;
                             string responseBody =
                                 response.Content.ReadAsStringAsync().GetAwaiter().GetResult();
                             CPH.LogError(
@@ -138,13 +152,14 @@ public class CPHInline
                 }
                 catch (Exception ex)
                 {
+                    succeeded = false;
                     CPH.LogError(
                         $"Activity points: request failed for Twitch user {entry.Key}: {ex}");
                 }
             }
         }
 
-        return true;
+        return succeeded;
     }
 
     private bool LoadState()
@@ -162,16 +177,44 @@ public class CPHInline
         }
         else
         {
-            try
+            string[] records = storedState.Split(';');
+            if (records.Length == 0 || records[0] != "v1")
             {
-                activeUsers =
-                    JsonSerializer.Deserialize<Dictionary<string, ActiveUser>>(storedState)
-                    ?? new Dictionary<string, ActiveUser>();
-            }
-            catch (JsonException ex)
-            {
-                CPH.LogError($"Activity points: saved activity data is invalid: {ex}");
+                CPH.LogError(
+                    "Activity points: saved activity data has an unsupported format. " +
+                    "Clear the persistent global variable n4jtActivityPointsActiveUsers and retry.");
                 return false;
+            }
+
+            activeUsers = new Dictionary<string, ActiveUser>();
+            for (int i = 1; i < records.Length; i++)
+            {
+                if (records[i].Length == 0)
+                {
+                    continue;
+                }
+
+                string[] fields = records[i].Split(',');
+                if (fields.Length != 3 ||
+                    !IsTwitchUserId(fields[0]) ||
+                    !long.TryParse(
+                        fields[1],
+                        NumberStyles.None,
+                        CultureInfo.InvariantCulture,
+                        out long lastMessageAt) ||
+                    (fields[2] != "0" && fields[2] != "1"))
+                {
+                    CPH.LogError(
+                        "Activity points: saved activity data is invalid. " +
+                        "Clear the persistent global variable n4jtActivityPointsActiveUsers and retry.");
+                    return false;
+                }
+
+                activeUsers[fields[0]] = new ActiveUser
+                {
+                    LastMessageAt = lastMessageAt,
+                    IsSubscriber = fields[2] == "1",
+                };
             }
         }
 
@@ -181,8 +224,35 @@ public class CPHInline
 
     private void SaveState()
     {
-        string serialized = JsonSerializer.Serialize(activeUsers);
-        CPH.SetGlobalVar(ActiveUsersVariable, serialized, true);
+        var serialized = new StringBuilder("v1");
+        foreach (KeyValuePair<string, ActiveUser> entry in activeUsers)
+        {
+            serialized.Append(';')
+                .Append(entry.Key)
+                .Append(',')
+                .Append(entry.Value.LastMessageAt.ToString(CultureInfo.InvariantCulture))
+                .Append(',')
+                .Append(entry.Value.IsSubscriber ? '1' : '0');
+        }
+        CPH.SetGlobalVar(ActiveUsersVariable, serialized.ToString(), true);
+    }
+
+    private bool IsTwitchUserId(string userId)
+    {
+        if (string.IsNullOrEmpty(userId) || userId.Length > 32)
+        {
+            return false;
+        }
+
+        foreach (char character in userId)
+        {
+            if (character < '0' || character > '9')
+            {
+                return false;
+            }
+        }
+
+        return true;
     }
 
     private bool TryGetArgument(

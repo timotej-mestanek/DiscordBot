@@ -85,6 +85,33 @@ async function revertShopOperation(adminId: string, logId: string) {
       const redemptionId =
         typeof details.redemptionId === "string" ? details.redemptionId : null;
       const addToInventory = details.addToInventory !== false;
+      if (!addToInventory && typeof details.deliveryEventId === "string") {
+        const delivery = await transaction.shopDeliveryEvent.findUnique({
+          where: { event_id: details.deliveryEventId },
+          select: { attempts: true, delivered_at: true, cancelled_at: true },
+        });
+        if (delivery?.delivered_at || (delivery && delivery.attempts > 0)) {
+          throw new ShopRevertError(
+            "This item has already been sent to Streamer.bot and cannot be safely reverted.",
+          );
+        }
+        if (delivery && !delivery.cancelled_at) {
+          const cancelled = await transaction.shopDeliveryEvent.updateMany({
+            where: {
+              event_id: details.deliveryEventId,
+              attempts: 0,
+              delivered_at: null,
+              cancelled_at: null,
+            },
+            data: { cancelled_at: new Date() },
+          });
+          if (cancelled.count !== 1) {
+            throw new ShopRevertError(
+              "The Streamer.bot event started delivery and cannot be safely reverted.",
+            );
+          }
+        }
+      }
       await changePointBalance(
         transaction,
         details.currency,
@@ -128,6 +155,33 @@ async function revertShopOperation(adminId: string, logId: string) {
       if (!redemption || redemption.product_id !== details.productId) {
         throw new ShopRevertError("The redeemed item cannot be restored.");
       }
+      if (typeof details.deliveryEventId === "string") {
+        const delivery = await transaction.shopDeliveryEvent.findUnique({
+          where: { event_id: details.deliveryEventId },
+          select: { attempts: true, delivered_at: true, cancelled_at: true },
+        });
+        if (delivery?.delivered_at || (delivery && delivery.attempts > 0)) {
+          throw new ShopRevertError(
+            "This item has already been sent to Streamer.bot and cannot be safely restored.",
+          );
+        }
+        if (delivery && !delivery.cancelled_at) {
+          const cancelled = await transaction.shopDeliveryEvent.updateMany({
+            where: {
+              event_id: details.deliveryEventId,
+              attempts: 0,
+              delivered_at: null,
+              cancelled_at: null,
+            },
+            data: { cancelled_at: new Date() },
+          });
+          if (cancelled.count !== 1) {
+            throw new ShopRevertError(
+              "The Streamer.bot event started delivery and cannot be safely restored.",
+            );
+          }
+        }
+      }
       await transaction.shopInventory.upsert({
         where: {
           account_id_product_id: {
@@ -169,7 +223,9 @@ async function revertShopOperation(adminId: string, logId: string) {
           !(previous.discordPrice === null || typeof previous.discordPrice === "number") ||
           !(previous.twitchPrice === null || typeof previous.twitchPrice === "number") ||
           typeof previous.active !== "boolean" ||
-          typeof previous.addToInventory !== "boolean"
+          typeof previous.addToInventory !== "boolean" ||
+          (previous.streamerbotAction !== undefined &&
+            typeof previous.streamerbotAction !== "string")
         ) {
           throw new ShopRevertError("The product's previous settings are missing.");
         }
@@ -182,6 +238,9 @@ async function revertShopOperation(adminId: string, logId: string) {
             twitch_price: previous.twitchPrice,
             active: previous.active,
             add_to_inventory: previous.addToInventory,
+            ...(typeof previous.streamerbotAction === "string"
+              ? { streamerbot_action: previous.streamerbotAction }
+              : {}),
           },
         });
       }

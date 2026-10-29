@@ -6,28 +6,20 @@ Import `N4JT-Currency.sb` in Streamer.bot (`Import` → choose the file). It add
 
 ## Activity points
 
-`N4JT-Activity-Points.cs` is a C# sub-action for Streamer.bot 1.0.7. It adds 50
-N4JT Twitch CustomBody points to each user who sent a chat message in the last
-five minutes, or 65 points for subscribers (50 × 1.3).
+Import `N4JT-Activity-Points.sb` in Streamer.bot (`Import` → choose the file).
+It creates an activity-points action with a Twitch **Chat Message** trigger
+and a repeating **300-second timer**. Each user who sends a message during the
+preceding five minutes receives 50 N4JT Twitch CustomBody points at the next
+timer tick; subscribers receive 65 points.
 
-To set it up:
-
-1. Create one action and add both a Twitch **Chat Message** trigger and a
-   **Timer** trigger set to repeat every 5 minutes.
-2. Add a **Core → C# → Execute C# Code** sub-action and paste in the contents
-   of `N4JT-Activity-Points.cs`.
-3. In Streamer.bot's **Global Variables**, create a persistent string variable
-   named `n4jtStreamerBotToken` with the same `STREAMERBOT_INGEST_TOKEN` used by
-   the app.
-4. Ensure the Chat Message trigger supplies the `userId` and `isSubscriber`
-   arguments. The action records chat activity and only awards users active in
-   the preceding five minutes.
-
-The script posts to the app's `/api/integrations/streamerbot/points` endpoint.
-For a different app domain, change the `Endpoint` constant in the script.
-Failures are written to the Streamer.bot log. This source is not an importable
-`.sb` export; create/export an action in Streamer.bot itself if you need a
-one-click import file.
+Before enabling it, create a persistent string global variable named
+`n4jtStreamerBotToken` with the same `STREAMERBOT_INGEST_TOKEN` used by the app.
+The imported action uses `N4JT-Activity-Points.cs`; the source is included for
+review or editing. It reads Streamer.bot's `userId` and `isSubscribed` chat
+arguments, records active users in a persistent global variable, and posts
+points to `/api/integrations/streamerbot/points`. Request failures are written
+to the Streamer.bot log. For a different app domain, change the `Endpoint`
+constant in the source before importing.
 
 ## Twitch moderator commands and clips
 

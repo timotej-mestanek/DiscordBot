@@ -12,6 +12,10 @@ const prisma = new PrismaClient();
 const websocketServer = new WebSocketServer({ noServer: true });
 let ledBridgeSocket = null;
 const ledPendingAcks = new Map();
+let shopBridgeSocket = null;
+const shopPendingAcks = new Map();
+const shopRetryAfter = new Map();
+let pumpingShopDeliveries = false;
 globalThis.__wheelRealtimeListeners = new Set();
 globalThis.__wheelRealtimePublish = (event) => {
   for (const listener of globalThis.__wheelRealtimeListeners) listener(event);
@@ -82,6 +86,82 @@ globalThis.__ledRealtimePublish = (packet, requestId) =>
       ledPendingAcks.get(requestId)?.reject(error);
     });
   });
+
+function scheduleShopDeliveryRetry(eventId, socket, error) {
+  const pending = shopPendingAcks.get(eventId);
+  if (!pending || pending.socket !== socket) return;
+  clearTimeout(pending.timeout);
+  shopPendingAcks.delete(eventId);
+  void prisma.shopDeliveryEvent.updateMany({
+    where: { event_id: eventId, delivered_at: null },
+    data: { last_error: error },
+  }).catch((updateError) => {
+    console.error("Failed to save Streamer.bot shop delivery error:", eventId, updateError);
+  });
+  if (shopBridgeSocket === socket && socket.readyState === WebSocket.OPEN) {
+    const retryAt = Date.now() + 30_000;
+    shopRetryAfter.set(eventId, retryAt);
+    setTimeout(() => {
+      if (shopRetryAfter.get(eventId) === retryAt) {
+        shopRetryAfter.delete(eventId);
+        void pumpShopDeliveries();
+      }
+    }, 30_000);
+  }
+}
+
+async function pumpShopDeliveries() {
+  if (
+    pumpingShopDeliveries ||
+    !shopBridgeSocket ||
+    shopBridgeSocket.readyState !== WebSocket.OPEN
+  ) {
+    return;
+  }
+  pumpingShopDeliveries = true;
+  try {
+    const socket = shopBridgeSocket;
+    const events = await prisma.shopDeliveryEvent.findMany({
+      where: { delivered_at: null, cancelled_at: null },
+      orderBy: [{ created_at: "asc" }, { id: "asc" }],
+      take: 50,
+    });
+    for (const event of events) {
+      if (socket !== shopBridgeSocket || socket.readyState !== WebSocket.OPEN) return;
+      if (shopPendingAcks.has(event.event_id)) continue;
+      if ((shopRetryAfter.get(event.event_id) ?? 0) > Date.now()) continue;
+      const claimed = await prisma.shopDeliveryEvent.updateMany({
+        where: { id: event.id, delivered_at: null, cancelled_at: null },
+        data: { attempts: { increment: 1 } },
+      });
+      if (claimed.count !== 1) continue;
+      const timeout = setTimeout(() => {
+        scheduleShopDeliveryRetry(
+          event.event_id,
+          socket,
+          "Streamer.bot acknowledgement timed out.",
+        );
+      }, 30_000);
+      shopPendingAcks.set(event.event_id, { socket, timeout });
+      socket.send(JSON.stringify(event.payload), (error) => {
+        if (error) {
+          scheduleShopDeliveryRetry(event.event_id, socket, error.message);
+          return;
+        }
+        console.log("Streamer.bot shop event delivered to bridge:", event.event_id);
+      });
+    }
+  } catch (error) {
+    console.error("Failed to dispatch queued shop events:", error);
+    setTimeout(() => void pumpShopDeliveries(), 5_000);
+  } finally {
+    pumpingShopDeliveries = false;
+  }
+}
+
+const shopDeliveryPoll = setInterval(() => {
+  void pumpShopDeliveries();
+}, 3_000);
 
 function send(socket, event) {
   if (socket.readyState === WebSocket.OPEN) socket.send(JSON.stringify(event));
@@ -300,6 +380,36 @@ server.on("upgrade", (request, socket, head) => {
     });
     return;
   }
+  if (url.pathname === "/api/integrations/streamerbot/shop/live") {
+    const expectedToken = process.env.STREAMERBOT_INGEST_TOKEN;
+    const authorization = request.headers.authorization ?? "";
+    const suppliedToken = Buffer.from(
+      authorization.startsWith("Bearer ") ? authorization.slice(7) : "",
+    );
+    const expected = Buffer.from(expectedToken ?? "");
+    if (!expectedToken) {
+      socket.write("HTTP/1.1 503 Service Unavailable\r\n\r\n");
+      socket.destroy();
+      return;
+    }
+    if (
+      suppliedToken.length !== expected.length ||
+      !timingSafeEqual(suppliedToken, expected)
+    ) {
+      socket.write("HTTP/1.1 401 Unauthorized\r\n\r\n");
+      socket.destroy();
+      return;
+    }
+    if (shopBridgeSocket?.readyState === WebSocket.OPEN) {
+      socket.write("HTTP/1.1 409 Conflict\r\n\r\n");
+      socket.destroy();
+      return;
+    }
+    websocketServer.handleUpgrade(request, socket, head, (client) => {
+      websocketServer.emit("connection", client, { channel: "shop" });
+    });
+    return;
+  }
   if (url.pathname !== "/api/overlays/wheels/live") return;
 
   const cursor = cursorFromUrl(url);
@@ -352,6 +462,72 @@ websocketServer.on("connection", (socket, context) => {
     });
     return;
   }
+  if (context.channel === "shop") {
+    shopBridgeSocket = socket;
+    socket.on("message", (data, isBinary) => {
+      if (isBinary) {
+        socket.close(1003, "Only JSON acknowledgements are accepted");
+        return;
+      }
+      let message;
+      try {
+        message = JSON.parse(data.toString());
+      } catch {
+        socket.close(1007, "Invalid acknowledgement");
+        return;
+      }
+      if (
+        message?.type !== "shop-ack" ||
+        typeof message.eventId !== "string" ||
+        typeof message.ok !== "boolean"
+      ) {
+        socket.close(1007, "Invalid acknowledgement");
+        return;
+      }
+
+      const pending = shopPendingAcks.get(message.eventId);
+      if (!pending || pending.socket !== socket) return;
+      clearTimeout(pending.timeout);
+      if (message.ok) {
+        shopPendingAcks.delete(message.eventId);
+        shopRetryAfter.delete(message.eventId);
+        void prisma.shopDeliveryEvent.updateMany({
+          where: { event_id: message.eventId, delivered_at: null },
+          data: { delivered_at: new Date(), last_error: null },
+        }).then((result) => {
+          if (result.count > 0) {
+            console.log("Streamer.bot confirmed shop event:", message.eventId);
+          }
+        }).catch((error) => {
+          console.error("Failed to save Streamer.bot shop acknowledgement:", message.eventId, error);
+        }).finally(() => void pumpShopDeliveries());
+      } else {
+        scheduleShopDeliveryRetry(
+          message.eventId,
+          socket,
+          typeof message.error === "string"
+            ? message.error.slice(0, 500)
+            : "Streamer.bot rejected the shop event.",
+        );
+      }
+    });
+    socket.once("close", () => {
+      if (shopBridgeSocket === socket) shopBridgeSocket = null;
+      for (const [eventId, pending] of shopPendingAcks) {
+        if (pending.socket !== socket) continue;
+        clearTimeout(pending.timeout);
+        shopPendingAcks.delete(eventId);
+        void prisma.shopDeliveryEvent.updateMany({
+          where: { event_id: eventId, delivered_at: null },
+          data: { last_error: "Streamer.bot shop bridge disconnected before acknowledgement." },
+        }).catch((error) => {
+          console.error("Failed to save interrupted shop delivery:", eventId, error);
+        });
+      }
+    });
+    void pumpShopDeliveries();
+    return;
+  }
   if (context.channel === "stream") {
     const listener = (event) => send(socket, event);
     globalThis.__streamOverlayListeners.add(listener);
@@ -392,6 +568,9 @@ server.listen(port, hostname, () => {
 
 for (const signal of ["SIGINT", "SIGTERM"]) {
   process.once(signal, () => {
+    clearInterval(shopDeliveryPoll);
+    for (const pending of shopPendingAcks.values()) clearTimeout(pending.timeout);
+    shopRetryAfter.clear();
     websocketServer.close();
     server.close(() => {
       void prisma.$disconnect().finally(() => process.exit(0));

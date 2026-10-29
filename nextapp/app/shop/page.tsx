@@ -4,7 +4,7 @@ import { getCurrentAccount } from "@/lib/auth/session";
 import { getAccountPointBalances } from "@/lib/points";
 import { prisma } from "@/lib/prisma";
 import ShopAdminManager from "./ShopAdminManager";
-import type { AdminShopProduct } from "./ShopAdminManager";
+import type { AdminShopDelivery, AdminShopProduct } from "./ShopAdminManager";
 import ShopProductCard from "./ShopProductCard";
 
 function isMissingShopTable(error: unknown) {
@@ -25,6 +25,7 @@ export default async function ShopPage({
   const identities = account?.identities ?? [];
   const balances = account ? await getAccountPointBalances(identities) : null;
   let products: AdminShopProduct[] = [];
+  let deliveries: AdminShopDelivery[] = [];
   let inventoryByProduct = new Map<string, number>();
   let shopTablesReady = true;
 
@@ -44,6 +45,22 @@ export default async function ShopPage({
       inventoryByProduct = new Map(
         inventory.map((entry) => [entry.product_id, entry.quantity]),
       );
+    }
+    if (account?.role === "admin" && !isPublicPreview) {
+      deliveries = await prisma.shopDeliveryEvent.findMany({
+        orderBy: { created_at: "desc" },
+        take: 30,
+        select: {
+          event_id: true,
+          product_id: true,
+          action_key: true,
+          attempts: true,
+          last_error: true,
+          delivered_at: true,
+          cancelled_at: true,
+          created_at: true,
+        },
+      });
     }
   } catch (error) {
     if (!isMissingShopTable(error)) throw error;
@@ -96,7 +113,7 @@ export default async function ShopPage({
         ) : (
           <>
             {account?.role === "admin" && !isPublicPreview && (
-              <ShopAdminManager products={products} />
+              <ShopAdminManager products={products} deliveries={deliveries} />
             )}
             <section className="mt-8 grid gap-5 lg:grid-cols-2">
               {products
@@ -127,9 +144,7 @@ export default async function ShopPage({
                         : null
                     }
                     quantity={
-                      product.add_to_inventory
-                        ? inventoryByProduct.get(product.id) ?? 0
-                        : 0
+                      inventoryByProduct.get(product.id) ?? 0
                     }
                     isLoggedIn={Boolean(account)}
                   />
