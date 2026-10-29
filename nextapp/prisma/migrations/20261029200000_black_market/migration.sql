@@ -63,8 +63,8 @@ ON "BlackMarketInventory"("account_id", "item_id");
 CREATE INDEX "BlackMarketInventory_account_id_idx"
 ON "BlackMarketInventory"("account_id");
 
-CREATE INDEX "BlackMarketInventory_account_id_is_equipped_idx"
-ON "BlackMarketInventory"("account_id", "is_equipped");
+CREATE INDEX "BlackMarketInventory_account_id_group_is_equipped_idx"
+ON "BlackMarketInventory"("account_id", "group", "is_equipped");
 
 CREATE UNIQUE INDEX "black_market_inventory_one_equipped_per_group"
 ON "BlackMarketInventory"("account_id", "group")

@@ -388,7 +388,7 @@ model BlackMarketInventory {
 
   @@unique([account_id, item_id])
   @@index([account_id])
-  @@index([account_id, is_equipped])
+  @@index([account_id, group, is_equipped])
 }
 
 model SpotifyOAuthState {
