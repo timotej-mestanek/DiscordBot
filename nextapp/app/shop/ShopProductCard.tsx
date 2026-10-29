@@ -1,6 +1,7 @@
 "use client";
 
 import Link from "next/link";
+import Image from "next/image";
 import { useState } from "react";
 
 type Currency = "discord" | "twitch_custom";
@@ -9,6 +10,7 @@ type Product = {
   name: string;
   description: string;
   cardColor: string;
+  imageUrl: string | null;
   discordPrice: number | null;
   twitchPrice: number | null;
   active: boolean;
@@ -139,22 +141,33 @@ export default function ShopProductCard({
           </h2>
         </div>
         <div
-          aria-hidden="true"
-          className="relative z-10 flex h-16 w-16 shrink-0 items-center justify-center rounded-2xl border bg-black/20 shadow-lg backdrop-blur-sm"
+          aria-hidden={product.imageUrl ? undefined : true}
+          className="relative z-10 flex h-16 w-16 shrink-0 items-center justify-center overflow-hidden rounded-2xl border bg-black/20 shadow-lg backdrop-blur-sm"
           style={{ borderColor: `${product.cardColor}70`, color: product.cardColor }}
         >
-          <svg
-            viewBox="0 0 48 48"
-            fill="none"
-            className="h-9 w-9"
-            stroke="currentColor"
-            strokeWidth="2"
-            strokeLinecap="round"
-            strokeLinejoin="round"
-          >
-            <path d="M7 20h34v22H7zM4 13h40v7H4zM24 13v29" />
-            <path d="M24 13H14a5 5 0 1 1 5-5c0 3 5 5 5 5Zm0 0h10a5 5 0 1 0-5-5c0 3-5 5-5 5Z" />
-          </svg>
+          {product.imageUrl ? (
+            <Image
+              src={product.imageUrl}
+              alt={`${product.name} icon`}
+              fill
+              unoptimized
+              sizes="64px"
+              className="object-cover"
+            />
+          ) : (
+            <svg
+              viewBox="0 0 48 48"
+              fill="none"
+              className="h-9 w-9"
+              stroke="currentColor"
+              strokeWidth="2"
+              strokeLinecap="round"
+              strokeLinejoin="round"
+            >
+              <path d="M7 20h34v22H7zM4 13h40v7H4zM24 13v29" />
+              <path d="M24 13H14a5 5 0 1 1 5-5c0 3 5 5 5 5Zm0 0h10a5 5 0 1 0-5-5c0 3-5 5-5 5Z" />
+            </svg>
+          )}
         </div>
         {quantity > 0 && (
           <span className="absolute bottom-3 left-6 z-10 rounded-full border border-emerald-900 bg-emerald-950/80 px-2.5 py-1 text-xs font-semibold text-emerald-200">

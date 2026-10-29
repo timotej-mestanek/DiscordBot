@@ -265,6 +265,8 @@ model ShopProduct {
   add_to_inventory Boolean        @default(false)
   streamerbot_action String       @default("shop.redeemed")
   card_color      String          @default("#7c3aed")
+  image_url       String?
+  image_key       String?
   updated_at      DateTime        @updatedAt
   inventory       ShopInventory[]
   redemptions     ShopRedemption[]

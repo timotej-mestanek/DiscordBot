@@ -114,6 +114,7 @@ export default async function ShopPage({
                       name: product.name,
                       description: product.description,
                       cardColor: product.card_color,
+                      imageUrl: product.image_url,
                       discordPrice: product.discord_price,
                       twitchPrice: product.twitch_price,
                       active: product.active,

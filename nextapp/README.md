@@ -55,6 +55,15 @@ Copy the new integration settings from `.env.example` into `.env` and configure:
 - Twitch Extension PubSub uses separate credentials for the two Extensions: set `TWITCH_SPOTIFY_EXTENSION_ID` and `TWITCH_SPOTIFY_EXTENSION_SECRET_BASE64` from the Spotify Extension, and `TWITCH_GAMESTATS_EXTENSION_ID` and `TWITCH_GAMESTATS_EXTENSION_SECRET_BASE64` from the Game Stats Extension. `TWITCH_EXTENSION_BROADCASTER_ID` is the broadcaster's numeric Twitch ID and is shared. The authenticated `POST /api/integrations/streamerbot/extensions/pubsub` endpoint publishes leaderboards and PUBG snapshots to the Game Stats Extension's `broadcast` target when called by Streamer.bot. The app also publishes a `gamestats` snapshot to Game Stats Extension immediately at startup and every two minutes. For testing, Game Stats always marks its own panel live and defaults to PUBG when Twitch has no current game, so PUBG roster stats are still fetched while the channel is offline. Spotify independently reports the actual Twitch live state and shows its offline panel; Spotify only fetches playback and publishes while the channel is live. PUBG statistics are supported; CS2 GSI is deliberately not used, and CS2 stats await the planned FACEIT/API source. No Streamer.bot action is needed for Spotify. Each panel subscribes with `Twitch.ext.listen("broadcast", callback)` and parses its message JSON.
 - `SPOTIFY_CLIENT_ID`, `SPOTIFY_CLIENT_SECRET`, and `SPOTIFY_REDIRECT_URI`. Register the exact redirect URI in the Spotify application settings.
 - `NEXT_PUBLIC_DISCORD_URL` and `NEXT_PUBLIC_INSTAGRAM_URL` for the hero links.
+- Shop product images use one Cloudflare R2 bucket, under the `shop-icons/`
+  prefix. Create an R2 API token scoped to that bucket with object read, write,
+  and delete access, then set `R2_ACCOUNT_ID`, `R2_ACCESS_KEY_ID`,
+  `R2_SECRET_ACCESS_KEY`, and `R2_BUCKET_NAME`. Set `R2_PUBLIC_BASE_URL` to the
+  HTTPS custom domain connected to that bucket (or its `r2.dev` URL for
+  temporary testing). Uploads accept PNG, JPEG, and WebP files up to 2 MB.
+  Keep the access key and secret only in the server `.env`; do not use
+  `NEXT_PUBLIC_` variables for credentials. The same bucket can later use
+  separate prefixes for emoticons or textures.
 - `WHEEL_MODE` selects wheel behavior: use `production` for live Twitch game
   selection and point deductions, or `test` to spin game wheels without a live
   stream or charging N4JT points. Test mode is intended for a separate

@@ -1,5 +1,6 @@
 "use client";
 
+import Image from "next/image";
 import { useState } from "react";
 import type { FormEvent } from "react";
 
@@ -8,6 +9,8 @@ export type AdminShopProduct = {
   name: string;
   description: string;
   card_color: string;
+  image_url: string | null;
+  image_key: string | null;
   discord_price: number | null;
   twitch_price: number | null;
   active: boolean;
@@ -41,6 +44,7 @@ export default function ShopAdminManager({
   const [error, setError] = useState("");
   const [busy, setBusy] = useState(false);
   const [revertingEventId, setRevertingEventId] = useState<string | null>(null);
+  const [imageBusy, setImageBusy] = useState(false);
 
   async function save(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
@@ -104,6 +108,67 @@ export default function ShopAdminManager({
       setError("Could not cancel and revert this delivery.");
     } finally {
       setRevertingEventId(null);
+    }
+  }
+
+  async function uploadImage(file: File) {
+    if (!selected) return;
+    setError("");
+    setImageBusy(true);
+    const formData = new FormData();
+    formData.set("productId", selected.id);
+    formData.set("file", file);
+    try {
+      const response = await fetch("/api/shop/admin/image", {
+        method: "POST",
+        body: formData,
+      });
+      const result: {
+        error?: string;
+        imageUrl?: string;
+        imageKey?: string;
+        warning?: string;
+      } = await response.json();
+      if (!response.ok || !result.imageUrl || !result.imageKey) {
+        setError(result.error ?? "Could not upload the product image.");
+        return;
+      }
+      setSelected({
+        ...selected,
+        image_url: result.imageUrl,
+        image_key: result.imageKey,
+      });
+      setError(result.warning ?? "");
+    } catch (requestError) {
+      console.error("Shop image upload failed:", requestError);
+      setError("Could not upload the product image.");
+    } finally {
+      setImageBusy(false);
+    }
+  }
+
+  async function removeImage() {
+    if (!selected) return;
+    setError("");
+    setImageBusy(true);
+    try {
+      const response = await fetch("/api/shop/admin/image", {
+        method: "DELETE",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ productId: selected.id }),
+      });
+      const result: { error?: string; imageRemoved?: boolean } = await response.json();
+      if (!response.ok && !result.imageRemoved) {
+        setError(result.error ?? "Could not remove the product image.");
+        return;
+      }
+      setSelected({ ...selected, image_url: null, image_key: null });
+      setError(result.error ?? "");
+    } catch (requestError) {
+      console.error("Shop image removal failed:", requestError);
+      setError("Could not remove the product image.");
+    } finally {
+      setImageBusy(false);
     }
   }
 
@@ -199,6 +264,60 @@ export default function ShopAdminManager({
             </span>
           </div>
         </label>
+        <div className="text-xs font-medium text-zinc-400 sm:col-span-2">
+          Product image
+          {selected ? (
+            <div className="mt-1 flex flex-wrap items-center gap-4 rounded-lg border border-zinc-700 bg-zinc-950 p-3">
+              <div className="relative flex h-20 w-20 items-center justify-center overflow-hidden rounded-xl border border-zinc-700 bg-zinc-900">
+                {selected.image_url ? (
+                  <Image
+                    src={selected.image_url}
+                    alt={`${selected.name} icon`}
+                    fill
+                    unoptimized
+                    sizes="80px"
+                    className="object-cover"
+                  />
+                ) : (
+                  <span className="text-2xl" aria-hidden="true">◇</span>
+                )}
+              </div>
+              <div className="flex flex-wrap gap-2">
+                <label className="cursor-pointer rounded-lg border border-zinc-700 px-3 py-2 text-sm font-semibold text-zinc-200 hover:bg-zinc-800">
+                  {imageBusy ? "Uploading…" : selected.image_url ? "Replace image" : "Upload image"}
+                  <input
+                    type="file"
+                    accept="image/png,image/jpeg,image/webp"
+                    disabled={imageBusy}
+                    className="sr-only"
+                    onChange={(event) => {
+                      const file = event.currentTarget.files?.[0];
+                      event.currentTarget.value = "";
+                      if (file) void uploadImage(file);
+                    }}
+                  />
+                </label>
+                {selected.image_url && (
+                  <button
+                    type="button"
+                    disabled={imageBusy}
+                    onClick={() => void removeImage()}
+                    className="rounded-lg border border-red-900 px-3 py-2 text-sm font-semibold text-red-200 hover:bg-red-950/50 disabled:opacity-50"
+                  >
+                    Remove image
+                  </button>
+                )}
+              </div>
+              <span className="basis-full text-zinc-500">
+                PNG, JPEG, or WebP · maximum 2 MB. Replacing an image removes the previous R2 file.
+              </span>
+            </div>
+          ) : (
+            <p className="mt-1 rounded-lg border border-zinc-700 bg-zinc-950 p-3 text-zinc-500">
+              Save the product first to upload its image.
+            </p>
+          )}
+        </div>
         <label className="text-xs font-medium text-zinc-400 sm:col-span-2">
           Streamer.bot action key
           <input
