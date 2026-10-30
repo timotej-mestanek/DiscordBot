@@ -8,13 +8,15 @@ import type { OpenCrateResult } from "@/lib/black-market/actions";
 import { errorMessage } from "./error-messages";
 import type { BlackMarketCrate } from "./types";
 
-export default function OpenCrateModal({
+export default function SimpleOpenCrateModal({
   accountId,
   crate,
   onClose,
   onQuantityChange,
   onSuccess,
   onError,
+  externalResult,
+  externalPending,
 }: {
   accountId: string;
   crate: BlackMarketCrate;
@@ -22,6 +24,8 @@ export default function OpenCrateModal({
   onQuantityChange: (crateId: string, delta: number) => void;
   onSuccess: (result: Exclude<OpenCrateResult, { type: "error" }>) => void;
   onError: (message: string) => void;
+  externalResult?: Exclude<OpenCrateResult, { type: "error" }> | null;
+  externalPending?: boolean;
 }) {
   const router = useRouter();
   const [pending, setPending] = useState(false);
@@ -29,9 +33,12 @@ export default function OpenCrateModal({
     Exclude<OpenCrateResult, { type: "error" }> | null
   >(null);
   const [hasSucceeded, setHasSucceeded] = useState(false);
+  const externallyManaged = externalPending !== undefined;
+  const shownResult = externallyManaged ? externalResult ?? null : result;
+  const isPending = externallyManaged ? externalPending : pending;
 
   async function handleOpen() {
-    if (pending || crate.quantity < 1) return;
+    if (isPending || crate.quantity < 1) return;
     setPending(true);
     onError("");
     onQuantityChange(crate.id, -1);
@@ -60,7 +67,7 @@ export default function OpenCrateModal({
   }
 
   function close() {
-    if (hasSucceeded) router.refresh();
+    if (hasSucceeded && !externallyManaged) router.refresh();
     onClose();
   }
 
@@ -83,7 +90,7 @@ export default function OpenCrateModal({
           </div>
           <button
             type="button"
-            disabled={pending}
+            disabled={isPending}
             onClick={close}
             className="rounded-lg border border-zinc-700 px-3 py-1 text-sm text-zinc-300 hover:bg-zinc-800 disabled:opacity-50"
           >
@@ -91,18 +98,18 @@ export default function OpenCrateModal({
           </button>
         </div>
 
-        {pending ? (
+        {isPending ? (
           <div className="flex flex-col items-center justify-center gap-3 py-12" role="status">
             <span className="h-8 w-8 animate-spin rounded-full border-2 border-violet-300 border-t-transparent" />
             <p className="text-sm text-zinc-300">Opening...</p>
           </div>
-        ) : result?.type === "item" ? (
+        ) : shownResult?.type === "item" ? (
           <div className="mt-5">
-            <div className="relative aspect-square overflow-hidden rounded-xl border border-zinc-700 bg-zinc-950">
-              {result.imageUrl ? (
+            <div className="relative aspect-square animate-[simple-reveal_400ms_ease-out_both] overflow-hidden rounded-xl border border-zinc-700 bg-zinc-950 motion-reduce:animate-none">
+              {shownResult.imageUrl ? (
                 <Image
-                  src={result.imageUrl}
-                  alt={result.itemName}
+                  src={shownResult.imageUrl}
+                  alt={shownResult.itemName}
                   fill
                   unoptimized
                   sizes="400px"
@@ -112,16 +119,16 @@ export default function OpenCrateModal({
                 <div className="flex h-full items-center justify-center text-5xl text-zinc-700" aria-hidden="true">◇</div>
               )}
             </div>
-            <h3 className="mt-4 text-center text-xl font-black">{result.itemName}</h3>
+            <h3 className="mt-4 text-center text-xl font-black">{shownResult.itemName}</h3>
             <p className="mt-1 text-center text-sm text-emerald-300">
               Added to inventory!
             </p>
           </div>
-        ) : result?.type === "duplicate" ? (
+        ) : shownResult?.type === "duplicate" ? (
           <div className="mt-8 rounded-xl border border-amber-700/60 bg-amber-950/40 p-8 text-center">
             <p className="text-6xl" aria-hidden="true">🥚</p>
             <p className="mt-3 text-2xl font-black text-amber-100">
-              +{result.goldenEggsGained} Golden Eggs
+              +{shownResult.goldenEggsGained} Golden Eggs
             </p>
             <p className="mt-1 text-sm text-amber-100/70">Duplicate item</p>
           </div>
@@ -134,7 +141,7 @@ export default function OpenCrateModal({
         )}
 
         <div className="mt-5 flex justify-end gap-3">
-          {result && crate.quantity > 0 && (
+          {shownResult && crate.quantity > 0 && !externallyManaged && (
             <button
               type="button"
               onClick={() => setResult(null)}
@@ -143,7 +150,7 @@ export default function OpenCrateModal({
               Open another
             </button>
           )}
-          {!result && !pending && (
+          {!shownResult && !isPending && !externallyManaged && (
             <button
               type="button"
               disabled={crate.quantity < 1}
@@ -155,6 +162,12 @@ export default function OpenCrateModal({
           )}
         </div>
       </section>
+      <style jsx>{`
+        @keyframes simple-reveal {
+          from { opacity: 0; }
+          to { opacity: 1; }
+        }
+      `}</style>
     </div>
   );
 }

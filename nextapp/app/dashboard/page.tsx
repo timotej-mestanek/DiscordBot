@@ -160,6 +160,12 @@ export default async function DashboardPage({
                 </a>
               ))}
               <Link
+                href="/admin/black-market"
+                className="rounded-lg px-3 py-2.5 text-sm font-medium text-violet-200/80 transition-colors hover:bg-violet-900/40 hover:text-white"
+              >
+                Black Market
+              </Link>
+              <Link
                 href="/dashboard/remote"
                 className="rounded-lg px-3 py-2.5 text-sm font-medium text-violet-200/80 transition-colors hover:bg-violet-900/40 hover:text-white"
               >

@@ -122,6 +122,11 @@ export async function openCrate(
       const baseLevel = selected.levels.find((level) => level.level === 1);
       if (!baseLevel) throw new Error(`Black Market item ${selected.id} has no level 1 data.`);
 
+      await transaction.blackMarketCrate.update({
+        where: { id: crateId },
+        data: { open_count: { increment: 1 } },
+      });
+
       const owned = await transaction.blackMarketInventory.findUnique({
         where: {
           account_id_item_id: { account_id: accountId, item_id: selected.id },

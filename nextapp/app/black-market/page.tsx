@@ -81,6 +81,7 @@ export default async function BlackMarketPage() {
             id: crate.id,
             name: crate.name,
             previewImageUrl: crate.preview_image_url,
+            textureUrl: crate.texture_url,
             quantity: crate.inventories[0]?.quantity ?? 0,
           }))}
           initialInventory={inventory}

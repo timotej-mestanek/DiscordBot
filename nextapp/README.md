@@ -58,9 +58,10 @@ Copy the new integration settings from `.env.example` into `.env` and configure:
 - Shop product images use one Cloudflare R2 bucket, under the `shop-icons/`
   prefix. Create an R2 API token scoped to that bucket with object read, write,
   and delete access, then set `R2_ACCOUNT_ID`, `R2_ACCESS_KEY_ID`,
-  `R2_SECRET_ACCESS_KEY`, and `R2_BUCKET_NAME`. Set `R2_PUBLIC_BASE_URL` to the
+  `R2_SECRET_ACCESS_KEY`, and `R2_BUCKET_NAME`. Set `R2_PUBLIC_URL` to the
   HTTPS custom domain connected to that bucket (or its `r2.dev` URL for
-  temporary testing). Uploads accept PNG, JPEG, and WebP files up to 2 MB.
+  temporary testing). Shop uploads accept PNG, JPEG, and WebP files up to 2 MB;
+  Black Market crate and item-level uploads accept the same types up to 5 MB.
   Keep the access key and secret only in the server `.env`; do not use
   `NEXT_PUBLIC_` variables for credentials. The same bucket can later use
   separate prefixes for emoticons or textures.

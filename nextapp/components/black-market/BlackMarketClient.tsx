@@ -13,7 +13,7 @@ import type {
 import CrateCard from "./CrateCard";
 import GoldenEggsBalance from "./GoldenEggsBalance";
 import InventoryGrid from "./InventoryGrid";
-import OpenCrateModal from "./OpenCrateModal";
+import CrateOpeningModal from "./opening/CrateOpeningModal";
 import Toast from "./Toast";
 import UpgradeItemModal from "./UpgradeItemModal";
 import { errorMessage } from "./error-messages";
@@ -262,7 +262,7 @@ export default function BlackMarketClient({
       />
 
       {selectedCrate && (
-        <OpenCrateModal
+        <CrateOpeningModal
           accountId={accountId}
           crate={selectedCrate}
           onClose={() => setSelectedCrateId(null)}

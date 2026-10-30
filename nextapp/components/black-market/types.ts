@@ -2,6 +2,7 @@ export type BlackMarketCrate = {
   id: string;
   name: string;
   previewImageUrl: string | null;
+  textureUrl: string | null;
   quantity: number;
 };
 

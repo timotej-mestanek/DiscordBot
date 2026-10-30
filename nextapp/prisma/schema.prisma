@@ -320,7 +320,9 @@ model BlackMarketCrate {
   id                String   @id
   name              String
   preview_image_url String?
+  texture_url       String?
   active            Boolean  @default(true)
+  open_count        Int      @default(0)
   starts_at         DateTime?
   ends_at           DateTime?
   created_at        DateTime @default(now())

@@ -10,8 +10,22 @@ export default function CrateCard({
   disabled: boolean;
   onOpen: () => void;
 }) {
+  function preloadModel() {
+    const modelUrl = crate.textureUrl;
+    if (!modelUrl) return;
+    void import("@react-three/drei")
+      .then(({ useGLTF }) => useGLTF.preload(modelUrl))
+      .catch((error: unknown) => {
+        console.error("Black Market crate model preload failed:", error);
+      });
+  }
+
   return (
-    <article className="flex h-full flex-col overflow-hidden rounded-2xl border border-violet-900/60 bg-zinc-950/90 shadow-xl shadow-black/20">
+    <article
+      onMouseEnter={preloadModel}
+      onFocus={preloadModel}
+      className="flex h-full flex-col overflow-hidden rounded-2xl border border-violet-900/60 bg-zinc-950/90 shadow-xl shadow-black/20"
+    >
       <div className="relative flex aspect-[16/10] items-center justify-center overflow-hidden border-b border-white/10 bg-zinc-900">
         {crate.previewImageUrl ? (
           <Image
