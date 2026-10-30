@@ -1,11 +1,13 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import Image from "next/image";
 import type { GSIData } from "@/types/gsi";
 import type { PubgDailyStats } from "@/lib/services/pubg";
+import type { SpotifyPlayback } from "@/lib/services/spotifyService";
 
 type Props = {
-  widget: "now-playing" | "top-clip" | "cs2" | "pubg";
+  widget: "now-playing" | "spotify" | "top-clip" | "cs2" | "pubg";
   player: string;
   layout: "bar" | "card";
   refreshSeconds: number;
@@ -14,6 +16,7 @@ type Props = {
 export default function OverlayView({ widget, player, refreshSeconds }: Props) {
   const [cs2, setCs2] = useState<GSIData | null>(null);
   const [pubg, setPubg] = useState<PubgDailyStats | null>(null);
+  const [spotify, setSpotify] = useState<SpotifyPlayback | null>(null);
   const [loadError, setLoadError] = useState(false);
 
   useEffect(() => {
@@ -22,7 +25,9 @@ export default function OverlayView({ widget, player, refreshSeconds }: Props) {
     const endpoint =
       widget === "cs2"
         ? "/api/csdata"
-        : `/api/overlays/pubg?player=${encodeURIComponent(player)}`;
+        : widget === "spotify"
+          ? "/api/overlays/now-playing"
+          : `/api/overlays/pubg?player=${encodeURIComponent(player)}`;
 
     const refresh = async () => {
       if (inFlight || (widget === "pubg" && !player)) return;
@@ -33,13 +38,19 @@ export default function OverlayView({ widget, player, refreshSeconds }: Props) {
         if (widget === "cs2") {
           const result: { data: GSIData | null } = await response.json();
           if (active) setCs2(result.data);
+        } else if (widget === "pubg") {
+          const result: { stats: PubgDailyStats } = await response.json();
+          if (active) setPubg(result.stats);
+        } else if (widget === "spotify") {
+          const result: { playback: SpotifyPlayback | null } = await response.json();
+          if (active) setSpotify(result.playback);
         } else {
           const result: { stats: PubgDailyStats } = await response.json();
           if (active) setPubg(result.stats);
         }
         if (active) setLoadError(false);
       } catch (error) {
-        console.error("Could not refresh game overlay:", error);
+        console.error(`Could not refresh ${widget} overlay:`, error);
         if (active) setLoadError(true);
       } finally {
         inFlight = false;
@@ -84,6 +95,8 @@ export default function OverlayView({ widget, player, refreshSeconds }: Props) {
             </div>
             {loadError && <LoadError />}
           </>
+        ) : widget === "spotify" ? (
+          <SpotifyOverlay playback={spotify} loadError={loadError} />
         ) : (
           <>
             <p className="text-[10px] font-bold uppercase tracking-[0.24em] text-amber-300">
@@ -116,6 +129,98 @@ export default function OverlayView({ widget, player, refreshSeconds }: Props) {
         )}
       </section>
     </main>
+  );
+}
+
+function SpotifyOverlay({
+  playback,
+  loadError,
+}: {
+  playback: SpotifyPlayback | null;
+  loadError: boolean;
+}) {
+  const track = playback?.item;
+  const isPlaying = playback?.is_playing ?? false;
+  const artwork = track?.album?.images?.[0]?.url;
+  const artists = track?.artists.map((artist) => artist.name).join(", ");
+
+  return (
+    <div className="spotify-overlay">
+      <div className="spotify-overlay-glow" aria-hidden="true" />
+      <div className="relative flex items-center gap-4">
+        <div className={`spotify-artwork ${isPlaying ? "is-playing" : ""}`}>
+          {artwork ? (
+            <Image
+              src={artwork}
+              alt=""
+              width={88}
+              height={88}
+              unoptimized
+              className="h-full w-full rounded-xl object-cover"
+            />
+          ) : (
+            <SpotifyMark />
+          )}
+          {isPlaying && <span className="spotify-artwork-ring" aria-hidden="true" />}
+        </div>
+        <div className="min-w-0 flex-1">
+          <div className="flex items-center gap-2">
+            <span className="spotify-live-dot" aria-hidden="true" />
+            <p className="text-[10px] font-bold uppercase tracking-[0.24em] text-emerald-300">
+              {isPlaying ? "Now playing" : track ? "Paused" : "Spotify"}
+            </p>
+          </div>
+          {track ? (
+            <>
+              {track.external_urls?.spotify ? (
+                <a
+                  href={track.external_urls.spotify}
+                  target="_blank"
+                  rel="noreferrer"
+                  className="mt-2 block truncate text-lg font-bold tracking-tight text-white transition-colors hover:text-emerald-200"
+                >
+                  {track.name}
+                </a>
+              ) : (
+                <h1 className="mt-2 truncate text-lg font-bold tracking-tight">
+                  {track.name}
+                </h1>
+              )}
+              <p className="mt-0.5 truncate text-sm text-zinc-300">
+                {artists || "Unknown artist"}
+              </p>
+            </>
+          ) : (
+            <p className="mt-2 text-sm text-zinc-300">
+              {loadError ? "Could not connect to Spotify" : "Waiting for a track…"}
+            </p>
+          )}
+          {loadError && track && (
+            <p className="mt-1 text-xs text-amber-200">Connection lost · retrying</p>
+          )}
+        </div>
+        <div
+          className={`spotify-equalizer ${isPlaying ? "is-playing" : ""}`}
+          role="img"
+          aria-label={isPlaying ? "Music is playing" : "Music is paused"}
+        >
+          {[0, 1, 2, 3].map((bar) => (
+            <span key={bar} style={{ animationDelay: `${bar * 110}ms` }} />
+          ))}
+        </div>
+      </div>
+      <div className="spotify-bottom-line" aria-hidden="true" />
+    </div>
+  );
+}
+
+function SpotifyMark() {
+  return (
+    <div className="flex h-full w-full items-center justify-center rounded-xl bg-[#1ed760] text-zinc-950">
+      <svg viewBox="0 0 24 24" className="h-10 w-10" fill="currentColor" aria-hidden="true">
+        <path d="M12 2a10 10 0 1 0 0 20 10 10 0 0 0 0-20Zm4.59 14.42a.75.75 0 0 1-1.03.25c-2.83-1.73-6.4-2.12-10.6-1.16a.75.75 0 1 1-.34-1.46c4.6-1.05 8.55-.6 11.72 1.34.35.22.46.68.25 1.03Zm1.47-3.27a.94.94 0 0 1-1.29.31c-3.24-1.99-8.18-2.56-12.01-1.4a.94.94 0 1 1-.55-1.8c4.38-1.33 9.82-.69 13.54 1.6.44.27.58.85.31 1.29Zm.13-3.4c-3.89-2.31-10.31-2.53-14.02-1.4a1.13 1.13 0 1 1-.66-2.17c4.26-1.29 11.34-1.04 15.82 1.62a1.13 1.13 0 0 1-1.14 1.95Z" />
+      </svg>
+    </div>
   );
 }
 

@@ -1,7 +1,7 @@
 import { notFound } from "next/navigation";
 import OverlayView from "../OverlayView";
 
-type Widget = "now-playing" | "top-clip" | "cs2" | "pubg";
+type Widget = "now-playing" | "spotify" | "top-clip" | "cs2" | "pubg";
 type Layout = "bar" | "card";
 
 export default async function OverlayViewPage({
@@ -17,6 +17,7 @@ export default async function OverlayViewPage({
   const params = await searchParams;
   if (
     params.widget !== "now-playing" &&
+    params.widget !== "spotify" &&
     params.widget !== "top-clip" &&
     params.widget !== "cs2" &&
     params.widget !== "pubg"
@@ -30,12 +31,15 @@ export default async function OverlayViewPage({
   const widget: Widget = params.widget;
   const layout: Layout = params.layout === "bar" ? "bar" : "card";
   const refresh = Number(params.refresh);
-  const allowedRefreshRates = widget === "cs2" ? [1, 2, 5] : [60, 300];
+  const allowedRefreshRates =
+    widget === "cs2" ? [1, 2, 5] : widget === "spotify" ? [5, 10, 30] : [60, 300];
   const refreshSeconds = allowedRefreshRates.includes(refresh)
     ? refresh
     : widget === "cs2"
       ? 2
-      : 60;
+      : widget === "spotify"
+        ? 5
+        : 60;
 
   return (
     <OverlayView

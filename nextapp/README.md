@@ -189,9 +189,9 @@ Import the ready-to-use Streamer.bot action pack from `../streamerbot_plugin/N4J
 
 Admins can inspect successful and failed requests to the Streamer.bot currency endpoint in Dashboard → Admin → Streamer.bot API log. Logs are stored in the app database and can be paged through from newest to oldest; authorization tokens are never stored.
 
-## Game overlays
+## Spotify and game overlays
 
-Admins can create game overlay URLs from Dashboard → Overlaye. Add them to OBS as a Browser Source; the animated card is positioned at the lower edge of the stream. CS2 uses the existing Game State Integration endpoint. PUBG uses the official PUBG API for Steam accounts; configure `PUBG_API_KEY` in `.env` or the deployment environment, then set the player's nickname in the admin overlay URL builder. PUBG stats include only ranked matches started today in the Europe/Prague timezone and available in the player's recent match list. The daily result is cached for five minutes to stay within API limits.
+Admins can create overlay URLs from Dashboard → Overlays. Add them to OBS as a Browser Source; the animated card is positioned at the lower edge of the stream. Spotify now-playing shows the current track, artist, and album art with animated playback status, refreshing every five seconds. It uses the connected Spotify account and the public `/api/overlays/now-playing` endpoint. CS2 uses the existing Game State Integration endpoint. PUBG uses the official PUBG API for Steam accounts; configure `PUBG_API_KEY` in `.env` or the deployment environment, then set the player's nickname in the admin overlay URL builder. PUBG stats include only ranked matches started today in the Europe/Prague timezone and available in the player's recent match list. The daily result is cached for five minutes to stay within API limits.
 
 Public game overlay endpoints are `GET /api/csdata` and `GET /api/overlays/pubg?player=<nickname>`. Do not put the PUBG API key in a `NEXT_PUBLIC_` variable or in an overlay URL.
 

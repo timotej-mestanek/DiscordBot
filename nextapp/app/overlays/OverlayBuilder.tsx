@@ -5,6 +5,7 @@ import { useState, useSyncExternalStore } from "react";
 type Widget =
   | "cs2"
   | "pubg"
+  | "spotify"
   | "custom-led-effect"
   | "wheel"
   | "timer"
@@ -31,7 +32,10 @@ function buildOverlayUrl(origin: string, player: string, widget: Widget): string
   const url = new URL("/overlays/view", origin);
   url.searchParams.set("widget", widget);
   url.searchParams.set("layout", "card");
-  url.searchParams.set("refresh", widget === "cs2" ? "2" : "60");
+  url.searchParams.set(
+    "refresh",
+    widget === "cs2" ? "2" : widget === "spotify" ? "5" : "60",
+  );
   if (widget === "pubg" && player.trim()) {
     url.searchParams.set("player", player.trim());
   }
@@ -82,6 +86,7 @@ export default function OverlayBuilder() {
           >
             <option value="cs2">CS2 live stats</option>
             <option value="pubg">PUBG ranked stats for today</option>
+            <option value="spotify">Spotify now playing</option>
             <option value="wheel">Points prize wheel</option>
             <option value="timer">Countdown timer</option>
             <option value="voting">Live voting results</option>
@@ -153,7 +158,9 @@ export default function OverlayBuilder() {
         </p>
       ) : (
         <p className="mt-5 text-xs text-zinc-500">
-          Public game stats: CS2 via Game State Integration and today&apos;s PUBG ranked stats via the official API.
+          {widget === "spotify"
+            ? "Shows the current Spotify track and animated playback status. Refreshes every five seconds."
+            : "Public game stats: CS2 via Game State Integration and today&apos;s PUBG ranked stats via the official API."}
         </p>
       )}
     </section>
