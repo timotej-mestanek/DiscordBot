@@ -87,6 +87,28 @@ sends the UDP alert; connect it to your donation provider's trigger yourself
 when that provider is configured. These alert actions do not add delays, start
 wheels, or post chat messages.
 
+## Add Twitch followers to the Users list
+
+The app can record Twitch follow events in the admin Dashboard → Users list.
+This only records events received after the action is enabled; it does not
+import existing followers or track unfollows.
+
+1. Apply pending database migrations with `pnpm exec prisma migrate deploy`
+   from `nextapp`.
+2. Set `STREAMERBOT_INGEST_TOKEN` in the app environment and configure the
+   persistent Streamer.bot global `n4jtStreamerBotToken` with the same value.
+3. In Streamer.bot, add a C# sub-action to the Twitch Follow trigger and paste
+   the source from `N4JT-StreamerBot-Follow.cs`. It expects `userId` and one of
+   `userName`, `displayName`, `user_name`, or `username`. If available, provide
+   a unique `eventId` (or `followEventId`, `event_id`, or `id`) for reliable
+   duplicate detection.
+4. If the app uses another public host, change the `Endpoint` constant in the
+   C# source before enabling the trigger.
+
+The action posts to `/api/integrations/streamerbot/follow` using the existing
+bearer token. Follow events are deduplicated by event ID and Twitch users are
+merged with matching chat and linked-account entries.
+
 ## Wheels of Fortune
 
 Import `N4JT-Wheels.sb` as a separate package. It adds five actions under

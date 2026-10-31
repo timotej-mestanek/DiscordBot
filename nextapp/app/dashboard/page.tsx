@@ -8,6 +8,7 @@ import InventoryPanel from "@/app/dashboard/InventoryPanel";
 import LEDTimelineEditor from "@/app/dashboard/LEDTimelineEditor";
 import WheelAdminPanel from "@/app/dashboard/WheelAdminPanel";
 import OverlayBuilder from "@/app/overlays/OverlayBuilder";
+import UsersPanel from "@/app/dashboard/UsersPanel";
 import { getCurrentAccount } from "@/lib/auth/session";
 import { prisma } from "@/lib/prisma";
 import { getAccountPointBalances } from "@/lib/points";
@@ -25,6 +26,7 @@ const adminTabs = [
   { id: "wheels", label: "Wheels" },
   { id: "overlays", label: "Overlays" },
   { id: "interesting", label: "Fun facts" },
+  { id: "users", label: "Users" },
   { id: "logs", label: "Logs" },
 ] as const;
 
@@ -38,6 +40,7 @@ const dashboardTitles: Record<DashboardTab, string> = {
   leds: "LEDS",
   auth: "Authorization",
   interesting: "Fun facts",
+  users: "Users",
   admin: "Stream Settings",
   "admin-shop": "Shop",
   wheels: "Wheels",
@@ -164,12 +167,6 @@ export default async function DashboardPage({
                 className="rounded-lg px-3 py-2.5 text-sm font-medium text-violet-200/80 transition-colors hover:bg-violet-900/40 hover:text-white"
               >
                 Black Market
-              </Link>
-              <Link
-                href="/dashboard/remote"
-                className="rounded-lg px-3 py-2.5 text-sm font-medium text-violet-200/80 transition-colors hover:bg-violet-900/40 hover:text-white"
-              >
-                Stream Deck
               </Link>
             </div>
           )}
@@ -309,6 +306,9 @@ export default async function DashboardPage({
           )}
           {activeTab === "interesting" && account.role === "admin" && (
             <InterestingFactsPanel />
+          )}
+          {activeTab === "users" && account.role === "admin" && (
+            <UsersPanel />
           )}
           {activeTab === "admin-shop" && account.role === "admin" && (
             <AdminShopPanel />

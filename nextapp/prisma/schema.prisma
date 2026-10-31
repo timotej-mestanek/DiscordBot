@@ -482,6 +482,16 @@ model StreamerBotChatMetricEvent {
   @@index([platform, provider_user_id, created_at])
 }
 
+model StreamerBotTwitchFollowEvent {
+  id               String   @id @default(cuid())
+  source_event_id  String   @unique
+  twitch_user_id   String
+  display_name     String
+  created_at       DateTime @default(now())
+
+  @@index([twitch_user_id, created_at])
+}
+
 model ProfanityCategoryEvent {
   id               String   @id @default(cuid())
   source_event_id  String
