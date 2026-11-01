@@ -1,4 +1,4 @@
-import { notFound } from "next/navigation";
+import { notFound, redirect } from "next/navigation";
 import Link from "next/link";
 import Image from "next/image";
 import { prisma } from "@/lib/prisma";
@@ -15,6 +15,9 @@ export default async function BlackMarketItemLevelsPage({
     include: { levels: { orderBy: { level: "asc" } } },
   });
   if (!item) notFound();
+  if (item.item_type !== "progressive") {
+    redirect("/admin/black-market/items");
+  }
 
   return (
     <section>

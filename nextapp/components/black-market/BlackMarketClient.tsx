@@ -65,6 +65,7 @@ export default function BlackMarketClient({
           itemName: string;
           imageUrl: string;
           group: string;
+          itemType: "normal" | "progressive";
           maxLevel: number;
           levels: { level: number; cost: number | null; imageUrl: string }[];
         }
@@ -83,6 +84,8 @@ export default function BlackMarketClient({
       id: result.itemId,
       name: result.itemName,
       group: result.group,
+      itemType: result.itemType,
+      imageUrl: result.imageUrl,
       maxLevel: result.maxLevel,
       currentLevel: 1,
       isEquipped: false,

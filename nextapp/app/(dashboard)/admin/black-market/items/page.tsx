@@ -4,13 +4,19 @@ import { prisma } from "@/lib/prisma";
 import ItemManager from "./ItemManager";
 
 export default async function BlackMarketItemsPage() {
-  const items = await prisma.blackMarketItem.findMany({
+  const [items, crates] = await Promise.all([
+    prisma.blackMarketItem.findMany({
     orderBy: [{ group: "asc" }, { name: "asc" }],
     include: {
       levels: { where: { level: 1 }, select: { image_url: true } },
       _count: { select: { owned_by: true, levels: true } },
     },
-  });
+    }),
+    prisma.blackMarketCrate.findMany({
+      orderBy: { name: "asc" },
+      select: { id: true, name: true },
+    }),
+  ]);
 
   return (
     <section>
@@ -19,7 +25,7 @@ export default async function BlackMarketItemsPage() {
           <h1 className="text-3xl font-bold">Black Market items</h1>
           <p className="mt-2 text-sm text-zinc-400">Create collectible items and configure upgrade levels.</p>
         </div>
-        <ItemManager />
+        <ItemManager crates={crates} />
       </div>
       <div className="overflow-x-auto rounded-xl border border-zinc-800 bg-zinc-900/60">
         <table className="w-full min-w-[760px] text-left text-sm">
@@ -28,6 +34,7 @@ export default async function BlackMarketItemsPage() {
               <th className="px-4 py-3">Thumbnail</th>
               <th className="px-4 py-3">ID / name</th>
               <th className="px-4 py-3">Group</th>
+              <th className="px-4 py-3">Type</th>
               <th className="px-4 py-3">Max level</th>
               <th className="px-4 py-3">Owned</th>
               <th className="px-4 py-3 text-right">Actions</th>
@@ -37,9 +44,9 @@ export default async function BlackMarketItemsPage() {
             {items.map((item) => (
               <tr key={item.id}>
                 <td className="px-4 py-3">
-                  {item.levels[0] ? (
+                  {(item.item_type === "progressive" ? item.levels[0]?.image_url : item.image_url) ? (
                     <Image
-                      src={item.levels[0].image_url}
+                      src={(item.item_type === "progressive" ? item.levels[0]?.image_url : item.image_url)!}
                       alt=""
                       width={48}
                       height={48}
@@ -53,21 +60,29 @@ export default async function BlackMarketItemsPage() {
                   <p className="mt-1 text-xs text-zinc-500">{item.id}</p>
                 </td>
                 <td className="px-4 py-3 text-zinc-300">{item.group}</td>
-                <td className="px-4 py-3 text-zinc-300">{item.max_level}</td>
+                <td className="px-4 py-3 text-zinc-300">
+                  {item.item_type === "progressive" ? "Progressive" : "Normal"}
+                </td>
+                <td className="px-4 py-3 text-zinc-300">
+                  {item.item_type === "progressive" ? item.max_level : "—"}
+                </td>
                 <td className="px-4 py-3 text-zinc-300">{item._count.owned_by}</td>
                 <td className="px-4 py-3">
                   <div className="flex justify-end gap-2">
-                    <Link
+                    {item.item_type === "progressive" && <Link
                       href={`/admin/black-market/items/${encodeURIComponent(item.id)}`}
                       className="rounded-lg border border-zinc-700 px-3 py-2 text-xs font-medium text-zinc-200 hover:border-violet-600"
                     >
                       Manage Levels ({item._count.levels})
-                    </Link>
+                    </Link>}
                     <ItemManager
+                      crates={crates}
                       item={{
                         id: item.id,
                         name: item.name,
                         group: item.group,
+                        itemType: item.item_type,
+                        imageUrl: item.image_url ?? item.levels[0]?.image_url ?? "",
                         maxLevel: item.max_level,
                         ownedCount: item._count.owned_by,
                       }}
@@ -78,7 +93,7 @@ export default async function BlackMarketItemsPage() {
             ))}
             {items.length === 0 && (
               <tr>
-                <td colSpan={6} className="px-4 py-12 text-center text-zinc-500">
+                <td colSpan={7} className="px-4 py-12 text-center text-zinc-500">
                   No items yet. Create the first one to get started.
                 </td>
               </tr>

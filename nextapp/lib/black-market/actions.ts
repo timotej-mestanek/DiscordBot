@@ -20,6 +20,7 @@ export type OpenCrateResult =
       itemName: string;
       imageUrl: string;
       group: string;
+      itemType: "normal" | "progressive";
       maxLevel: number;
       levels: { level: number; cost: number | null; imageUrl: string }[];
     }
@@ -120,7 +121,13 @@ export async function openCrate(
         })),
       );
       const baseLevel = selected.levels.find((level) => level.level === 1);
-      if (!baseLevel) throw new Error(`Black Market item ${selected.id} has no level 1 data.`);
+      const imageUrl = selected.item_type === "progressive"
+        ? baseLevel?.image_url
+        : selected.image_url;
+      if (!imageUrl) throw new Error(`Black Market item ${selected.id} has no image.`);
+      if (selected.item_type === "progressive" && !baseLevel) {
+        throw new Error(`Progressive Black Market item ${selected.id} has no level 1 data.`);
+      }
 
       await transaction.blackMarketCrate.update({
         where: { id: crateId },
@@ -159,8 +166,9 @@ export async function openCrate(
         type: "item",
         itemId: selected.id,
         itemName: selected.name,
-        imageUrl: baseLevel.image_url,
+        imageUrl,
         group: selected.group,
+        itemType: selected.item_type,
         maxLevel: selected.max_level,
         levels: selected.levels.map((level) => ({
           level: level.level,
@@ -193,6 +201,9 @@ export async function upgradeItem(
         include: { item: true },
       });
       if (!owned) return { type: "error", code: "NOT_OWNED" };
+      if (owned.item.item_type !== "progressive") {
+        return { type: "error", code: "MAX_LEVEL" };
+      }
 
       const nextLevel = owned.current_level + 1;
       if (nextLevel > owned.item.max_level) {

@@ -15,14 +15,15 @@ export default function InventoryCard({
   const currentLevel = item.levels.find(
     (level) => level.level === item.currentLevel,
   );
+  const imageUrl = currentLevel?.imageUrl ?? item.imageUrl;
 
   return (
     <article className="flex h-full flex-col overflow-hidden rounded-2xl border border-zinc-800 bg-zinc-950/90 shadow-xl shadow-black/20">
       <div className="relative aspect-square overflow-hidden border-b border-white/10 bg-zinc-900">
-        {currentLevel?.imageUrl ? (
+        {imageUrl ? (
           <Image
-            src={currentLevel.imageUrl}
-            alt={`${item.name} level ${item.currentLevel}`}
+            src={imageUrl}
+            alt={item.itemType === "progressive" ? `${item.name} level ${item.currentLevel}` : item.name}
             fill
             unoptimized
             sizes="(max-width: 640px) 50vw, (max-width: 1024px) 33vw, 260px"
@@ -38,7 +39,9 @@ export default function InventoryCard({
         <div className="flex items-start justify-between gap-2">
           <h4 className="font-bold leading-tight">{item.name}</h4>
           <span className="shrink-0 rounded-full border border-violet-800 bg-violet-950/70 px-2 py-1 text-[10px] font-bold text-violet-200">
-            Lv {item.currentLevel} / {item.maxLevel}
+            {item.itemType === "progressive"
+              ? `Lv ${item.currentLevel} / ${item.maxLevel}`
+              : "Normal"}
           </span>
         </div>
         {item.isEquipped && (
@@ -55,14 +58,14 @@ export default function InventoryCard({
           >
             {item.isEquipped ? "Equipped" : pending ? "Equipping…" : "Equip"}
           </button>
-          <button
+          {item.itemType === "progressive" && <button
             type="button"
             disabled={pending || item.currentLevel >= item.maxLevel}
             onClick={onUpgrade}
             className="rounded-lg bg-violet-600 px-3 py-2 text-xs font-semibold hover:bg-violet-500 disabled:cursor-not-allowed disabled:opacity-50"
           >
             {item.currentLevel >= item.maxLevel ? "MAX" : "Upgrade"}
-          </button>
+          </button>}
         </div>
       </div>
     </article>

@@ -32,6 +32,11 @@ enum PointCurrency {
   twitch_custom
 }
 
+enum BlackMarketItemType {
+  normal
+  progressive
+}
+
 //////////////////////////////////////////////////
 // USERS (admin / auth – bokem)
 //////////////////////////////////////////////////
@@ -354,11 +359,13 @@ model BlackMarketCrateInventory {
 }
 
 model BlackMarketItem {
-  id         String   @id
+  id         String              @id
   name       String
-  group      String   @default("chat")
-  max_level  Int      @default(6)
-  created_at DateTime @default(now())
+  group      String              @default("chat")
+  item_type  BlackMarketItemType @default(progressive)
+  image_url  String?
+  max_level  Int                 @default(6)
+  created_at DateTime            @default(now())
 
   levels   BlackMarketItemLevel[]
   owned_by BlackMarketInventory[]

@@ -3,6 +3,7 @@
 import { revalidatePath } from "next/cache";
 import { getCurrentAccount } from "@/lib/auth/session";
 import { prisma } from "@/lib/prisma";
+import { isBlackMarketItemImageUrl } from "@/lib/r2";
 
 export type AdminActionResult<T = undefined> =
   | { type: "success"; data?: T }
@@ -35,7 +36,11 @@ type ItemInput = {
   id: string;
   name: string;
   group: string;
+  itemType: "normal" | "progressive";
+  imageUrl: string;
   maxLevel: number;
+  crateId: string | null;
+  crateWeight: number;
 };
 
 type ItemLevelInput = {
@@ -117,10 +122,18 @@ function validItemInput(input: unknown): input is ItemInput {
     input.name.trim().length <= 100 &&
     typeof input.group === "string" &&
     /^[a-z0-9_-]{1,32}$/u.test(input.group) &&
+    (input.itemType === "normal" || input.itemType === "progressive") &&
+    isBlackMarketItemImageUrl(input.imageUrl) &&
     typeof input.maxLevel === "number" &&
     Number.isSafeInteger(input.maxLevel) &&
     input.maxLevel >= 1 &&
-    input.maxLevel <= 100
+    input.maxLevel <= 100 &&
+    (input.itemType !== "normal" || input.maxLevel === 1) &&
+    (input.crateId === null || isValidSlug(input.crateId)) &&
+    typeof input.crateWeight === "number" &&
+    Number.isSafeInteger(input.crateWeight) &&
+    input.crateWeight >= 1 &&
+    input.crateWeight <= 1_000_000
   );
 }
 
@@ -199,19 +212,55 @@ export async function createItem(input: ItemInput): Promise<AdminActionResult> {
   if (!(await isAdmin())) return { type: "error", code: "FORBIDDEN" };
   if (!validItemInput(input)) return { type: "error", code: "VALIDATION_ERROR" };
   try {
-    await prisma.blackMarketItem.create({
-      data: {
-        id: input.id,
-        name: input.name.trim(),
-        group: input.group,
-        max_level: input.maxLevel,
-      },
+    await prisma.$transaction(async (transaction) => {
+      if (input.crateId) {
+        const crate = await transaction.blackMarketCrate.findUnique({
+          where: { id: input.crateId },
+          select: { id: true },
+        });
+        if (!crate) throw new Error("CRATE_NOT_FOUND");
+      }
+      await transaction.blackMarketItem.create({
+        data: {
+          id: input.id,
+          name: input.name.trim(),
+          group: input.group,
+          item_type: input.itemType,
+          image_url: input.imageUrl,
+          max_level: input.maxLevel,
+          ...(input.itemType === "progressive"
+            ? {
+                levels: {
+                  create: {
+                    level: 1,
+                    upgrade_cost: null,
+                    image_url: input.imageUrl,
+                  },
+                },
+              }
+            : {}),
+          ...(input.crateId
+            ? {
+                crates: {
+                  create: {
+                    crate_id: input.crateId,
+                    weight: input.crateWeight,
+                  },
+                },
+              }
+            : {}),
+        },
+      });
     });
     revalidateItems();
+    if (input.crateId) revalidatePath(`${adminPath}/crates/${input.crateId}`);
     return { type: "success" };
   } catch (error) {
     if (typeof error === "object" && error !== null && "code" in error && error.code === "P2002") {
       return { type: "error", code: "CONFLICT" };
+    }
+    if (error instanceof Error && error.message === "CRATE_NOT_FOUND") {
+      return { type: "error", code: "VALIDATION_ERROR" };
     }
     console.error("Black Market item creation failed:", error);
     return { type: "error", code: "INTERNAL_ERROR" };
@@ -227,17 +276,41 @@ export async function updateItem(
     return { type: "error", code: "VALIDATION_ERROR" };
   }
   try {
+    const existing = await prisma.blackMarketItem.findUnique({
+      where: { id: itemId },
+      select: { item_type: true },
+    });
+    if (!existing) return { type: "error", code: "NOT_FOUND" };
+    if (existing.item_type !== input.itemType) {
+      return { type: "error", code: "VALIDATION_ERROR" };
+    }
     const levelsAboveLimit = await prisma.blackMarketItemLevel.count({
       where: { item_id: itemId, level: { gt: input.maxLevel } },
     });
     if (levelsAboveLimit > 0) return { type: "error", code: "VALIDATION_ERROR" };
-    const saved = await prisma.blackMarketItem.updateMany({
-      where: { id: itemId },
-      data: {
-        name: input.name.trim(),
-        group: input.group,
-        max_level: input.maxLevel,
-      },
+    const saved = await prisma.$transaction(async (transaction) => {
+      const updated = await transaction.blackMarketItem.updateMany({
+        where: { id: itemId },
+        data: {
+          name: input.name.trim(),
+          group: input.group,
+          image_url: input.imageUrl,
+          max_level: input.maxLevel,
+        },
+      });
+      if (existing.item_type === "progressive") {
+        await transaction.blackMarketItemLevel.upsert({
+          where: { item_id_level: { item_id: itemId, level: 1 } },
+          create: {
+            item_id: itemId,
+            level: 1,
+            upgrade_cost: null,
+            image_url: input.imageUrl,
+          },
+          update: { image_url: input.imageUrl },
+        });
+      }
+      return updated;
     });
     if (saved.count !== 1) return { type: "error", code: "NOT_FOUND" };
     revalidateItems();
@@ -307,28 +380,39 @@ export async function upsertItemLevel(
         !Number.isSafeInteger(input.upgradeCost) ||
         input.upgradeCost <= 0 ||
         input.upgradeCost > 1_000_000_000) ||
-    !isOptionalUrl(input.imageUrl) ||
-    typeof input.imageUrl !== "string" ||
-    input.imageUrl === ""
+    !isBlackMarketItemImageUrl(input.imageUrl)
   ) {
     return { type: "error", code: "VALIDATION_ERROR" };
   }
   try {
     const item = await prisma.blackMarketItem.findUnique({
       where: { id: input.itemId },
-      select: { max_level: true },
+      select: { max_level: true, item_type: true },
     });
     if (!item) return { type: "error", code: "NOT_FOUND" };
-    if (input.level > item.max_level) return { type: "error", code: "VALIDATION_ERROR" };
-    await prisma.blackMarketItemLevel.upsert({
-      where: { item_id_level: { item_id: input.itemId, level: input.level } },
-      create: {
-        item_id: input.itemId,
-        level: input.level,
-        upgrade_cost: input.upgradeCost,
-        image_url: input.imageUrl,
-      },
-      update: { upgrade_cost: input.upgradeCost, image_url: input.imageUrl },
+    if (
+      item.item_type !== "progressive" ||
+      input.level > item.max_level
+    ) {
+      return { type: "error", code: "VALIDATION_ERROR" };
+    }
+    await prisma.$transaction(async (transaction) => {
+      await transaction.blackMarketItemLevel.upsert({
+        where: { item_id_level: { item_id: input.itemId, level: input.level } },
+        create: {
+          item_id: input.itemId,
+          level: input.level,
+          upgrade_cost: input.upgradeCost,
+          image_url: input.imageUrl,
+        },
+        update: { upgrade_cost: input.upgradeCost, image_url: input.imageUrl },
+      });
+      if (input.level === 1) {
+        await transaction.blackMarketItem.update({
+          where: { id: input.itemId },
+          data: { image_url: input.imageUrl },
+        });
+      }
     });
     revalidateItems();
     revalidatePath(`${adminPath}/items/${input.itemId}`);

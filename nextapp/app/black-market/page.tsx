@@ -47,6 +47,12 @@ export default async function BlackMarketPage() {
       id: entry.item.id,
       name: entry.item.name,
       group: entry.group,
+      itemType: entry.item.item_type,
+      imageUrl:
+        (entry.item.item_type === "progressive"
+          ? entry.item.levels.find((level) => level.level === entry.current_level)?.image_url
+          : entry.item.image_url) ??
+        "",
       maxLevel: entry.item.max_level,
       currentLevel: entry.current_level,
       isEquipped: entry.is_equipped,

@@ -16,6 +16,8 @@ export type BlackMarketInventoryItem = {
   id: string;
   name: string;
   group: string;
+  itemType: "normal" | "progressive";
+  imageUrl: string;
   currentLevel: number;
   isEquipped: boolean;
   maxLevel: number;

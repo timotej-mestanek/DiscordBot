@@ -140,6 +140,26 @@ export function ensureR2Configured() {
   getR2Client();
 }
 
+export function isBlackMarketItemImageUrl(value: unknown): value is string {
+  if (typeof value !== "string") return false;
+  let url: URL;
+  let baseUrl: URL;
+  try {
+    url = new URL(value);
+    baseUrl = new URL(getR2PublicBaseUrl());
+  } catch {
+    return false;
+  }
+  const basePath = baseUrl.pathname.replace(/\/+$/u, "");
+  return (
+    url.protocol === "https:" &&
+    url.origin === baseUrl.origin &&
+    !url.search &&
+    !url.hash &&
+    url.pathname.startsWith(`${basePath}/${BLACK_MARKET_ASSET_PREFIX}/item-level/`)
+  );
+}
+
 function isValidImageSignature(contentType: string, bytes: Buffer) {
   const type = allowedTypes.get(contentType);
   if (!type) return false;
