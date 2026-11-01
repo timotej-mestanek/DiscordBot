@@ -338,6 +338,7 @@ model BlackMarketCrate {
 }
 
 model BlackMarketCrateItem {
+  id             String  @id @default(cuid())
   crate_id       String
   item_id        String
   drop_chance    Decimal @default(0) @db.Decimal(5, 2)
@@ -346,7 +347,7 @@ model BlackMarketCrateItem {
   crate BlackMarketCrate @relation(fields: [crate_id], references: [id], onDelete: Cascade)
   item  BlackMarketItem @relation(fields: [item_id], references: [id], onDelete: Cascade)
 
-  @@id([crate_id, item_id])
+  @@index([crate_id, item_id])
 }
 
 model BlackMarketCrateInventory {

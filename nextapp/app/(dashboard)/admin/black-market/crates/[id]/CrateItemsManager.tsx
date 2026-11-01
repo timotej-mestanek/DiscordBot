@@ -10,7 +10,7 @@ import {
 
 type ItemType = "normal" | "progressive" | "golden_eggs";
 type CrateItem = {
-  id: string;
+  crateItemId: string;
   name: string;
   itemType: ItemType;
   dropChance: number;
@@ -23,7 +23,7 @@ function errorText(code: string) {
     FORBIDDEN: "You do not have permission to change crate contents.",
     VALIDATION_ERROR: "Check the drop chance (0–100%, max 2 decimal places) and egg amount. Total crate chance cannot exceed 100%.",
     NOT_FOUND: "The crate or item no longer exists. Refresh and try again.",
-    CONFLICT: "That item is already in this crate.",
+    CONFLICT: "That item is already in this crate, or this egg reward amount is already used.",
     INTERNAL_ERROR: "The crate contents could not be updated.",
   };
   return messages[code] ?? "The crate contents could not be updated.";
@@ -115,9 +115,9 @@ export default function CrateItemsManager({
           </thead>
           <tbody className="divide-y divide-zinc-800">
             {items.map((item) => {
-              const formId = `crate-item-${item.id}`;
+              const formId = `crate-item-${item.crateItemId}`;
               return (
-                <tr key={item.id}>
+                <tr key={item.crateItemId}>
                   <td className="px-4 py-3 font-medium text-white">
                     {item.name}
                     {item.itemType === "golden_eggs" && (
@@ -132,10 +132,10 @@ export default function CrateItemsManager({
                         const goldenEggs = item.itemType === "golden_eggs"
                           ? Number(formData.get("goldenEggs"))
                           : null;
-                        void mutate(`save-${item.id}`, () =>
+                        void mutate(`save-${item.crateItemId}`, () =>
                           updateCrateItemChance(
                             crateId,
-                            item.id,
+                            item.crateItemId,
                             dropChance,
                             goldenEggs,
                           ),
@@ -145,7 +145,7 @@ export default function CrateItemsManager({
                     >
                       <label className="flex items-center gap-2">
                         <input
-                          key={`${item.id}-${item.dropChance}`}
+                          key={`${item.crateItemId}-${item.dropChance}`}
                           name="dropChance"
                           type="number"
                           min={0}
@@ -165,7 +165,7 @@ export default function CrateItemsManager({
                       <label className="flex items-center gap-2">
                         <span className="sr-only">Egg amount</span>
                         <input
-                          key={`${item.id}-eggs-${item.goldenEggs}`}
+                          key={`${item.crateItemId}-eggs-${item.goldenEggs}`}
                           form={formId}
                           name="goldenEggs"
                           type="number"
@@ -182,10 +182,10 @@ export default function CrateItemsManager({
                   <td className="px-4 py-3 text-right">
                     <button
                       type="button"
-                      disabled={busy === `remove-${item.id}`}
+                      disabled={busy === `remove-${item.crateItemId}`}
                       onClick={() => void mutate(
-                        `remove-${item.id}`,
-                        () => removeItemFromCrate(crateId, item.id),
+                        `remove-${item.crateItemId}`,
+                        () => removeItemFromCrate(crateId, item.crateItemId),
                       )}
                       className="rounded-lg border border-red-900 px-3 py-2 text-xs text-red-300 hover:bg-red-950/50 disabled:opacity-50"
                     >
@@ -194,7 +194,7 @@ export default function CrateItemsManager({
                     <button
                       type="submit"
                       form={formId}
-                      disabled={busy === `save-${item.id}`}
+                      disabled={busy === `save-${item.crateItemId}`}
                       className="ml-2 rounded-lg border border-zinc-700 px-3 py-2 text-xs text-zinc-200 hover:border-violet-600 disabled:opacity-50"
                     >
                       Save
@@ -230,7 +230,7 @@ export default function CrateItemsManager({
               <option value="">Select an item</option>
               {availableItems.map((item) => (
                 <option key={item.id} value={item.id}>
-                  {item.name}{item.item_type === "golden_eggs" ? " (currency)" : ""}
+                  {item.name}{item.item_type === "golden_eggs" ? " (currency — add another reward tier)" : ""}
                 </option>
               ))}
             </select>

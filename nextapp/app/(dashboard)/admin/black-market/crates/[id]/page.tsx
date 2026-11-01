@@ -23,7 +23,12 @@ export default async function BlackMarketCrateItemsPage({
   if (!crate) notFound();
 
   const availableItems = await prisma.blackMarketItem.findMany({
-    where: { crates: { none: { crate_id: id } } },
+    where: {
+      OR: [
+        { item_type: "golden_eggs" },
+        { crates: { none: { crate_id: id } } },
+      ],
+    },
     orderBy: { name: "asc" },
     select: { id: true, name: true, item_type: true },
   });
@@ -47,7 +52,7 @@ export default async function BlackMarketCrateItemsPage({
         crateId={crate.id}
         totalChance={totalChance}
         items={crate.items.map((entry) => ({
-          id: entry.item.id,
+          crateItemId: entry.id,
           name: entry.item.name,
           itemType: entry.item.item_type,
           dropChance: Number(entry.drop_chance),
