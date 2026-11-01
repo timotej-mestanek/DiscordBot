@@ -14,13 +14,18 @@ export type AdminItem = {
   id: string;
   name: string;
   group: string;
-  itemType: "normal" | "progressive";
+  itemType: "normal" | "progressive" | "golden_eggs";
   imageUrl: string;
   maxLevel: number;
   ownedCount: number;
 };
 
 type CrateOption = { id: string; name: string };
+type CrateSettings = {
+  selected: boolean;
+  dropChance: string;
+  goldenEggs: string;
+};
 
 function actionError(result: AdminActionResult<unknown>) {
   if (result.type === "success") return "";
@@ -48,11 +53,16 @@ export default function ItemManager({
   const [ownedCount, setOwnedCount] = useState(item?.ownedCount ?? 0);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
-  const [itemType, setItemType] = useState<"normal" | "progressive">(
+  const [itemType, setItemType] = useState<"normal" | "progressive" | "golden_eggs">(
     item?.itemType ?? "progressive",
   );
   const [imageUrl, setImageUrl] = useState(item?.imageUrl ?? "");
-  const [crateId, setCrateId] = useState("");
+  const [crateSettings, setCrateSettings] = useState<Record<string, CrateSettings>>(
+    Object.fromEntries(crates.map((crate) => [
+      crate.id,
+      { selected: false, dropChance: "1", goldenEggs: "10" },
+    ])),
+  );
 
   async function save(formData: FormData) {
     if (!imageUrl) {
@@ -67,11 +77,20 @@ export default function ItemManager({
       group: String(formData.get("group") ?? "").trim().toLowerCase(),
       itemType,
       imageUrl,
-      maxLevel: itemType === "progressive"
-        ? Number(formData.get("maxLevel"))
-        : 1,
-      crateId: item ? null : crateId || null,
-      crateWeight: Number(formData.get("crateWeight") ?? 1),
+      maxLevel: itemType === "progressive" ? Number(formData.get("maxLevel")) : 1,
+      crateAssignments: item
+        ? []
+        : crates.flatMap((crate) => {
+            const settings = crateSettings[crate.id];
+            if (!settings?.selected) return [];
+            return [{
+              crateId: crate.id,
+              dropChance: Number(settings.dropChance),
+              goldenEggs: itemType === "golden_eggs"
+                ? Number(settings.goldenEggs)
+                : null,
+            }];
+          }),
     };
     try {
       const result = item ? await updateItem(item.id, input) : await createItem(input);
@@ -174,18 +193,23 @@ export default function ItemManager({
                   <span className="block">Item type</span>
                   <select
                     value={itemType}
-                    onChange={(event) => setItemType(event.currentTarget.value as "normal" | "progressive")}
+                    onChange={(event) => setItemType(event.currentTarget.value as "normal" | "progressive" | "golden_eggs")}
                     className="w-full rounded-lg border border-zinc-700 bg-zinc-950 px-3 py-2 text-white"
                   >
                     <option value="progressive">Progressive — has levels</option>
                     <option value="normal">Normal — no levels</option>
+                    <option value="golden_eggs">Golden Eggs — currency, not inventory</option>
                   </select>
                 </label>
               ) : (
                 <div className="space-y-2 text-sm text-zinc-300">
                   <span className="block">Item type</span>
                   <p className="rounded-lg border border-zinc-700 bg-zinc-950 px-3 py-2">
-                    {item.itemType === "progressive" ? "Progressive" : "Normal"}
+                    {item.itemType === "progressive"
+                      ? "Progressive"
+                      : item.itemType === "golden_eggs"
+                        ? "Golden Eggs currency"
+                        : "Normal"}
                   </p>
                 </div>
               )}
@@ -208,35 +232,77 @@ export default function ItemManager({
               </p>
             )}
             {!item && crates.length > 0 && (
-              <div className="grid gap-4 sm:grid-cols-2">
-                <label className="space-y-2 text-sm text-zinc-300">
-                  <span className="block">Add directly to crate (optional)</span>
-                  <select
-                    value={crateId}
-                    onChange={(event) => setCrateId(event.currentTarget.value)}
-                    className="w-full rounded-lg border border-zinc-700 bg-zinc-950 px-3 py-2 text-white"
-                  >
-                    <option value="">Do not assign yet</option>
-                    {crates.map((crate) => (
-                      <option key={crate.id} value={crate.id}>{crate.name}</option>
-                    ))}
-                  </select>
-                </label>
-                {crateId && (
-                  <label className="space-y-2 text-sm text-zinc-300">
-                    <span className="block">Drop weight</span>
-                    <input
-                      name="crateWeight"
-                      type="number"
-                      min={1}
-                      max={1_000_000}
-                      required
-                      defaultValue={1}
-                      className="w-full rounded-lg border border-zinc-700 bg-zinc-950 px-3 py-2 text-white"
-                    />
-                  </label>
-                )}
-              </div>
+              <fieldset className="space-y-3">
+                <legend className="text-sm font-medium text-zinc-200">
+                  Add to crates (optional; select any number)
+                </legend>
+                <div className="max-h-56 space-y-3 overflow-y-auto rounded-xl border border-zinc-800 bg-zinc-950/60 p-3">
+                  {crates.map((crate) => {
+                    const settings = crateSettings[crate.id];
+                    return (
+                      <div key={crate.id} className="space-y-2 rounded-lg border border-zinc-800 p-3">
+                        <label className="flex items-center gap-2 text-sm text-zinc-200">
+                          <input
+                            type="checkbox"
+                            checked={settings?.selected ?? false}
+                            onChange={(event) => setCrateSettings((current) => ({
+                              ...current,
+                              [crate.id]: {
+                                ...current[crate.id],
+                                selected: event.currentTarget.checked,
+                              },
+                            }))}
+                          />
+                          {crate.name}
+                        </label>
+                        {settings?.selected && (
+                          <div className="grid gap-3 sm:grid-cols-2">
+                            <label className="space-y-1 text-xs text-zinc-400">
+                              <span className="block">Drop chance (%)</span>
+                              <input
+                                type="number"
+                                min={0}
+                                max={100}
+                                step={0.01}
+                                required
+                                value={settings.dropChance}
+                                onChange={(event) => setCrateSettings((current) => ({
+                                  ...current,
+                                  [crate.id]: {
+                                    ...current[crate.id],
+                                    dropChance: event.currentTarget.value,
+                                  },
+                                }))}
+                                className="w-full rounded-lg border border-zinc-700 bg-zinc-900 px-3 py-2 text-sm text-white"
+                              />
+                            </label>
+                            {itemType === "golden_eggs" && (
+                              <label className="space-y-1 text-xs text-zinc-400">
+                                <span className="block">Egg amount</span>
+                                <input
+                                  type="number"
+                                  min={1}
+                                  max={1_000_000_000}
+                                  required
+                                  value={settings.goldenEggs}
+                                  onChange={(event) => setCrateSettings((current) => ({
+                                    ...current,
+                                    [crate.id]: {
+                                      ...current[crate.id],
+                                      goldenEggs: event.currentTarget.value,
+                                    },
+                                  }))}
+                                  className="w-full rounded-lg border border-zinc-700 bg-zinc-900 px-3 py-2 text-sm text-white"
+                                />
+                              </label>
+                            )}
+                          </div>
+                        )}
+                      </div>
+                    );
+                  })}
+                </div>
+              </fieldset>
             )}
             {error && <p role="alert" className="text-sm text-red-300">{error}</p>}
             <div className="flex flex-wrap justify-end gap-2 border-t border-zinc-800 pt-4">

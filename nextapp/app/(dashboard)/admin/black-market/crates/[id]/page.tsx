@@ -14,7 +14,9 @@ export default async function BlackMarketCrateItemsPage({
     include: {
       items: {
         orderBy: { item: { name: "asc" } },
-        include: { item: { select: { id: true, name: true } } },
+        include: {
+          item: { select: { id: true, name: true, item_type: true } },
+        },
       },
     },
   });
@@ -23,9 +25,12 @@ export default async function BlackMarketCrateItemsPage({
   const availableItems = await prisma.blackMarketItem.findMany({
     where: { crates: { none: { crate_id: id } } },
     orderBy: { name: "asc" },
-    select: { id: true, name: true },
+    select: { id: true, name: true, item_type: true },
   });
-  const totalWeight = crate.items.reduce((total, entry) => total + entry.weight, 0);
+  const totalChance = crate.items.reduce(
+    (total, entry) => total + Number(entry.drop_chance),
+    0,
+  );
 
   return (
     <section>
@@ -35,16 +40,18 @@ export default async function BlackMarketCrateItemsPage({
         </Link>
         <h1 className="mt-3 text-3xl font-bold">{crate.name} items</h1>
         <p className="mt-2 text-sm text-zinc-400">
-          {crate.id} · total drop weight {totalWeight}
+          {crate.id} · total drop chance {totalChance.toFixed(2)}%
         </p>
       </div>
       <CrateItemsManager
         crateId={crate.id}
-        totalWeight={totalWeight}
+        totalChance={totalChance}
         items={crate.items.map((entry) => ({
           id: entry.item.id,
           name: entry.item.name,
-          weight: entry.weight,
+          itemType: entry.item.item_type,
+          dropChance: Number(entry.drop_chance),
+          goldenEggs: entry.golden_eggs,
         }))}
         availableItems={availableItems}
       />

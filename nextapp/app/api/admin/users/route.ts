@@ -119,6 +119,7 @@ export async function GET() {
       select: { id: true, name: true },
     }),
     prisma.blackMarketItem.findMany({
+      where: { item_type: { not: "golden_eggs" } },
       orderBy: { id: "asc" },
       select: { id: true, name: true, group: true },
     }),
@@ -430,9 +431,12 @@ export async function POST(request: Request) {
         }
         const item = await transaction.blackMarketItem.findUnique({
           where: { id: itemId },
-          select: { id: true, group: true },
+          select: { id: true, group: true, item_type: true },
         });
         if (!item) throw new InventoryAdjustmentError("Black Market item not found.");
+        if (item.item_type === "golden_eggs") {
+          throw new InventoryAdjustmentError("Golden Eggs are currency, not an inventory item.");
+        }
 
         if (operation === "add") {
           await transaction.blackMarketInventory.create({

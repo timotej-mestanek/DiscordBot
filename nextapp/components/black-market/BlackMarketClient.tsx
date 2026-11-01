@@ -8,6 +8,7 @@ import {
 } from "@/lib/black-market/actions";
 import type {
   EquipItemResult,
+  OpenCrateResult,
   UpgradeItemResult,
 } from "@/lib/black-market/actions";
 import CrateCard from "./CrateCard";
@@ -58,27 +59,13 @@ export default function BlackMarketClient({
   }
 
   function handleCrateSuccess(
-    result:
-      | {
-          type: "item";
-          itemId: string;
-          itemName: string;
-          imageUrl: string;
-          group: string;
-          itemType: "normal" | "progressive";
-          maxLevel: number;
-          levels: { level: number; cost: number | null; imageUrl: string }[];
-        }
-      | {
-          type: "duplicate";
-          goldenEggsGained: number;
-          totalGoldenEggs: number;
-        },
+    result: Exclude<OpenCrateResult, { type: "error" }>,
   ) {
-    if (result.type === "duplicate") {
+    if (result.type === "duplicate" || result.type === "eggs") {
       setGoldenEggs(result.totalGoldenEggs);
       return;
     }
+    if (result.type === "empty") return;
 
     const newItem: BlackMarketInventoryItem = {
       id: result.itemId,

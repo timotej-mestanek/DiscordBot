@@ -124,13 +124,19 @@ export default function SimpleOpenCrateModal({
               Added to inventory!
             </p>
           </div>
-        ) : shownResult?.type === "duplicate" ? (
+        ) : shownResult?.type === "duplicate" || shownResult?.type === "eggs" ? (
           <div className="mt-8 rounded-xl border border-amber-700/60 bg-amber-950/40 p-8 text-center">
             <p className="text-6xl" aria-hidden="true">🥚</p>
             <p className="mt-3 text-2xl font-black text-amber-100">
               +{shownResult.goldenEggsGained} Golden Eggs
             </p>
-            <p className="mt-1 text-sm text-amber-100/70">Duplicate item</p>
+            {shownResult.type === "duplicate" && (
+              <p className="mt-1 text-sm text-amber-100/70">Duplicate item</p>
+            )}
+          </div>
+        ) : shownResult?.type === "empty" ? (
+          <div className="my-8 rounded-xl border border-zinc-800 bg-zinc-950 p-5 text-center">
+            <p className="text-sm text-zinc-300">No reward this time.</p>
           </div>
         ) : (
           <div className="my-8 rounded-xl border border-zinc-800 bg-zinc-950 p-5 text-center">

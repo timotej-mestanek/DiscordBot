@@ -35,6 +35,7 @@ enum PointCurrency {
 enum BlackMarketItemType {
   normal
   progressive
+  golden_eggs
 }
 
 //////////////////////////////////////////////////
@@ -337,9 +338,10 @@ model BlackMarketCrate {
 }
 
 model BlackMarketCrateItem {
-  crate_id String
-  item_id  String
-  weight   Int    @default(1)
+  crate_id       String
+  item_id        String
+  drop_chance    Decimal @default(0) @db.Decimal(5, 2)
+  golden_eggs    Int?
 
   crate BlackMarketCrate @relation(fields: [crate_id], references: [id], onDelete: Cascade)
   item  BlackMarketItem @relation(fields: [item_id], references: [id], onDelete: Cascade)

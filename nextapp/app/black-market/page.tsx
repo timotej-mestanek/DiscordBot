@@ -31,7 +31,10 @@ export default async function BlackMarketPage() {
       },
     }),
     prisma.blackMarketInventory.findMany({
-      where: { account_id: account.id },
+      where: {
+        account_id: account.id,
+        item: { item_type: { not: "golden_eggs" } },
+      },
       orderBy: [{ group: "asc" }, { item: { name: "asc" } }],
       include: {
         item: {
@@ -42,8 +45,9 @@ export default async function BlackMarketPage() {
       },
     }),
   ]);
-  const inventory = ownedItems.map((entry) => {
-    return {
+  const inventory = ownedItems.flatMap((entry) => {
+    if (entry.item.item_type === "golden_eggs") return [];
+    return [{
       id: entry.item.id,
       name: entry.item.name,
       group: entry.group,
@@ -61,7 +65,7 @@ export default async function BlackMarketPage() {
         imageUrl: level.image_url,
         upgradeCost: level.upgrade_cost,
       })),
-    };
+    }];
   });
 
   return (

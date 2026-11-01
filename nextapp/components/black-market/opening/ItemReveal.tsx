@@ -12,7 +12,7 @@ export default function ItemReveal({
 }) {
   return (
     <div className="absolute inset-0 z-10 flex items-center justify-center bg-zinc-950/55 p-5 backdrop-blur-sm">
-      {result.type === "duplicate" ? (
+      {result.type === "duplicate" || result.type === "eggs" ? (
         <section
           aria-live="polite"
           className="w-full max-w-sm animate-[item-reveal_500ms_cubic-bezier(.16,1,.3,1)_both] rounded-3xl border border-amber-500/60 bg-zinc-950/95 p-8 text-center shadow-2xl shadow-amber-500/20"
@@ -22,13 +22,30 @@ export default function ItemReveal({
             +{result.goldenEggsGained}
           </h2>
           <p className="mt-2 text-lg font-bold text-amber-200">Golden Eggs</p>
-          <p className="mt-2 text-sm text-zinc-400">Duplicate item</p>
+          {result.type === "duplicate" && (
+            <p className="mt-2 text-sm text-zinc-400">Duplicate item</p>
+          )}
           <button
             type="button"
             onClick={onClose}
             className="mt-7 w-full rounded-xl bg-violet-600 px-5 py-3 font-bold text-white hover:bg-violet-500"
           >
             Nice!
+          </button>
+        </section>
+      ) : result.type === "empty" ? (
+        <section
+          aria-live="polite"
+          className="w-full max-w-sm rounded-3xl border border-zinc-700 bg-zinc-950/95 p-8 text-center shadow-2xl"
+        >
+          <p className="text-5xl" aria-hidden="true">◇</p>
+          <h2 className="mt-4 text-2xl font-black text-white">No reward this time</h2>
+          <button
+            type="button"
+            onClick={onClose}
+            className="mt-7 w-full rounded-xl bg-violet-600 px-5 py-3 font-bold text-white hover:bg-violet-500"
+          >
+            Close
           </button>
         </section>
       ) : (

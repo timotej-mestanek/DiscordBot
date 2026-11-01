@@ -4,7 +4,7 @@ import { getCurrentAccount } from "@/lib/auth/session";
 import { prisma } from "@/lib/prisma";
 import type { Prisma } from "@prisma/client";
 import { DUPLICATE_EGG_REWARD } from "./constants";
-import { pickWeighted } from "./random";
+import { pickByChance } from "./random";
 
 type CommonErrorCode = "UNAUTHENTICATED" | "FORBIDDEN" | "INTERNAL_ERROR";
 class ExpectedActionError extends Error {
@@ -29,6 +29,12 @@ export type OpenCrateResult =
       goldenEggsGained: number;
       totalGoldenEggs: number;
     }
+  | {
+      type: "eggs";
+      goldenEggsGained: number;
+      totalGoldenEggs: number;
+    }
+  | { type: "empty" }
   | {
       type: "error";
       code:
@@ -114,29 +120,48 @@ export async function openCrate(
         throw new ExpectedActionError("NO_ITEMS_IN_CRATE");
       }
 
-      const selected = pickWeighted(
+      const selected = pickByChance(
         crateItems.map((crateItem) => ({
-          value: crateItem.item,
-          weight: crateItem.weight,
+          value: crateItem,
+          chance: Number(crateItem.drop_chance),
         })),
       );
-      const baseLevel = selected.levels.find((level) => level.level === 1);
-      const imageUrl = selected.item_type === "progressive"
-        ? baseLevel?.image_url
-        : selected.image_url;
-      if (!imageUrl) throw new Error(`Black Market item ${selected.id} has no image.`);
-      if (selected.item_type === "progressive" && !baseLevel) {
-        throw new Error(`Progressive Black Market item ${selected.id} has no level 1 data.`);
-      }
-
       await transaction.blackMarketCrate.update({
         where: { id: crateId },
         data: { open_count: { increment: 1 } },
       });
+      if (!selected) return { type: "empty" };
+
+      const item = selected.item;
+      if (item.item_type === "golden_eggs") {
+        const amount = selected.golden_eggs;
+        if (!amount || amount <= 0) {
+          throw new Error(`Golden Eggs reward in crate ${crateId} has no valid amount.`);
+        }
+        const account = await transaction.webAccount.update({
+          where: { id: accountId },
+          data: { golden_eggs: { increment: amount } },
+          select: { golden_eggs: true },
+        });
+        return {
+          type: "eggs",
+          goldenEggsGained: amount,
+          totalGoldenEggs: account.golden_eggs,
+        };
+      }
+
+      const baseLevel = item.levels.find((level) => level.level === 1);
+      const imageUrl = item.item_type === "progressive"
+        ? baseLevel?.image_url
+        : item.image_url;
+      if (!imageUrl) throw new Error(`Black Market item ${item.id} has no image.`);
+      if (item.item_type === "progressive" && !baseLevel) {
+        throw new Error(`Progressive Black Market item ${item.id} has no level 1 data.`);
+      }
 
       const owned = await transaction.blackMarketInventory.findUnique({
         where: {
-          account_id_item_id: { account_id: accountId, item_id: selected.id },
+          account_id_item_id: { account_id: accountId, item_id: item.id },
         },
         select: { id: true },
       });
@@ -156,21 +181,21 @@ export async function openCrate(
       await transaction.blackMarketInventory.create({
         data: {
           account_id: accountId,
-          item_id: selected.id,
-          group: selected.group,
+          item_id: item.id,
+          group: item.group,
           current_level: 1,
           is_equipped: false,
         },
       });
       return {
         type: "item",
-        itemId: selected.id,
-        itemName: selected.name,
+        itemId: item.id,
+        itemName: item.name,
         imageUrl,
-        group: selected.group,
-        itemType: selected.item_type,
-        maxLevel: selected.max_level,
-        levels: selected.levels.map((level) => ({
+        group: item.group,
+        itemType: item.item_type,
+        maxLevel: item.max_level,
+        levels: item.levels.map((level) => ({
           level: level.level,
           cost: level.upgrade_cost,
           imageUrl: level.image_url,

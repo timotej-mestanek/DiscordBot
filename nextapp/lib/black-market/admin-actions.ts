@@ -3,6 +3,7 @@
 import { revalidatePath } from "next/cache";
 import { getCurrentAccount } from "@/lib/auth/session";
 import { prisma } from "@/lib/prisma";
+import type { Prisma } from "@prisma/client";
 import { isBlackMarketItemImageUrl } from "@/lib/r2";
 
 export type AdminActionResult<T = undefined> =
@@ -36,11 +37,16 @@ type ItemInput = {
   id: string;
   name: string;
   group: string;
-  itemType: "normal" | "progressive";
+  itemType: "normal" | "progressive" | "golden_eggs";
   imageUrl: string;
   maxLevel: number;
-  crateId: string | null;
-  crateWeight: number;
+  crateAssignments: CrateAssignmentInput[];
+};
+
+type CrateAssignmentInput = {
+  crateId: string;
+  dropChance: number;
+  goldenEggs: number | null;
 };
 
 type ItemLevelInput = {
@@ -52,6 +58,7 @@ type ItemLevelInput = {
 
 const slugPattern = /^[a-z0-9]+(?:-[a-z0-9]+)*$/u;
 const adminPath = "/admin/black-market";
+const DROP_CHANCE_SCALE = 100;
 
 async function isAdmin() {
   return (await getCurrentAccount())?.role === "admin";
@@ -114,7 +121,39 @@ function validCrateInput(input: unknown): input is CrateInput {
 }
 
 function validItemInput(input: unknown): input is ItemInput {
-  if (!isRecord(input)) return false;
+  if (!isRecord(input) || !Array.isArray(input.crateAssignments)) return false;
+  const assignments = input.crateAssignments;
+  if (
+    !assignments.every(
+      (assignment): assignment is CrateAssignmentInput =>
+        isRecord(assignment) &&
+        isValidSlug(assignment.crateId) &&
+        typeof assignment.dropChance === "number" &&
+        Number.isFinite(assignment.dropChance) &&
+        assignment.dropChance >= 0 &&
+        assignment.dropChance <= 100 &&
+        Math.abs(assignment.dropChance * DROP_CHANCE_SCALE -
+          Math.round(assignment.dropChance * DROP_CHANCE_SCALE)) < 1e-8 &&
+        (assignment.goldenEggs === null ||
+          (typeof assignment.goldenEggs === "number" &&
+            Number.isSafeInteger(assignment.goldenEggs) &&
+            assignment.goldenEggs > 0 &&
+            assignment.goldenEggs <= 1_000_000_000)),
+    ) ||
+    new Set(assignments.map((entry) => isRecord(entry) ? entry.crateId : null)).size !==
+      assignments.length
+  ) {
+    return false;
+  }
+  const chanceTotals = assignments.reduce(
+    (totals, assignment) =>
+      totals.set(
+        assignment.crateId,
+        (totals.get(assignment.crateId) ?? 0) +
+          Math.round(assignment.dropChance * DROP_CHANCE_SCALE),
+      ),
+    new Map<string, number>(),
+  );
   return (
     isValidSlug(input.id) &&
     typeof input.name === "string" &&
@@ -122,19 +161,91 @@ function validItemInput(input: unknown): input is ItemInput {
     input.name.trim().length <= 100 &&
     typeof input.group === "string" &&
     /^[a-z0-9_-]{1,32}$/u.test(input.group) &&
-    (input.itemType === "normal" || input.itemType === "progressive") &&
+    (input.itemType === "normal" ||
+      input.itemType === "progressive" ||
+      input.itemType === "golden_eggs") &&
     isBlackMarketItemImageUrl(input.imageUrl) &&
     typeof input.maxLevel === "number" &&
     Number.isSafeInteger(input.maxLevel) &&
     input.maxLevel >= 1 &&
     input.maxLevel <= 100 &&
-    (input.itemType !== "normal" || input.maxLevel === 1) &&
-    (input.crateId === null || isValidSlug(input.crateId)) &&
-    typeof input.crateWeight === "number" &&
-    Number.isSafeInteger(input.crateWeight) &&
-    input.crateWeight >= 1 &&
-    input.crateWeight <= 1_000_000
+    (input.itemType === "progressive"
+      ? input.maxLevel >= 1
+      : input.maxLevel === 1) &&
+    assignments.every((assignment) =>
+      input.itemType === "golden_eggs"
+        ? assignment.goldenEggs !== null
+        : assignment.goldenEggs === null,
+    ) &&
+    [...chanceTotals.values()].every((total) => total <= 100 * DROP_CHANCE_SCALE)
   );
+}
+
+async function lockAndValidateCrateChances(
+  transaction: Prisma.TransactionClient,
+  assignments: CrateAssignmentInput[],
+) {
+  const totals = new Map<string, number>();
+  for (const assignment of assignments) {
+    totals.set(
+      assignment.crateId,
+      (totals.get(assignment.crateId) ?? 0) +
+        Math.round(assignment.dropChance * DROP_CHANCE_SCALE),
+    );
+  }
+  for (const [crateId, addedChance] of [...totals].sort(([left], [right]) =>
+    left.localeCompare(right),
+  )) {
+    const crates = await transaction.$queryRaw<Array<{ id: string }>>`
+      SELECT "id" FROM "BlackMarketCrate" WHERE "id" = ${crateId} FOR UPDATE
+    `;
+    if (crates.length !== 1) throw new Error("CRATE_NOT_FOUND");
+    const current = await transaction.blackMarketCrateItem.aggregate({
+      where: { crate_id: crateId },
+      _sum: { drop_chance: true },
+    });
+    const currentChance = Math.round(
+      Number(current._sum.drop_chance ?? 0) * DROP_CHANCE_SCALE,
+    );
+    if (currentChance + addedChance > 100 * DROP_CHANCE_SCALE) {
+      throw new Error("DROP_CHANCE_EXCEEDED");
+    }
+  }
+}
+
+function isValidDropChance(value: number) {
+  return (
+    Number.isFinite(value) &&
+    value >= 0 &&
+    value <= 100 &&
+    Math.abs(value * DROP_CHANCE_SCALE -
+      Math.round(value * DROP_CHANCE_SCALE)) < 1e-8
+  );
+}
+
+async function lockAndValidateCrateChanceUpdate(
+  transaction: Prisma.TransactionClient,
+  crateId: string,
+  itemId: string,
+  dropChance: number,
+) {
+  const crates = await transaction.$queryRaw<Array<{ id: string }>>`
+      SELECT "id" FROM "BlackMarketCrate" WHERE "id" = ${crateId} FOR UPDATE
+    `;
+  if (crates.length !== 1) throw new Error("CRATE_NOT_FOUND");
+  const current = await transaction.blackMarketCrateItem.aggregate({
+    where: { crate_id: crateId, item_id: { not: itemId } },
+    _sum: { drop_chance: true },
+  });
+  const currentChance = Math.round(
+    Number(current._sum.drop_chance ?? 0) * DROP_CHANCE_SCALE,
+  );
+  if (
+    currentChance + Math.round(dropChance * DROP_CHANCE_SCALE) >
+    100 * DROP_CHANCE_SCALE
+  ) {
+    throw new Error("DROP_CHANCE_EXCEEDED");
+  }
 }
 
 export async function createCrate(
@@ -213,13 +324,14 @@ export async function createItem(input: ItemInput): Promise<AdminActionResult> {
   if (!validItemInput(input)) return { type: "error", code: "VALIDATION_ERROR" };
   try {
     await prisma.$transaction(async (transaction) => {
-      if (input.crateId) {
-        const crate = await transaction.blackMarketCrate.findUnique({
-          where: { id: input.crateId },
+      if (input.itemType === "golden_eggs") {
+        const existingEggReward = await transaction.blackMarketItem.findFirst({
+          where: { item_type: "golden_eggs" },
           select: { id: true },
         });
-        if (!crate) throw new Error("CRATE_NOT_FOUND");
+        if (existingEggReward) throw new Error("EGG_REWARD_EXISTS");
       }
+      await lockAndValidateCrateChances(transaction, input.crateAssignments);
       await transaction.blackMarketItem.create({
         data: {
           id: input.id,
@@ -239,21 +351,20 @@ export async function createItem(input: ItemInput): Promise<AdminActionResult> {
                 },
               }
             : {}),
-          ...(input.crateId
-            ? {
-                crates: {
-                  create: {
-                    crate_id: input.crateId,
-                    weight: input.crateWeight,
-                  },
-                },
-              }
-            : {}),
+          crates: {
+            create: input.crateAssignments.map((assignment) => ({
+              crate_id: assignment.crateId,
+              drop_chance: assignment.dropChance,
+              golden_eggs: assignment.goldenEggs,
+            })),
+          },
         },
       });
     });
     revalidateItems();
-    if (input.crateId) revalidatePath(`${adminPath}/crates/${input.crateId}`);
+    for (const assignment of input.crateAssignments) {
+      revalidatePath(`${adminPath}/crates/${assignment.crateId}`);
+    }
     return { type: "success" };
   } catch (error) {
     if (typeof error === "object" && error !== null && "code" in error && error.code === "P2002") {
@@ -261,6 +372,12 @@ export async function createItem(input: ItemInput): Promise<AdminActionResult> {
     }
     if (error instanceof Error && error.message === "CRATE_NOT_FOUND") {
       return { type: "error", code: "VALIDATION_ERROR" };
+    }
+    if (error instanceof Error && error.message === "DROP_CHANCE_EXCEEDED") {
+      return { type: "error", code: "VALIDATION_ERROR" };
+    }
+    if (error instanceof Error && error.message === "EGG_REWARD_EXISTS") {
+      return { type: "error", code: "CONFLICT" };
     }
     console.error("Black Market item creation failed:", error);
     return { type: "error", code: "INTERNAL_ERROR" };
@@ -450,15 +567,44 @@ export async function deleteItemLevel(
 export async function addItemToCrate(
   crateId: string,
   itemId: string,
-  weight: number,
+  dropChance: number,
+  goldenEggs: number | null,
 ): Promise<AdminActionResult> {
   if (!(await isAdmin())) return { type: "error", code: "FORBIDDEN" };
-  if (!isValidSlug(crateId) || !isValidSlug(itemId) || !Number.isSafeInteger(weight) || weight < 1 || weight > 1_000_000) {
+  if (
+    !isValidSlug(crateId) ||
+    !isValidSlug(itemId) ||
+    !isValidDropChance(dropChance) ||
+    (goldenEggs !== null &&
+      (!Number.isSafeInteger(goldenEggs) ||
+        goldenEggs < 1 ||
+        goldenEggs > 1_000_000_000))
+  ) {
     return { type: "error", code: "VALIDATION_ERROR" };
   }
   try {
-    await prisma.blackMarketCrateItem.create({
-      data: { crate_id: crateId, item_id: itemId, weight },
+    await prisma.$transaction(async (transaction) => {
+      const item = await transaction.blackMarketItem.findUnique({
+        where: { id: itemId },
+        select: { item_type: true },
+      });
+      if (!item) throw new Error("ITEM_NOT_FOUND");
+      if (
+        (item.item_type === "golden_eggs") !== (goldenEggs !== null)
+      ) {
+        throw new Error("INVALID_EGG_REWARD");
+      }
+      await lockAndValidateCrateChances(transaction, [
+        { crateId, dropChance, goldenEggs },
+      ]);
+      await transaction.blackMarketCrateItem.create({
+        data: {
+          crate_id: crateId,
+          item_id: itemId,
+          drop_chance: dropChance,
+          golden_eggs: goldenEggs,
+        },
+      });
     });
     revalidatePath(`${adminPath}/crates/${crateId}`);
     revalidateCrates();
@@ -470,30 +616,81 @@ export async function addItemToCrate(
     if (typeof error === "object" && error !== null && "code" in error && error.code === "P2003") {
       return { type: "error", code: "NOT_FOUND" };
     }
+    if (
+      error instanceof Error &&
+      ["CRATE_NOT_FOUND", "ITEM_NOT_FOUND"].includes(error.message)
+    ) {
+      return { type: "error", code: "NOT_FOUND" };
+    }
+    if (
+      error instanceof Error &&
+      ["DROP_CHANCE_EXCEEDED", "INVALID_EGG_REWARD"].includes(error.message)
+    ) {
+      return { type: "error", code: "VALIDATION_ERROR" };
+    }
     console.error("Black Market crate item add failed:", error);
     return { type: "error", code: "INTERNAL_ERROR" };
   }
 }
 
-export async function updateCrateItemWeight(
+export async function updateCrateItemChance(
   crateId: string,
   itemId: string,
-  weight: number,
+  dropChance: number,
+  goldenEggs: number | null,
 ): Promise<AdminActionResult> {
   if (!(await isAdmin())) return { type: "error", code: "FORBIDDEN" };
-  if (!isValidSlug(crateId) || !isValidSlug(itemId) || !Number.isSafeInteger(weight) || weight < 1 || weight > 1_000_000) {
+  if (
+    !isValidSlug(crateId) ||
+    !isValidSlug(itemId) ||
+    !isValidDropChance(dropChance) ||
+    (goldenEggs !== null &&
+      (!Number.isSafeInteger(goldenEggs) ||
+        goldenEggs < 1 ||
+        goldenEggs > 1_000_000_000))
+  ) {
     return { type: "error", code: "VALIDATION_ERROR" };
   }
   try {
-    const updated = await prisma.blackMarketCrateItem.updateMany({
-      where: { crate_id: crateId, item_id: itemId },
-      data: { weight },
+    await prisma.$transaction(async (transaction) => {
+      const item = await transaction.blackMarketItem.findUnique({
+        where: { id: itemId },
+        select: { item_type: true },
+      });
+      if (!item) throw new Error("ITEM_NOT_FOUND");
+      if (
+        (item.item_type === "golden_eggs") !== (goldenEggs !== null)
+      ) {
+        throw new Error("INVALID_EGG_REWARD");
+      }
+      await lockAndValidateCrateChanceUpdate(
+        transaction,
+        crateId,
+        itemId,
+        dropChance,
+      );
+      const updated = await transaction.blackMarketCrateItem.updateMany({
+        where: { crate_id: crateId, item_id: itemId },
+        data: { drop_chance: dropChance, golden_eggs: goldenEggs },
+      });
+      if (updated.count !== 1) throw new Error("CRATE_ITEM_NOT_FOUND");
     });
-    if (updated.count !== 1) return { type: "error", code: "NOT_FOUND" };
     revalidatePath(`${adminPath}/crates/${crateId}`);
     return { type: "success" };
   } catch (error) {
-    console.error("Black Market crate item weight update failed:", error);
+    if (
+      error instanceof Error &&
+      ["CRATE_NOT_FOUND", "ITEM_NOT_FOUND", "CRATE_ITEM_NOT_FOUND"].includes(error.message)
+    ) {
+      return { type: "error", code: "NOT_FOUND" };
+    }
+    if (
+      error instanceof Error &&
+      ["DROP_CHANCE_EXCEEDED", "INVALID_EGG_REWARD"].includes(error.message)
+    ) {
+      return { type: "error", code: "VALIDATION_ERROR" };
+    }
+    console.error("Black Market crate item chance update failed:", error);
     return { type: "error", code: "INTERNAL_ERROR" };
   }
 }

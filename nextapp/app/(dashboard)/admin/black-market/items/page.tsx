@@ -6,11 +6,11 @@ import ItemManager from "./ItemManager";
 export default async function BlackMarketItemsPage() {
   const [items, crates] = await Promise.all([
     prisma.blackMarketItem.findMany({
-    orderBy: [{ group: "asc" }, { name: "asc" }],
-    include: {
-      levels: { where: { level: 1 }, select: { image_url: true } },
-      _count: { select: { owned_by: true, levels: true } },
-    },
+      orderBy: [{ group: "asc" }, { name: "asc" }],
+      include: {
+        levels: { where: { level: 1 }, select: { image_url: true } },
+        _count: { select: { owned_by: true, levels: true } },
+      },
     }),
     prisma.blackMarketCrate.findMany({
       orderBy: { name: "asc" },
@@ -61,7 +61,11 @@ export default async function BlackMarketItemsPage() {
                 </td>
                 <td className="px-4 py-3 text-zinc-300">{item.group}</td>
                 <td className="px-4 py-3 text-zinc-300">
-                  {item.item_type === "progressive" ? "Progressive" : "Normal"}
+                  {item.item_type === "progressive"
+                    ? "Progressive"
+                    : item.item_type === "golden_eggs"
+                      ? "Golden Eggs currency"
+                      : "Normal"}
                 </td>
                 <td className="px-4 py-3 text-zinc-300">
                   {item.item_type === "progressive" ? item.max_level : "—"}
