@@ -15,6 +15,8 @@ export type AdminActionResult<T = undefined> =
         | "VALIDATION_ERROR"
         | "NOT_FOUND"
         | "CONFLICT"
+        | "LINKED_PRODUCTS"
+        | "KEY_PRODUCTS_EXIST"
         | "ITEM_ID_CONFLICT"
         | "EGG_REWARD_EXISTS"
         | "CRATE_REWARD_EXISTS"
@@ -30,8 +32,9 @@ type CrateInput = {
   id: string;
   name: string;
   active: boolean;
+  requiresKey: boolean;
   startsAt: string | null;
-  endsAt: string | null;
+  endsAt: string;
   previewImageUrl: string | null;
   textureUrl: string | null;
 };
@@ -41,6 +44,7 @@ type ItemInput = {
   name: string;
   group: string;
   itemType: "normal" | "progressive" | "golden_eggs";
+  expiry: "permanent" | "seven_days" | "thirty_days" | "event_end";
   imageUrl: string;
   maxLevel: number;
   crateAssignments: CrateAssignmentInput[];
@@ -122,6 +126,8 @@ function validCrateInput(input: unknown): input is CrateInput {
     input.name.trim().length > 0 &&
     input.name.trim().length <= 100 &&
     typeof input.active === "boolean" &&
+    typeof input.requiresKey === "boolean" &&
+    typeof input.endsAt === "string" &&
     isValidDate(input.startsAt) &&
     isValidDate(input.endsAt) &&
     isOptionalUrl(input.previewImageUrl) &&
@@ -176,6 +182,12 @@ function validItemInput(input: unknown): input is ItemInput {
     (input.itemType === "normal" ||
       input.itemType === "progressive" ||
       input.itemType === "golden_eggs") &&
+    (input.itemType === "normal"
+      ? input.expiry === "permanent" ||
+        input.expiry === "seven_days" ||
+        input.expiry === "thirty_days" ||
+        input.expiry === "event_end"
+      : input.expiry === "permanent") &&
     isBlackMarketItemImageUrl(input.imageUrl) &&
     typeof input.maxLevel === "number" &&
     Number.isSafeInteger(input.maxLevel) &&
@@ -271,8 +283,9 @@ export async function createCrate(
         id: input.id,
         name: input.name.trim(),
         active: input.active,
+        requires_key: input.requiresKey,
         starts_at: input.startsAt ? new Date(input.startsAt) : null,
-        ends_at: input.endsAt ? new Date(input.endsAt) : null,
+        ends_at: new Date(input.endsAt),
         preview_image_url: input.previewImageUrl,
         texture_url: input.textureUrl,
       },
@@ -297,13 +310,23 @@ export async function updateCrate(
     return { type: "error", code: "VALIDATION_ERROR" };
   }
   try {
+    if (!input.requiresKey) {
+      const keyProducts = await prisma.shopProduct.count({
+        where: {
+          product_type: "black_market_key",
+          black_market_crate_id: crateId,
+        },
+      });
+      if (keyProducts > 0) return { type: "error", code: "KEY_PRODUCTS_EXIST" };
+    }
     const saved = await prisma.blackMarketCrate.updateMany({
       where: { id: crateId },
       data: {
         name: input.name.trim(),
         active: input.active,
+        requires_key: input.requiresKey,
         starts_at: input.startsAt ? new Date(input.startsAt) : null,
-        ends_at: input.endsAt ? new Date(input.endsAt) : null,
+        ends_at: new Date(input.endsAt),
         preview_image_url: input.previewImageUrl,
         texture_url: input.textureUrl,
       },
@@ -321,6 +344,10 @@ export async function deleteCrate(crateId: string): Promise<AdminActionResult> {
   if (!(await isAdmin())) return { type: "error", code: "FORBIDDEN" };
   if (!isValidSlug(crateId)) return { type: "error", code: "VALIDATION_ERROR" };
   try {
+    const linkedProducts = await prisma.shopProduct.count({
+      where: { black_market_crate_id: crateId },
+    });
+    if (linkedProducts > 0) return { type: "error", code: "LINKED_PRODUCTS" };
     const deleted = await prisma.blackMarketCrate.deleteMany({ where: { id: crateId } });
     if (deleted.count !== 1) return { type: "error", code: "NOT_FOUND" };
     revalidateCrates();
@@ -350,6 +377,7 @@ export async function createItem(input: ItemInput): Promise<AdminActionResult> {
           name: input.name.trim(),
           group: input.group,
           item_type: input.itemType,
+          expiry: input.expiry,
           image_url: input.imageUrl,
           max_level: input.maxLevel,
           ...(input.itemType === "progressive"
@@ -435,6 +463,7 @@ export async function updateItem(
           group: input.group,
           image_url: input.imageUrl,
           max_level: input.maxLevel,
+          expiry: input.expiry,
         },
       });
       if (existing.item_type === "progressive") {

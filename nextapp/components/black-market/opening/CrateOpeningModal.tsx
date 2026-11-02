@@ -27,7 +27,7 @@ export default function CrateOpeningModal({
   accountId: string;
   crate: BlackMarketCrate;
   onClose: () => void;
-  onQuantityChange: (crateId: string, delta: number) => void;
+  onQuantityChange: (crateId: string, delta: number, keyDelta?: number) => void;
   onSuccess: (result: SuccessfulOpen) => void;
   onError: (message: string) => void;
 }) {
@@ -54,14 +54,19 @@ export default function CrateOpeningModal({
       onClose();
       return;
     }
+    if (crate.requiresKey && crate.keyQuantity < 1) {
+      onError(errorMessage("NO_KEYS"));
+      onClose();
+      return;
+    }
 
     onError("");
-    onQuantityChange(crate.id, -1);
+    onQuantityChange(crate.id, -1, crate.requiresKey ? -1 : 0);
     void openCrate(accountId, crate.id)
       .then((response) => {
         setPending(false);
         if (response.type === "error") {
-          onQuantityChange(crate.id, 1);
+          onQuantityChange(crate.id, 1, crate.requiresKey ? 1 : 0);
           onError(errorMessage(response.code));
           onClose();
           return;
@@ -71,12 +76,22 @@ export default function CrateOpeningModal({
       })
       .catch((error: unknown) => {
         console.error("Black Market crate opening failed:", error);
-        onQuantityChange(crate.id, 1);
+        onQuantityChange(crate.id, 1, crate.requiresKey ? 1 : 0);
         setPending(false);
         onError(errorMessage("INTERNAL_ERROR"));
         onClose();
       });
-  }, [accountId, crate.id, crate.quantity, onClose, onError, onQuantityChange, onSuccess]);
+  }, [
+    accountId,
+    crate.id,
+    crate.keyQuantity,
+    crate.quantity,
+    crate.requiresKey,
+    onClose,
+    onError,
+    onQuantityChange,
+    onSuccess,
+  ]);
 
   useEffect(() => {
     if (

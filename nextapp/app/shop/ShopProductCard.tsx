@@ -14,6 +14,8 @@ type Product = {
   discordPrice: number | null;
   twitchPrice: number | null;
   active: boolean;
+  productType: "standard" | "black_market_crate" | "black_market_key";
+  blackMarketCrate: { id: string; name: string } | null;
   addToInventory: boolean;
 };
 
@@ -48,9 +50,20 @@ export default function ShopProductCard({
         error?: string;
         addToInventory?: boolean;
         deliveryEventId?: string | null;
+        blackMarketType?: "black_market_crate" | "black_market_key" | null;
       } = await response.json();
       if (!response.ok) {
         setMessage(result.error ?? "The purchase could not be completed.");
+        return;
+      }
+      if (result.blackMarketType) {
+        setSuccess(true);
+        setMessage(
+          result.blackMarketType === "black_market_crate"
+            ? "Crate added to your Black Market."
+            : "Key added to your Black Market.",
+        );
+        window.setTimeout(() => window.location.reload(), 900);
         return;
       }
       if (!result.addToInventory) {
@@ -133,6 +146,13 @@ export default function ShopProductCard({
           <h2 className="break-words text-lg font-bold tracking-tight text-white">
             {product.name}
           </h2>
+          {product.productType !== "standard" && (
+            <p className="mt-0.5 text-xs text-violet-200">
+              {product.productType === "black_market_crate"
+                ? "Black Market crate"
+                : `Key · ${product.blackMarketCrate?.name ?? "crate"}`}
+            </p>
+          )}
         </div>
         <div
           aria-hidden={product.imageUrl ? undefined : true}

@@ -99,6 +99,8 @@ export async function purchaseShopProduct(input: {
         name: true,
         description: true,
         active: true,
+        product_type: true,
+        black_market_crate_id: true,
         add_to_inventory: true,
         streamerbot_action: true,
         discord_price: true,
@@ -114,6 +116,30 @@ export async function purchaseShopProduct(input: {
       throw new ShopActionError("Tento způsob platby není momentálně dostupný.");
     }
 
+    let blackMarketCrateId: string | null = null;
+    if (product.product_type !== "standard") {
+      blackMarketCrateId = product.black_market_crate_id;
+      if (!blackMarketCrateId) {
+        throw new ShopActionError("Tento Black Market produkt není správně nastaven.");
+      }
+      const crate = await transaction.blackMarketCrate.findUnique({
+        where: { id: blackMarketCrateId },
+        select: { active: true, starts_at: true, ends_at: true, requires_key: true },
+      });
+      const now = new Date();
+      if (
+        !crate ||
+        !crate.active ||
+        (crate.starts_at !== null && crate.starts_at > now) ||
+        crate.ends_at <= now
+      ) {
+        throw new ShopActionError("Tato bedna už není momentálně dostupná.");
+      }
+      if (product.product_type === "black_market_key" && !crate.requires_key) {
+        throw new ShopActionError("Tato bedna nevyžaduje klíč.");
+      }
+    }
+
     await changePointBalance(
       transaction,
       input.currency,
@@ -123,9 +149,44 @@ export async function purchaseShopProduct(input: {
       input.accountId,
     );
     let inventoryQuantity = 0;
+    let blackMarketQuantity = 0;
     let redemptionId: string | null = null;
     let deliveryEventId: string | null = null;
-    if (product.add_to_inventory) {
+    if (product.product_type === "black_market_crate" && blackMarketCrateId) {
+      const inventory = await transaction.blackMarketCrateInventory.upsert({
+        where: {
+          account_id_crate_id: {
+            account_id: input.accountId,
+            crate_id: blackMarketCrateId,
+          },
+        },
+        create: {
+          account_id: input.accountId,
+          crate_id: blackMarketCrateId,
+          quantity: 1,
+        },
+        update: { quantity: { increment: 1 } },
+        select: { quantity: true },
+      });
+      blackMarketQuantity = inventory.quantity;
+    } else if (product.product_type === "black_market_key" && blackMarketCrateId) {
+      const inventory = await transaction.blackMarketKeyInventory.upsert({
+        where: {
+          account_id_crate_id: {
+            account_id: input.accountId,
+            crate_id: blackMarketCrateId,
+          },
+        },
+        create: {
+          account_id: input.accountId,
+          crate_id: blackMarketCrateId,
+          quantity: 1,
+        },
+        update: { quantity: { increment: 1 } },
+        select: { quantity: true },
+      });
+      blackMarketQuantity = inventory.quantity;
+    } else if (product.product_type === "standard" && product.add_to_inventory) {
       const inventory = await transaction.shopInventory.upsert({
         where: {
           account_id_product_id: {
@@ -167,15 +228,17 @@ export async function purchaseShopProduct(input: {
     }
 
     const providerUserId = identity.provider_user_id;
-    const inventorySnapshot = await transaction.shopInventory.findUnique({
-      where: {
-        account_id_product_id: {
-          account_id: input.accountId,
-          product_id: product.id,
-        },
-      },
-      select: { quantity: true },
-    });
+    const inventorySnapshot = product.product_type === "standard"
+      ? await transaction.shopInventory.findUnique({
+          where: {
+            account_id_product_id: {
+              account_id: input.accountId,
+              product_id: product.id,
+            },
+          },
+          select: { quantity: true },
+        })
+      : null;
     await transaction.adminAuditLog.create({
       data: {
         actor_account_id: input.accountId,
@@ -187,6 +250,8 @@ export async function purchaseShopProduct(input: {
           price,
           providerUserId,
           addToInventory: product.add_to_inventory,
+          productType: product.product_type,
+          blackMarketCrateId,
           redemptionId,
           deliveryEventId,
           inventoryQuantityAfter: inventorySnapshot?.quantity ?? 0,
@@ -197,6 +262,8 @@ export async function purchaseShopProduct(input: {
       quantity: inventoryQuantity,
       addToInventory: product.add_to_inventory,
       deliveryEventId,
+      blackMarketType: product.product_type === "standard" ? null : product.product_type,
+      blackMarketQuantity,
     };
   });
 }
@@ -213,11 +280,12 @@ export async function redeemShopProduct(input: {
         id: true,
         name: true,
         description: true,
+        product_type: true,
         add_to_inventory: true,
         streamerbot_action: true,
       },
     });
-    if (!product || product.id === "custom-led-effect") {
+    if (!product || product.id === "custom-led-effect" || product.product_type !== "standard") {
       throw new ShopActionError("This item cannot be redeemed from the shop.");
     }
 

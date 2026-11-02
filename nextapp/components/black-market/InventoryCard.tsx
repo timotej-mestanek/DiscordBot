@@ -49,6 +49,11 @@ export default function InventoryCard({
             Equipped
           </span>
         )}
+        {item.expiresAt && (
+          <span className="mt-2 text-xs text-amber-300">
+            Expires {new Date(item.expiresAt).toLocaleDateString()}
+          </span>
+        )}
         <div className="mt-auto grid gap-2 pt-4">
           <button
             type="button"

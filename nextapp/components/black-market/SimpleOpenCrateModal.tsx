@@ -21,7 +21,7 @@ export default function SimpleOpenCrateModal({
   accountId: string;
   crate: BlackMarketCrate;
   onClose: () => void;
-  onQuantityChange: (crateId: string, delta: number) => void;
+  onQuantityChange: (crateId: string, delta: number, keyDelta?: number) => void;
   onSuccess: (result: Exclude<OpenCrateResult, { type: "error" }>) => void;
   onError: (message: string) => void;
   externalResult?: Exclude<OpenCrateResult, { type: "error" }> | null;
@@ -38,17 +38,21 @@ export default function SimpleOpenCrateModal({
   const isPending = externallyManaged ? externalPending : pending;
 
   async function handleOpen() {
-    if (isPending || crate.quantity < 1) return;
+    if (
+      isPending ||
+      crate.quantity < 1 ||
+      (crate.requiresKey && crate.keyQuantity < 1)
+    ) return;
     setPending(true);
     onError("");
-    onQuantityChange(crate.id, -1);
+    onQuantityChange(crate.id, -1, crate.requiresKey ? -1 : 0);
 
     let response: OpenCrateResult;
     try {
       response = await openCrate(accountId, crate.id);
     } catch (error) {
       console.error("Black Market crate opening failed:", error);
-      onQuantityChange(crate.id, 1);
+      onQuantityChange(crate.id, 1, crate.requiresKey ? 1 : 0);
       onError(errorMessage("INTERNAL_ERROR"));
       setPending(false);
       return;
@@ -56,7 +60,7 @@ export default function SimpleOpenCrateModal({
 
     setPending(false);
     if (response.type === "error") {
-      onQuantityChange(crate.id, 1);
+      onQuantityChange(crate.id, 1, crate.requiresKey ? 1 : 0);
       onError(errorMessage(response.code));
       return;
     }

@@ -9,6 +9,14 @@ export default async function BlackMarketPage() {
   if (!account) redirect("/login");
 
   const now = new Date();
+  await prisma.blackMarketInventory.updateMany({
+    where: {
+      account_id: account.id,
+      is_equipped: true,
+      expires_at: { lte: now },
+    },
+    data: { is_equipped: false },
+  });
   const [accountData, crates, ownedItems] = await Promise.all([
     prisma.webAccount.findUniqueOrThrow({
       where: { id: account.id },
@@ -19,7 +27,7 @@ export default async function BlackMarketPage() {
         active: true,
         AND: [
           { OR: [{ starts_at: null }, { starts_at: { lte: now } }] },
-          { OR: [{ ends_at: null }, { ends_at: { gte: now } }] },
+          { ends_at: { gt: now } },
         ],
       },
       orderBy: { name: "asc" },
@@ -28,11 +36,16 @@ export default async function BlackMarketPage() {
           where: { account_id: account.id },
           select: { quantity: true },
         },
+        key_inventories: {
+          where: { account_id: account.id },
+          select: { quantity: true },
+        },
       },
     }),
     prisma.blackMarketInventory.findMany({
       where: {
         account_id: account.id,
+        OR: [{ expires_at: null }, { expires_at: { gt: now } }],
         item: { item_type: { not: "golden_eggs" } },
       },
       orderBy: [{ group: "asc" }, { item: { name: "asc" } }],
@@ -60,6 +73,7 @@ export default async function BlackMarketPage() {
       maxLevel: entry.item.max_level,
       currentLevel: entry.current_level,
       isEquipped: entry.is_equipped,
+      expiresAt: entry.expires_at?.toISOString() ?? null,
       levels: entry.item.levels.map((level) => ({
         level: level.level,
         imageUrl: level.image_url,
@@ -75,12 +89,17 @@ export default async function BlackMarketPage() {
           <Link href="/" className="text-xl font-black tracking-widest">
             N4JT
           </Link>
-          <Link
-            href="/dashboard"
-            className="text-sm font-semibold text-zinc-300 hover:text-white"
-          >
-            Dashboard
-          </Link>
+          <div className="flex items-center gap-4">
+            <Link href="/shop" className="text-sm font-semibold text-violet-300 hover:text-violet-200">
+              Shop
+            </Link>
+            <Link
+              href="/dashboard"
+              className="text-sm font-semibold text-zinc-300 hover:text-white"
+            >
+              Dashboard
+            </Link>
+          </div>
         </div>
       </header>
       <div className="mx-auto max-w-6xl px-4 py-8 sm:px-6 md:py-12">
@@ -93,6 +112,8 @@ export default async function BlackMarketPage() {
             previewImageUrl: crate.preview_image_url,
             textureUrl: crate.texture_url,
             quantity: crate.inventories[0]?.quantity ?? 0,
+            requiresKey: crate.requires_key,
+            keyQuantity: crate.key_inventories[0]?.quantity ?? 0,
           }))}
           initialInventory={inventory}
         />

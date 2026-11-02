@@ -26,6 +26,7 @@ type UserRow = {
     equipped: boolean;
   }>;
   crateInventory: Array<{ crateId: string; name: string; quantity: number }>;
+  keyInventory: Array<{ crateId: string; name: string; quantity: number }>;
 };
 
 function isRecord(value: unknown): value is Record<string, unknown> {
@@ -66,6 +67,14 @@ export async function GET() {
         identities: {
           select: { provider: true, provider_user_id: true, display_name: true },
         },
+        black_market_key_inventory: {
+          where: { quantity: { gt: 0 } },
+          select: {
+            crate_id: true,
+            quantity: true,
+            crate: { select: { name: true } },
+          },
+        },
         shop_inventory: {
           where: { quantity: { gt: 0 } },
           select: {
@@ -75,6 +84,9 @@ export async function GET() {
           },
         },
         black_market_inventory: {
+          where: {
+            OR: [{ expires_at: null }, { expires_at: { gt: new Date() } }],
+          },
           select: {
             item_id: true,
             current_level: true,
@@ -116,6 +128,7 @@ export async function GET() {
     }),
     prisma.shopProduct.findMany({
       orderBy: { name: "asc" },
+      where: { product_type: "standard" },
       select: { id: true, name: true },
     }),
     prisma.blackMarketItem.findMany({
@@ -125,7 +138,7 @@ export async function GET() {
     }),
     prisma.blackMarketCrate.findMany({
       orderBy: { name: "asc" },
-      select: { id: true, name: true },
+      select: { id: true, name: true, requires_key: true },
     }),
   ]);
 
@@ -144,6 +157,11 @@ export async function GET() {
         productId: item.product_id,
         name: item.product.name,
         quantity: item.quantity,
+      })),
+      keyInventory: account.black_market_key_inventory.map((key) => ({
+        crateId: key.crate_id,
+        name: key.crate.name,
+        quantity: key.quantity,
       })),
       blackMarketInventory: account.black_market_inventory.map((item) => ({
         itemId: item.item_id,
@@ -192,6 +210,7 @@ export async function GET() {
         shopInventory: [],
         blackMarketInventory: [],
         crateInventory: [],
+        keyInventory: [],
       };
       users.set(key, row);
     }
@@ -245,7 +264,11 @@ export async function GET() {
     ),
     shopProducts,
     blackMarketItems,
-    crates,
+    crates: crates.map((crate) => ({
+      id: crate.id,
+      name: crate.name,
+      requiresKey: crate.requires_key,
+    })),
   });
 }
 
@@ -327,7 +350,9 @@ export async function POST(request: Request) {
     }
 
     if (
-      (body.action === "shop-item" || body.action === "crate-item") &&
+      (body.action === "shop-item" ||
+        body.action === "crate-item" ||
+        body.action === "crate-key") &&
       typeof body.accountId === "string" &&
       typeof body.itemId === "string" &&
       (body.operation === "add" || body.operation === "remove")
@@ -336,6 +361,7 @@ export async function POST(request: Request) {
       const itemId = body.itemId;
       const operation = body.operation;
       const isShop = body.action === "shop-item";
+      const isKey = body.action === "crate-key";
       await prisma.$transaction(async (transaction) => {
         if (!(await transaction.webAccount.findUnique({ where: { id: accountId }, select: { id: true } }))) {
           throw new InventoryAdjustmentError("Account not found.");
@@ -371,10 +397,35 @@ export async function POST(request: Request) {
             if (result.count !== 1) throw new InventoryAdjustmentError("This user does not own that item.");
           }
         } else {
-          if (!(await transaction.blackMarketCrate.findUnique({ where: { id: itemId }, select: { id: true } }))) {
+          const crate = await transaction.blackMarketCrate.findUnique({
+            where: { id: itemId },
+            select: { id: true, requires_key: true },
+          });
+          if (!crate) {
             throw new InventoryAdjustmentError("Crate not found.");
           }
-          if (operation === "add") {
+          if (isKey && !crate.requires_key) {
+            throw new InventoryAdjustmentError("This crate does not use keys.");
+          }
+          if (isKey && operation === "add") {
+            await transaction.blackMarketKeyInventory.upsert({
+              where: {
+                account_id_crate_id: { account_id: accountId, crate_id: itemId },
+              },
+              create: { account_id: accountId, crate_id: itemId, quantity: 1 },
+              update: { quantity: { increment: 1 } },
+            });
+          } else if (isKey) {
+            const result = await transaction.blackMarketKeyInventory.updateMany({
+              where: {
+                account_id: accountId,
+                crate_id: itemId,
+                quantity: { gt: 0 },
+              },
+              data: { quantity: { decrement: 1 } },
+            });
+            if (result.count !== 1) throw new InventoryAdjustmentError("This user does not own that key.");
+          } else if (operation === "add") {
             await transaction.blackMarketCrateInventory.upsert({
               where: {
                 account_id_crate_id: {
@@ -405,10 +456,15 @@ export async function POST(request: Request) {
           data: {
             actor_account_id: admin.id,
             target_account_id: accountId,
-            action: isShop ? "users.shop_inventory_adjusted" : "users.crate_inventory_adjusted",
+            action: isShop
+              ? "users.shop_inventory_adjusted"
+              : isKey
+                ? "users.crate_key_inventory_adjusted"
+                : "users.crate_inventory_adjusted",
             details: {
               itemId,
               operation,
+              inventoryType: isShop ? "shop" : isKey ? "key" : "crate",
             },
           },
         });
@@ -439,13 +495,32 @@ export async function POST(request: Request) {
         }
 
         if (operation === "add") {
-          await transaction.blackMarketInventory.create({
-            data: {
-              account_id: accountId,
-              item_id: item.id,
-              group: item.group,
-            },
+          const existing = await transaction.blackMarketInventory.findUnique({
+            where: { account_id_item_id: { account_id: accountId, item_id: item.id } },
+            select: { expires_at: true },
           });
+          if (existing && (!existing.expires_at || existing.expires_at > new Date())) {
+            throw new InventoryAdjustmentError("This user already owns that item.");
+          }
+          if (existing) {
+            await transaction.blackMarketInventory.update({
+              where: { account_id_item_id: { account_id: accountId, item_id: item.id } },
+              data: {
+                group: item.group,
+                current_level: 1,
+                is_equipped: false,
+                expires_at: null,
+              },
+            });
+          } else {
+            await transaction.blackMarketInventory.create({
+              data: {
+                account_id: accountId,
+                item_id: item.id,
+                group: item.group,
+              },
+            });
+          }
         } else {
           const result = await transaction.blackMarketInventory.deleteMany({
             where: {

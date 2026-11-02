@@ -5,7 +5,11 @@ import { getAccountPointBalances } from "@/lib/points";
 import { prisma } from "@/lib/prisma";
 import { getAdminShopDeliveries } from "@/lib/shop-admin";
 import ShopAdminManager from "./ShopAdminManager";
-import type { AdminShopDelivery, AdminShopProduct } from "./ShopAdminManager";
+import type {
+  AdminShopCrate,
+  AdminShopDelivery,
+  AdminShopProduct,
+} from "./ShopAdminManager";
 import ShopProductCard from "./ShopProductCard";
 
 function isMissingShopTable(error: unknown) {
@@ -27,17 +31,27 @@ export default async function ShopPage({
   const balances = account ? await getAccountPointBalances(identities) : null;
   let products: AdminShopProduct[] = [];
   let deliveries: AdminShopDelivery[] = [];
+  let crates: AdminShopCrate[] = [];
   let inventoryByProduct = new Map<string, number>();
   let shopTablesReady = true;
 
   try {
-    products = await prisma.shopProduct.findMany({
+    [products, crates] = await Promise.all([
+      prisma.shopProduct.findMany({
       where: account?.role === "admin" && !isPublicPreview ? {} : { active: true },
       orderBy: { name: "asc" },
       include: {
         _count: { select: { inventory: true, redemptions: true } },
+        black_market_crate: {
+          select: { id: true, name: true, requires_key: true, active: true, starts_at: true, ends_at: true },
+        },
       },
-    });
+      }),
+      prisma.blackMarketCrate.findMany({
+        orderBy: { name: "asc" },
+        select: { id: true, name: true, requires_key: true },
+      }),
+    ]);
     if (account) {
       const inventory = await prisma.shopInventory.findMany({
         where: { account_id: account.id, quantity: { gt: 0 } },
@@ -94,11 +108,26 @@ export default async function ShopPage({
         ) : (
           <>
             {account?.role === "admin" && !isPublicPreview && (
-              <ShopAdminManager products={products} deliveries={deliveries} />
+              <ShopAdminManager
+                products={products}
+                deliveries={deliveries}
+                crates={crates}
+              />
             )}
             <section className="mt-5 grid auto-rows-fr gap-3 sm:grid-cols-2 xl:grid-cols-3">
               {products
-                .filter((product) => product.active)
+                .filter((product) => {
+                  if (!product.active) return false;
+                  if (product.product_type === "standard") return true;
+                  const crate = product.black_market_crate;
+                  const now = new Date();
+                  return Boolean(
+                    crate?.active &&
+                    (!crate.starts_at || crate.starts_at <= now) &&
+                    crate.ends_at &&
+                    crate.ends_at > now,
+                  );
+                })
                 .map((product) => (
                   <ShopProductCard
                     key={product.id}
@@ -111,6 +140,10 @@ export default async function ShopPage({
                       discordPrice: product.discord_price,
                       twitchPrice: product.twitch_price,
                       active: product.active,
+                      productType: product.product_type,
+                      blackMarketCrate: product.black_market_crate
+                        ? { id: product.black_market_crate.id, name: product.black_market_crate.name }
+                        : null,
                       addToInventory: product.add_to_inventory,
                     }}
                     balances={

@@ -57,9 +57,20 @@ export default function CrateCard({
       </div>
       <div className="flex flex-1 flex-col p-4 sm:p-5">
         <h3 className="text-lg font-bold">{crate.name}</h3>
+        {crate.requiresKey && (
+          <p className="mt-1 text-xs text-amber-300">
+            Keys: {crate.keyQuantity}
+          </p>
+        )}
         <div
           className="mt-4"
-          title={crate.quantity === 0 ? "You don't have this crate." : undefined}
+          title={
+            crate.quantity === 0
+              ? "You don't have this crate."
+              : crate.requiresKey && crate.keyQuantity === 0
+                ? "You need a matching key."
+                : undefined
+          }
         >
           <button
             type="button"

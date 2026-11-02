@@ -77,6 +77,22 @@ export async function POST(request: Request) {
     (body.discordPrice === null && body.twitchPrice === null) ||
     !("active" in body) ||
     typeof body.active !== "boolean" ||
+    !("productType" in body) ||
+    !(
+      body.productType === "standard" ||
+      body.productType === "black_market_crate" ||
+      body.productType === "black_market_key"
+    ) ||
+    !("blackMarketCrateId" in body) ||
+    !(
+      body.blackMarketCrateId === null ||
+      (typeof body.blackMarketCrateId === "string" &&
+        /^[a-z0-9]+(?:-[a-z0-9]+)*$/u.test(body.blackMarketCrateId))
+    ) ||
+    (body.productType === "standard"
+      ? body.blackMarketCrateId !== null
+      : typeof body.blackMarketCrateId !== "string") ||
+    (body.productType !== "standard" && body.addToInventory) ||
     ("productId" in body && typeof body.productId !== "string")
   ) {
     return NextResponse.json({ error: "Check the product name, description, and prices." }, { status: 400 });
@@ -88,8 +104,12 @@ export async function POST(request: Request) {
   const discordPrice = body.discordPrice;
   const twitchPrice = body.twitchPrice;
   const active = body.active;
-  const addToInventory = body.addToInventory;
-  const streamerbotAction = body.streamerbotAction.trim();
+  const productType = body.productType;
+  const blackMarketCrateId = body.blackMarketCrateId;
+  const addToInventory = productType === "standard" && body.addToInventory;
+  const streamerbotAction = productType === "standard"
+    ? body.streamerbotAction.trim()
+    : "shop.redeemed";
   const productId =
     "productId" in body && typeof body.productId === "string" ? body.productId : null;
 
@@ -99,6 +119,27 @@ export async function POST(request: Request) {
         ? await transaction.shopProduct.findUnique({ where: { id: productId } })
         : null;
       if (productId && !previous) throw new Error("Product not found.");
+      if (previous?.product_type === "standard" && productType !== "standard") {
+        const remainingInventory = await transaction.shopInventory.findFirst({
+          where: { product_id: previous.id, quantity: { gt: 0 } },
+          select: { account_id: true },
+        });
+        if (remainingInventory) {
+          throw new Error(
+            "Redeem all outstanding standard shop inventory before changing this product type.",
+          );
+        }
+      }
+      if (productType !== "standard" && typeof blackMarketCrateId === "string") {
+        const crate = await transaction.blackMarketCrate.findUnique({
+          where: { id: blackMarketCrateId },
+          select: { requires_key: true },
+        });
+        if (!crate) throw new Error("Black Market crate not found.");
+        if (productType === "black_market_key" && !crate.requires_key) {
+          throw new Error("This crate does not require a key.");
+        }
+      }
 
       const savedProduct = productId
         ? await transaction.shopProduct.update({
@@ -106,6 +147,8 @@ export async function POST(request: Request) {
             data: {
               name,
               description,
+              product_type: productType,
+              black_market_crate_id: blackMarketCrateId,
               card_color: cardColor,
               discord_price: discordPrice,
               twitch_price: twitchPrice,
@@ -118,6 +161,8 @@ export async function POST(request: Request) {
             data: {
               name,
               description,
+              product_type: productType,
+              black_market_crate_id: blackMarketCrateId,
               card_color: cardColor,
               discord_price: discordPrice,
               twitch_price: twitchPrice,
@@ -141,6 +186,8 @@ export async function POST(request: Request) {
                   discordPrice: previous.discord_price,
                   twitchPrice: previous.twitch_price,
                   active: previous.active,
+                  productType: previous.product_type,
+                  blackMarketCrateId: previous.black_market_crate_id,
                   addToInventory: previous.add_to_inventory,
                   streamerbotAction: previous.streamerbot_action,
                 }
@@ -152,6 +199,8 @@ export async function POST(request: Request) {
               discordPrice,
               twitchPrice,
               active,
+              productType,
+              blackMarketCrateId,
               addToInventory,
               streamerbotAction,
             },
@@ -162,8 +211,22 @@ export async function POST(request: Request) {
     });
     return NextResponse.json({ ok: true });
   } catch (error) {
-    if (error instanceof Error && error.message === "Produkt nebyl nalezen.") {
+    if (error instanceof Error && error.message === "Product not found.") {
       return NextResponse.json({ error: error.message }, { status: 404 });
+    }
+    if (
+      error instanceof Error &&
+      (error.message === "Black Market crate not found." ||
+        error.message === "This crate does not require a key.")
+    ) {
+      return NextResponse.json({ error: error.message }, { status: 400 });
+    }
+    if (
+      error instanceof Error &&
+      error.message ===
+        "Redeem all outstanding standard shop inventory before changing this product type."
+    ) {
+      return NextResponse.json({ error: error.message }, { status: 409 });
     }
     console.error("Shop module save failed:", error);
     return NextResponse.json({ error: "Could not save the product." }, { status: 500 });

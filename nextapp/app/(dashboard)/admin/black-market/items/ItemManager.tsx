@@ -17,6 +17,7 @@ export type AdminItem = {
   itemType: "normal" | "progressive" | "golden_eggs";
   imageUrl: string;
   maxLevel: number;
+  expiry: "permanent" | "seven_days" | "thirty_days" | "event_end";
   ownedCount: number;
 };
 
@@ -81,6 +82,9 @@ export default function ItemManager({
       itemType,
       imageUrl,
       maxLevel: itemType === "progressive" ? Number(formData.get("maxLevel")) : 1,
+      expiry: itemType === "normal"
+        ? String(formData.get("expiry") ?? "permanent") as AdminItem["expiry"]
+        : "permanent",
       crateAssignments: item
         ? []
         : crates.flatMap((crate) => {
@@ -222,6 +226,21 @@ export default function ItemManager({
                 <input name="maxLevel" type="number" min={1} max={100} required defaultValue={item?.maxLevel ?? 6} className="w-full rounded-lg border border-zinc-700 bg-zinc-950 px-3 py-2 text-white" />
                 </label>
               ) : <input type="hidden" name="maxLevel" value={1} />}
+              {itemType === "normal" && (
+                <label className="space-y-2 text-sm text-zinc-300">
+                  <span className="block">Ownership duration</span>
+                  <select
+                    name="expiry"
+                    defaultValue={item?.expiry ?? "permanent"}
+                    className="w-full rounded-lg border border-zinc-700 bg-zinc-950 px-3 py-2 text-white"
+                  >
+                    <option value="permanent">Permanent</option>
+                    <option value="seven_days">7 days after obtaining</option>
+                    <option value="thirty_days">30 days after obtaining</option>
+                    <option value="event_end">Until the crate event ends</option>
+                  </select>
+                </label>
+              )}
             </div>
             <ImageUpload
               type="item-level"

@@ -8,7 +8,7 @@ import { pickByChance } from "./random";
 
 type CommonErrorCode = "UNAUTHENTICATED" | "FORBIDDEN" | "INTERNAL_ERROR";
 class ExpectedActionError extends Error {
-  constructor(readonly code: "NO_ITEMS_IN_CRATE") {
+  constructor(readonly code: "NO_ITEMS_IN_CRATE" | "NO_CRATES" | "NO_KEYS") {
     super(code);
   }
 }
@@ -22,6 +22,7 @@ export type OpenCrateResult =
       group: string;
       itemType: "normal" | "progressive";
       maxLevel: number;
+      expiresAt: string | null;
       levels: { level: number; cost: number | null; imageUrl: string }[];
     }
   | {
@@ -39,6 +40,7 @@ export type OpenCrateResult =
       type: "error";
       code:
         | "NO_CRATES"
+        | "NO_KEYS"
         | "CRATE_NOT_FOUND"
         | "CRATE_INACTIVE"
         | "NO_ITEMS_IN_CRATE"
@@ -89,7 +91,7 @@ export async function openCrate(
 
       const crate = await transaction.blackMarketCrate.findUnique({
         where: { id: crateId },
-        select: { active: true, starts_at: true, ends_at: true },
+        select: { active: true, starts_at: true, ends_at: true, requires_key: true },
       });
       if (!crate) return { type: "error", code: "CRATE_NOT_FOUND" };
 
@@ -97,16 +99,40 @@ export async function openCrate(
       if (
         !crate.active ||
         (crate.starts_at !== null && crate.starts_at > now) ||
-        (crate.ends_at !== null && crate.ends_at < now)
+        crate.ends_at <= now
       ) {
         return { type: "error", code: "CRATE_INACTIVE" };
+      }
+
+      const crateInventory = await transaction.blackMarketCrateInventory.findUnique({
+        where: { account_id_crate_id: { account_id: accountId, crate_id: crateId } },
+        select: { quantity: true },
+      });
+      if (!crateInventory || crateInventory.quantity < 1) {
+        return { type: "error", code: "NO_CRATES" };
+      }
+      const keyInventory = crate.requires_key
+        ? await transaction.blackMarketKeyInventory.findUnique({
+            where: { account_id_crate_id: { account_id: accountId, crate_id: crateId } },
+            select: { quantity: true },
+          })
+        : null;
+      if (crate.requires_key && (!keyInventory || keyInventory.quantity < 1)) {
+        return { type: "error", code: "NO_KEYS" };
       }
 
       const decrement = await transaction.blackMarketCrateInventory.updateMany({
         where: { account_id: accountId, crate_id: crateId, quantity: { gt: 0 } },
         data: { quantity: { decrement: 1 } },
       });
-      if (decrement.count !== 1) return { type: "error", code: "NO_CRATES" };
+      if (decrement.count !== 1) throw new ExpectedActionError("NO_CRATES");
+      if (crate.requires_key) {
+        const keyDecrement = await transaction.blackMarketKeyInventory.updateMany({
+          where: { account_id: accountId, crate_id: crateId, quantity: { gt: 0 } },
+          data: { quantity: { decrement: 1 } },
+        });
+        if (keyDecrement.count !== 1) throw new ExpectedActionError("NO_KEYS");
+      }
 
       const crateItems = await transaction.blackMarketCrateItem.findMany({
         where: { crate_id: crateId },
@@ -163,9 +189,9 @@ export async function openCrate(
         where: {
           account_id_item_id: { account_id: accountId, item_id: item.id },
         },
-        select: { id: true },
+        select: { id: true, expires_at: true },
       });
-      if (owned) {
+      if (owned && (!owned.expires_at || owned.expires_at > now)) {
         const updatedAccount = await transaction.webAccount.update({
           where: { id: accountId },
           data: { golden_eggs: { increment: DUPLICATE_EGG_REWARD } },
@@ -178,15 +204,32 @@ export async function openCrate(
         };
       }
 
-      await transaction.blackMarketInventory.create({
-        data: {
+      const expiresAt = item.expiry === "seven_days"
+        ? new Date(now.getTime() + 7 * 24 * 60 * 60 * 1000)
+        : item.expiry === "thirty_days"
+          ? new Date(now.getTime() + 30 * 24 * 60 * 60 * 1000)
+          : item.expiry === "event_end"
+            ? crate.ends_at
+            : null;
+      if (item.expiry === "event_end" && !expiresAt) {
+        throw new Error(`Black Market crate ${crateId} has no event end date.`);
+      }
+      const inventoryData = {
           account_id: accountId,
           item_id: item.id,
           group: item.group,
           current_level: 1,
           is_equipped: false,
-        },
-      });
+          expires_at: expiresAt,
+        };
+      if (owned) {
+        await transaction.blackMarketInventory.update({
+          where: { account_id_item_id: { account_id: accountId, item_id: item.id } },
+          data: inventoryData,
+        });
+      } else {
+        await transaction.blackMarketInventory.create({ data: inventoryData });
+      }
       return {
         type: "item",
         itemId: item.id,
@@ -195,6 +238,7 @@ export async function openCrate(
         group: item.group,
         itemType: item.item_type,
         maxLevel: item.max_level,
+        expiresAt: expiresAt?.toISOString() ?? null,
         levels: item.levels.map((level) => ({
           level: level.level,
           cost: level.upgrade_cost,
@@ -225,7 +269,9 @@ export async function upgradeItem(
         where: { account_id_item_id: { account_id: accountId, item_id: itemId } },
         include: { item: true },
       });
-      if (!owned) return { type: "error", code: "NOT_OWNED" };
+      if (!owned || (owned.expires_at && owned.expires_at <= new Date())) {
+        return { type: "error", code: "NOT_OWNED" };
+      }
       if (owned.item.item_type !== "progressive") {
         return { type: "error", code: "MAX_LEVEL" };
       }
@@ -279,11 +325,17 @@ export async function equipItem(
 
     return await prisma.$transaction(async (transaction) => {
       await lockAccount(transaction, accountId);
+      await transaction.blackMarketInventory.updateMany({
+        where: { account_id: accountId, is_equipped: true, expires_at: { lte: new Date() } },
+        data: { is_equipped: false },
+      });
       const owned = await transaction.blackMarketInventory.findUnique({
         where: { account_id_item_id: { account_id: accountId, item_id: itemId } },
-        select: { group: true },
+        select: { group: true, expires_at: true },
       });
-      if (!owned) return { type: "error", code: "NOT_OWNED" };
+      if (!owned || (owned.expires_at && owned.expires_at <= new Date())) {
+        return { type: "error", code: "NOT_OWNED" };
+      }
 
       await transaction.blackMarketInventory.updateMany({
         where: { account_id: accountId, group: owned.group, is_equipped: true },

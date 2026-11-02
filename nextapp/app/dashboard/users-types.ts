@@ -17,19 +17,20 @@ export type UserRow = {
     equipped: boolean;
   }>;
   crateInventory: Array<{ crateId: string; name: string; quantity: number }>;
+  keyInventory: Array<{ crateId: string; name: string; quantity: number }>;
 };
 
 export type UsersData = {
   users: UserRow[];
   shopProducts: Array<{ id: string; name: string }>;
   blackMarketItems: Array<{ id: string; name: string; group: string }>;
-  crates: Array<{ id: string; name: string }>;
+  crates: Array<{ id: string; name: string; requiresKey: boolean }>;
 };
 
 export type PointCurrency = "discord" | "twitch_custom";
 export type InventoryAction =
   | {
-      action: "shop-item" | "crate-item" | "black-market-item";
+      action: "shop-item" | "crate-item" | "crate-key" | "black-market-item";
       itemId: string;
       operation: "add" | "remove";
       accountId: string;

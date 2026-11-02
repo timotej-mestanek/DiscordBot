@@ -4,6 +4,8 @@ export type BlackMarketCrate = {
   previewImageUrl: string | null;
   textureUrl: string | null;
   quantity: number;
+  requiresKey: boolean;
+  keyQuantity: number;
 };
 
 export type BlackMarketLevel = {
@@ -20,6 +22,7 @@ export type BlackMarketInventoryItem = {
   imageUrl: string;
   currentLevel: number;
   isEquipped: boolean;
+  expiresAt: string | null;
   maxLevel: number;
   levels: BlackMarketLevel[];
 };

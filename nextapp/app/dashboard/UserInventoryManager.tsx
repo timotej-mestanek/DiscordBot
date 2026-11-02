@@ -156,6 +156,25 @@ export default function UserInventoryManager({
           ))}
           {data.crates.length === 0 && <EmptyInventory />}
         </InventorySection>
+
+        <InventorySection title="Black Market keys">
+          {data.crates.filter((crate) => crate.requiresKey).map((crate) => (
+            <InventoryRow key={crate.id} name={crate.name}>
+              <QuantityControls
+                name={`${crate.name} key`}
+                quantity={user.keyInventory.find((entry) => entry.crateId === crate.id)?.quantity ?? 0}
+                disabled={busy}
+                onChange={(operation) => onAction({
+                  action: "crate-key",
+                  accountId,
+                  itemId: crate.id,
+                  operation,
+                })}
+              />
+            </InventoryRow>
+          ))}
+          {data.crates.every((crate) => !crate.requiresKey) && <EmptyInventory />}
+        </InventorySection>
       </section>
     </div>
   );

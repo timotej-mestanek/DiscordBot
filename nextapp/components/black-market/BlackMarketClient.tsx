@@ -48,11 +48,15 @@ export default function BlackMarketClient({
   const selectedUpgradeItem =
     inventory.find((item) => item.id === upgradeItemId) ?? null;
 
-  function updateCrateQuantity(crateId: string, delta: number) {
+  function updateCrateQuantity(crateId: string, delta: number, keyDelta = 0) {
     setCrates((current) =>
       current.map((crate) =>
         crate.id === crateId
-          ? { ...crate, quantity: Math.max(0, crate.quantity + delta) }
+          ? {
+              ...crate,
+              quantity: Math.max(0, crate.quantity + delta),
+              keyQuantity: Math.max(0, crate.keyQuantity + keyDelta),
+            }
           : crate,
       ),
     );
@@ -76,6 +80,7 @@ export default function BlackMarketClient({
       maxLevel: result.maxLevel,
       currentLevel: 1,
       isEquipped: false,
+      expiresAt: result.expiresAt,
       levels: result.levels.map((level) => ({
         level: level.level,
         imageUrl: level.imageUrl,
@@ -203,24 +208,23 @@ export default function BlackMarketClient({
         <GoldenEggsBalance eggs={goldenEggs} />
       </header>
 
-      <section>
-        <div className="mb-4">
-          <p className="text-xs font-bold uppercase tracking-[0.25em] text-violet-300">
-            Mystery drops
-          </p>
-          <h2 className="mt-1 text-2xl font-bold">Your crates</h2>
-        </div>
-        {crates.length === 0 ? (
-          <p className="rounded-xl border border-zinc-800 bg-zinc-900 p-5 text-sm text-zinc-400">
-            No crates available right now
-          </p>
-        ) : (
+      {crates.some((crate) => crate.quantity > 0) && (
+        <section>
+          <div className="mb-4">
+            <p className="text-xs font-bold uppercase tracking-[0.25em] text-violet-300">
+              Mystery drops
+            </p>
+            <h2 className="mt-1 text-2xl font-bold">Your crates</h2>
+          </div>
           <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-4">
-            {crates.map((crate) => (
+            {crates.filter((crate) => crate.quantity > 0).map((crate) => (
               <CrateCard
                 key={crate.id}
                 crate={crate}
-                disabled={crate.quantity === 0 || pendingItemId !== null}
+                disabled={
+                  (crate.quantity === 0 || (crate.requiresKey && crate.keyQuantity === 0)) ||
+                  pendingItemId !== null
+                }
                 onOpen={() => {
                   setToast("");
                   setSelectedCrateId(crate.id);
@@ -228,8 +232,8 @@ export default function BlackMarketClient({
               />
             ))}
           </div>
-        )}
-      </section>
+        </section>
+      )}
 
       <section className="mt-12">
         <div className="mb-4">

@@ -24,7 +24,7 @@ export default async function BlackMarketCratesPage() {
             <tr>
               <th className="px-4 py-3">Preview</th>
               <th className="px-4 py-3">ID / name</th>
-              <th className="px-4 py-3">Active</th>
+              <th className="px-4 py-3">Access</th>
               <th className="px-4 py-3">Model</th>
               <th className="px-4 py-3">Starts / ends</th>
               <th className="px-4 py-3">Items</th>
@@ -54,6 +54,7 @@ export default async function BlackMarketCratesPage() {
                   <span className={crate.active ? "text-emerald-300" : "text-zinc-500"}>
                     {crate.active ? "Active" : "Inactive"}
                   </span>
+                  {crate.requires_key && <div className="mt-1 text-xs text-amber-300">Key required</div>}
                 </td>
                 <td className="px-4 py-3">
                   <span className={`rounded-full border px-2.5 py-1 text-xs font-semibold ${
@@ -84,6 +85,7 @@ export default async function BlackMarketCratesPage() {
                         id: crate.id,
                         name: crate.name,
                         active: crate.active,
+                        requiresKey: crate.requires_key,
                         startsAt: crate.starts_at?.toISOString() ?? null,
                         endsAt: crate.ends_at?.toISOString() ?? null,
                         previewImageUrl: crate.preview_image_url,

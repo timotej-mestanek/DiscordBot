@@ -1,5 +1,6 @@
 export const ERROR_MESSAGES: Record<string, string> = {
   NO_CRATES: "You don't have any of this crate left.",
+  NO_KEYS: "You need a matching key to open this crate.",
   CRATE_NOT_FOUND: "This crate is no longer available.",
   CRATE_INACTIVE: "This crate is not currently available.",
   NO_ITEMS_IN_CRATE: "This crate doesn't contain any items yet.",

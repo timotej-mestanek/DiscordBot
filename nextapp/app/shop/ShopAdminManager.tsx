@@ -14,10 +14,28 @@ export type AdminShopProduct = {
   discord_price: number | null;
   twitch_price: number | null;
   active: boolean;
+  product_type: "standard" | "black_market_crate" | "black_market_key";
+  black_market_crate_id: string | null;
+  black_market_crate: {
+    id: string;
+    name: string;
+    requires_key: boolean;
+    active?: boolean;
+    starts_at?: Date | null;
+    ends_at?: Date | null;
+  } | null;
   add_to_inventory: boolean;
   streamerbot_action: string;
   _count: { inventory: number; redemptions: number };
 };
+export type AdminShopCrate = { id: string; name: string; requires_key: boolean };
+type ShopProductType = AdminShopProduct["product_type"];
+
+function isShopProductType(value: string): value is ShopProductType {
+  return value === "standard" ||
+    value === "black_market_crate" ||
+    value === "black_market_key";
+}
 
 export type AdminShopDelivery = {
   event_id: string;
@@ -36,9 +54,11 @@ export type AdminShopDelivery = {
 export default function ShopAdminManager({
   products,
   deliveries,
+  crates,
 }: {
   products: AdminShopProduct[];
   deliveries: AdminShopDelivery[];
+  crates: AdminShopCrate[];
 }) {
   const [selected, setSelected] = useState<AdminShopProduct | null>(null);
   const [error, setError] = useState("");
@@ -48,6 +68,8 @@ export default function ShopAdminManager({
   const [bulkCancelBusy, setBulkCancelBusy] = useState(false);
   const [notice, setNotice] = useState("");
   const [visibilityBusyId, setVisibilityBusyId] = useState<string | null>(null);
+  const [productType, setProductType] = useState<AdminShopProduct["product_type"]>("standard");
+  const [blackMarketCrateId, setBlackMarketCrateId] = useState("");
 
   async function save(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
@@ -64,8 +86,12 @@ export default function ShopAdminManager({
       discordPrice: discordPrice ? Number(discordPrice) : null,
       twitchPrice: twitchPrice ? Number(twitchPrice) : null,
       active: form.get("active") === "true",
-      addToInventory: form.get("addToInventory") === "true",
-      streamerbotAction: String(form.get("streamerbotAction") ?? ""),
+      productType,
+      blackMarketCrateId: productType === "standard" ? null : blackMarketCrateId,
+      addToInventory: productType === "standard" && form.get("addToInventory") === "true",
+      streamerbotAction: productType === "standard"
+        ? String(form.get("streamerbotAction") ?? "")
+        : "shop.redeemed",
     };
     try {
       const response = await fetch("/api/shop/admin", {
@@ -102,8 +128,12 @@ export default function ShopAdminManager({
           discordPrice: product.discord_price,
           twitchPrice: product.twitch_price,
           active: !product.active,
-          addToInventory: product.add_to_inventory,
-          streamerbotAction: product.streamerbot_action,
+          productType: product.product_type,
+          blackMarketCrateId: product.black_market_crate_id,
+          addToInventory: product.product_type === "standard" && product.add_to_inventory,
+          streamerbotAction: product.product_type === "standard"
+            ? product.streamerbot_action
+            : "shop.redeemed",
         }),
       });
       const result: { error?: string } = await response.json();
@@ -269,6 +299,8 @@ export default function ShopAdminManager({
               type="button"
               onClick={() => {
                 setSelected(product);
+                setProductType(product.product_type);
+                setBlackMarketCrateId(product.black_market_crate_id ?? "");
                 setError("");
               }}
               className={`px-2.5 py-1.5 text-xs font-semibold transition-colors ${
@@ -302,6 +334,8 @@ export default function ShopAdminManager({
           type="button"
           onClick={() => {
             setSelected(null);
+            setProductType("standard");
+            setBlackMarketCrateId("");
             setError("");
           }}
           className={`rounded-md border px-2.5 py-1.5 text-xs font-semibold ${
@@ -408,7 +442,59 @@ export default function ShopAdminManager({
             </p>
           )}
         </div>
-        <label className="text-xs font-medium text-zinc-400 sm:col-span-2">
+        <label className="text-xs font-medium text-zinc-400">
+          Product type
+          <select
+            name="productType"
+            value={productType}
+            onChange={(event) => {
+              const nextType = event.currentTarget.value;
+              if (!isShopProductType(nextType)) return;
+              setProductType(nextType);
+              const selectedCrate = crates.find((crate) =>
+                crate.id === blackMarketCrateId &&
+                (nextType !== "black_market_key" || crate.requires_key),
+              );
+              if (nextType !== "standard" && !selectedCrate) {
+                setBlackMarketCrateId(
+                  crates.find((crate) =>
+                    nextType !== "black_market_key" || crate.requires_key,
+                  )?.id ?? "",
+                );
+              }
+            }}
+            className="mt-1 block w-full rounded-lg border border-zinc-700 bg-zinc-950 px-3 py-2 text-sm text-white"
+          >
+            <option value="standard">Standard shop item</option>
+            <option value="black_market_crate">Black Market crate</option>
+            <option value="black_market_key">Black Market key</option>
+          </select>
+        </label>
+        {productType !== "standard" && (
+          <label className="text-xs font-medium text-zinc-400">
+            {productType === "black_market_crate" ? "Crate to sell" : "Key for crate"}
+            <select
+              name="blackMarketCrateId"
+              required
+              value={blackMarketCrateId}
+              onChange={(event) => setBlackMarketCrateId(event.currentTarget.value)}
+              className="mt-1 block w-full rounded-lg border border-zinc-700 bg-zinc-950 px-3 py-2 text-sm text-white"
+            >
+              <option value="" disabled>Select a crate</option>
+              {crates
+                .filter((crate) =>
+                  productType !== "black_market_key" ||
+                  crate.requires_key ||
+                  crate.id === blackMarketCrateId,
+                )
+                .map((crate) => (
+                  <option key={crate.id} value={crate.id}>{crate.name}</option>
+                ))}
+            </select>
+          </label>
+        )}
+        {productType === "standard" && (
+          <label className="text-xs font-medium text-zinc-400 sm:col-span-2">
           Streamer.bot action key
           <input
             name="streamerbotAction"
@@ -418,7 +504,8 @@ export default function ShopAdminManager({
             placeholder="shop.redeemed"
             className="mt-1 w-full rounded-lg border border-zinc-700 bg-zinc-950 px-3 py-2 text-sm text-white"
           />
-        </label>
+          </label>
+        )}
         <label className="text-xs font-medium text-zinc-400">
           Price · Discord points
           <input
@@ -443,7 +530,7 @@ export default function ShopAdminManager({
             className="mt-1 w-full rounded-lg border border-zinc-700 bg-zinc-950 px-3 py-2 text-sm text-white"
           />
         </label>
-        <label className="text-xs font-medium text-zinc-400">
+        {productType === "standard" && <label className="text-xs font-medium text-zinc-400">
           Purchase behavior
           <select
             name="addToInventory"
@@ -453,7 +540,7 @@ export default function ShopAdminManager({
             <option value="false">Use immediately; do not add to inventory</option>
             <option value="true">Add to inventory for later use</option>
           </select>
-        </label>
+        </label>}
         <label className="text-xs font-medium text-zinc-400">
           Status
           <select

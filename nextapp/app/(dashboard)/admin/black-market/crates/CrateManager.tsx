@@ -14,6 +14,7 @@ export type AdminCrate = {
   id: string;
   name: string;
   active: boolean;
+  requiresKey: boolean;
   startsAt: string | null;
   endsAt: string | null;
   previewImageUrl: string | null;
@@ -129,6 +130,8 @@ function actionError(result: AdminActionResult) {
     VALIDATION_ERROR: "Check the crate details and date range.",
     NOT_FOUND: "This crate no longer exists. Refresh and try again.",
     CONFLICT: "A crate with this ID already exists.",
+    LINKED_PRODUCTS: "This crate is linked to shop products. Remove those products before deleting it.",
+    KEY_PRODUCTS_EXIST: "Remove or change this crate's key products before disabling its key requirement.",
     CONFIRMATION_REQUIRED: "Confirm the deletion to continue.",
     INTERNAL_ERROR: "The crate could not be saved.",
   };
@@ -159,8 +162,9 @@ export default function CrateManager({
         id: initialValues.id,
         name: initialValues.name,
         active: !initialValues.active,
+        requiresKey: initialValues.requiresKey,
         startsAt: initialValues.startsAt,
-        endsAt: initialValues.endsAt,
+        endsAt: initialValues.endsAt ?? "",
         previewImageUrl: initialValues.previewImageUrl,
         textureUrl: initialValues.textureUrl,
       });
@@ -187,8 +191,9 @@ export default function CrateManager({
       id: String(formData.get("id") ?? "").trim(),
       name: String(formData.get("name") ?? "").trim(),
       active: formData.get("active") === "on",
+      requiresKey: formData.get("requiresKey") === "on",
       startsAt: dateInput(rawStarts),
-      endsAt: dateInput(rawEnds),
+      endsAt: dateInput(rawEnds) ?? "",
       previewImageUrl: previewUrl || null,
       textureUrl: textureUrl || null,
     };
@@ -358,7 +363,7 @@ function CrateForm({
         <div className="flex items-start justify-between gap-3">
           <div>
             <h2 className="text-xl font-bold">{crate ? "Edit crate" : "Create crate"}</h2>
-            <p className="mt-1 text-sm text-zinc-400">Set schedule and artwork.</p>
+            <p className="mt-1 text-sm text-zinc-400">Set event dates and artwork.</p>
           </div>
           <button type="button" onClick={onClose} className="text-zinc-400 hover:text-white" aria-label="Close">
             ✕
@@ -403,6 +408,7 @@ function CrateForm({
             <input
               name="endsAt"
               type="datetime-local"
+              required
               defaultValue={localDateTime(crate?.endsAt ?? null)}
               className="w-full rounded-lg border border-zinc-700 bg-zinc-950 px-3 py-2 text-white"
             />
@@ -411,6 +417,10 @@ function CrateForm({
         <label className="flex items-center gap-2 text-sm text-zinc-200">
           <input type="checkbox" name="active" defaultChecked={crate?.active ?? true} />
           Active and visible to users
+        </label>
+        <label className="flex items-center gap-2 text-sm text-zinc-200">
+          <input type="checkbox" name="requiresKey" defaultChecked={crate?.requiresKey ?? false} />
+          Requires a crate-specific key to open
         </label>
         <ImageUpload type="crate-preview" label="Preview image" value={previewUrl} onChange={onPreviewChange} />
         <ModelUpload crateId={crateId} value={textureUrl} onChange={onTextureChange} />

@@ -38,6 +38,19 @@ enum BlackMarketItemType {
   golden_eggs
 }
 
+enum BlackMarketItemExpiry {
+  permanent
+  seven_days
+  thirty_days
+  event_end
+}
+
+enum ShopProductType {
+  standard
+  black_market_crate
+  black_market_key
+}
+
 //////////////////////////////////////////////////
 // USERS (admin / auth – bokem)
 //////////////////////////////////////////////////
@@ -119,6 +132,7 @@ model WebAccount {
   golden_eggs Int @default(0)
   black_market_inventory BlackMarketInventory[]
   black_market_crate_inventory BlackMarketCrateInventory[]
+  black_market_key_inventory BlackMarketKeyInventory[]
 }
 
 model OAuthIdentity {
@@ -268,6 +282,8 @@ model ShopProduct {
   id              String          @id @default(cuid())
   name            String
   description     String
+  product_type    ShopProductType @default(standard)
+  black_market_crate_id String?
   discord_price   Int?
   twitch_price    Int?
   active          Boolean         @default(false)
@@ -279,6 +295,9 @@ model ShopProduct {
   updated_at      DateTime        @updatedAt
   inventory       ShopInventory[]
   redemptions     ShopRedemption[]
+  black_market_crate BlackMarketCrate? @relation(fields: [black_market_crate_id], references: [id], onDelete: Restrict)
+
+  @@index([black_market_crate_id, product_type])
 }
 
 model ShopInventory {
@@ -328,13 +347,16 @@ model BlackMarketCrate {
   preview_image_url String?
   texture_url       String?
   active            Boolean  @default(true)
+  requires_key      Boolean  @default(false)
   open_count        Int      @default(0)
   starts_at         DateTime?
-  ends_at           DateTime?
+  ends_at           DateTime
   created_at        DateTime @default(now())
 
   inventories BlackMarketCrateInventory[]
+  key_inventories BlackMarketKeyInventory[]
   items       BlackMarketCrateItem[]
+  shop_products ShopProduct[]
 }
 
 model BlackMarketCrateItem {
@@ -361,11 +383,24 @@ model BlackMarketCrateInventory {
   @@id([account_id, crate_id])
 }
 
+model BlackMarketKeyInventory {
+  account_id String
+  crate_id   String
+  quantity   Int    @default(0)
+
+  account WebAccount @relation(fields: [account_id], references: [id], onDelete: Cascade)
+  crate   BlackMarketCrate @relation(fields: [crate_id], references: [id], onDelete: Cascade)
+
+  @@id([account_id, crate_id])
+  @@index([crate_id, quantity])
+}
+
 model BlackMarketItem {
   id         String              @id
   name       String
   group      String              @default("chat")
   item_type  BlackMarketItemType @default(progressive)
+  expiry     BlackMarketItemExpiry @default(permanent)
   image_url  String?
   max_level  Int                 @default(6)
   created_at DateTime            @default(now())
@@ -394,6 +429,7 @@ model BlackMarketInventory {
   group         String
   current_level Int      @default(1)
   is_equipped   Boolean  @default(false)
+  expires_at    DateTime?
   created_at    DateTime @default(now())
 
   account WebAccount @relation(fields: [account_id], references: [id], onDelete: Cascade)

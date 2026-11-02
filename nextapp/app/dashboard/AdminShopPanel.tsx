@@ -5,6 +5,7 @@ import PersistentAdminCard from "@/app/dashboard/PersistentAdminCard";
 import { getAdminShopDeliveries } from "@/lib/shop-admin";
 import ShopAdminManager from "@/app/shop/ShopAdminManager";
 import type {
+  AdminShopCrate,
   AdminShopDelivery,
   AdminShopProduct,
 } from "@/app/shop/ShopAdminManager";
@@ -19,15 +20,23 @@ function isMissingShopTable(error: unknown) {
 export default async function AdminShopPanel() {
   let products: AdminShopProduct[];
   let deliveries: AdminShopDelivery[];
+  let crates: AdminShopCrate[];
   try {
-    [products, deliveries] = await Promise.all([
+    [products, deliveries, crates] = await Promise.all([
       prisma.shopProduct.findMany({
         orderBy: { name: "asc" },
         include: {
           _count: { select: { inventory: true, redemptions: true } },
+          black_market_crate: {
+            select: { id: true, name: true, requires_key: true },
+          },
         },
       }),
       getAdminShopDeliveries(),
+      prisma.blackMarketCrate.findMany({
+        orderBy: { name: "asc" },
+        select: { id: true, name: true, requires_key: true },
+      }),
     ]);
   } catch (error) {
     if (!isMissingShopTable(error)) throw error;
@@ -59,7 +68,7 @@ export default async function AdminShopPanel() {
           Preview as a user
         </Link>
       </div>
-      <ShopAdminManager products={products} deliveries={deliveries} />
+      <ShopAdminManager products={products} deliveries={deliveries} crates={crates} />
     </div>
     </PersistentAdminCard>
   );

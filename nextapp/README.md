@@ -75,6 +75,8 @@ The public Twitch Channel Points balance is not available through the supported 
 
 The public home page checks the broadcaster's current live status through the Twitch Helix API (`TWITCH_BROADCASTER_LOGIN`) and refreshes it while open; Spotify playback and its overlay stay hidden when Twitch reports the channel offline. Upcoming stream times are managed in Dashboard → Admin. Admins manage all shop entries through one shared editor on `/shop`; each entry can be configured to be used immediately when purchased or added to the account inventory for later use. Shop purchases, uses, and configuration changes are recorded in the admin log and can be reverted there. LED editor access uses inventory purchases; keyframes snap to 60 fps and the effect is included in the same queued shop event as any other redemption. Its configured Streamer.bot action decides how to apply the effect (for example, forward it to a device). Public point, chat profanity, gambling, and event-statistic rankings are available at `/leaderboards`.
 
+Black Market crates require an event end date and can require a matching crate-specific key. Configure crate and key products in the shop editor; purchases use either linked Discord or Twitch points and add the item directly to the buyer's Black Market inventory. Normal crate items can be permanent, expire 7 or 30 days after acquisition, or expire when the crate event ends. The migration assigns legacy crates without an end date a temporary end date 30 days after their start (or creation) time; review those dates in the crate admin before relying on them.
+
 ### Shop actions in Streamer.bot
 
 Each shop product has a **Streamer.bot action** containing the exact name of a
