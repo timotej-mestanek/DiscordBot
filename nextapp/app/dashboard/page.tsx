@@ -112,20 +112,20 @@ export default async function DashboardPage({
   return (
     <main className="min-h-screen bg-zinc-950 text-white">
       <header className="border-b border-zinc-800 bg-zinc-900/70">
-        <div className="mx-auto flex max-w-6xl items-center justify-between gap-4 px-4 py-4 sm:px-6">
-          <Link href="/" className="text-lg font-bold tracking-wide">
-            N4JT <span className="font-normal text-zinc-400">Dashboard</span>
+        <div className="mx-auto flex max-w-7xl items-center justify-between gap-3 px-4 py-2.5 sm:px-6">
+          <Link href="/" className="text-base font-bold tracking-wide">
+            N4JT
           </Link>
-          <div className="flex items-center gap-3">
+          <div className="flex items-center gap-2.5">
             <Link
               href="/black-market"
-              className="text-sm font-semibold text-amber-200 hover:text-amber-100"
+              className="text-xs font-semibold text-amber-200 hover:text-amber-100 sm:text-sm"
             >
               Black Market
             </Link>
             <Link
               href={account.role === "admin" ? "/shop?preview=public" : "/shop"}
-              className="text-sm font-semibold text-violet-300 hover:text-violet-200"
+              className="text-xs font-semibold text-violet-300 hover:text-violet-200 sm:text-sm"
             >
               Shop
             </Link>
@@ -133,7 +133,7 @@ export default async function DashboardPage({
               {account.display_name}
             </span>
             <form action="/api/logout" method="post">
-              <button className="rounded-lg border border-zinc-700 px-4 py-2 text-sm font-medium transition-colors hover:border-zinc-500 hover:bg-zinc-800">
+              <button className="rounded-md border border-zinc-700 px-3 py-1.5 text-xs font-medium transition-colors hover:border-zinc-500 hover:bg-zinc-800">
                 Sign out
               </button>
             </form>
@@ -141,11 +141,11 @@ export default async function DashboardPage({
         </div>
       </header>
 
-      <div className="mx-auto grid max-w-6xl gap-8 px-4 py-8 sm:px-6 md:grid-cols-[220px_1fr] md:py-12">
+      <div className="mx-auto grid max-w-7xl gap-5 px-4 py-5 sm:px-6 md:grid-cols-[190px_1fr] md:py-7">
         <nav aria-label="Dashboard" className="flex gap-2 overflow-x-auto md:flex-col">
           {account.role === "admin" && (
-            <div className="flex shrink-0 flex-col gap-1 rounded-xl border border-violet-900/60 bg-violet-950/20 p-2">
-              <p className="px-3 py-2 text-xs font-bold uppercase tracking-widest text-violet-300">
+            <div className="flex shrink-0 flex-col gap-0.5 rounded-lg border border-violet-900/60 bg-violet-950/20 p-1.5">
+              <p className="px-2.5 py-1 text-[10px] font-bold uppercase tracking-widest text-violet-300">
                 Admin
               </p>
               {adminTabs.map((tab) => (
@@ -153,7 +153,7 @@ export default async function DashboardPage({
                   key={tab.id}
                   href={`/dashboard?tab=${tab.id}`}
                   aria-current={activeTab === tab.id ? "page" : undefined}
-                  className={`rounded-lg px-3 py-2.5 text-sm font-medium transition-colors ${
+                  className={`rounded-md px-2.5 py-1.5 text-xs font-medium transition-colors ${
                     activeTab === tab.id
                       ? "bg-violet-600 text-white"
                       : "text-violet-200/80 hover:bg-violet-900/40 hover:text-white"
@@ -164,14 +164,14 @@ export default async function DashboardPage({
               ))}
               <Link
                 href="/admin/black-market"
-                className="rounded-lg px-3 py-2.5 text-sm font-medium text-violet-200/80 transition-colors hover:bg-violet-900/40 hover:text-white"
+                className="rounded-md px-2.5 py-1.5 text-xs font-medium text-violet-200/80 transition-colors hover:bg-violet-900/40 hover:text-white"
               >
                 Black Market
               </Link>
             </div>
           )}
-          <div className="flex shrink-0 flex-col gap-1">
-            <p className="px-3 py-2 text-xs font-bold uppercase tracking-widest text-zinc-500">
+          <div className="flex shrink-0 flex-col gap-0.5">
+            <p className="px-2.5 py-1 text-[10px] font-bold uppercase tracking-widest text-zinc-500">
               My account
             </p>
             {userTabs.map((tab) => (
@@ -179,7 +179,7 @@ export default async function DashboardPage({
                 key={tab.id}
                 href={`/dashboard?tab=${tab.id}`}
                 aria-current={activeTab === tab.id ? "page" : undefined}
-                className={`rounded-lg px-4 py-3 text-sm font-medium transition-colors ${
+                className={`rounded-md px-2.5 py-1.5 text-xs font-medium transition-colors ${
                   activeTab === tab.id
                     ? "bg-zinc-700 text-white"
                     : "text-zinc-400 hover:bg-zinc-900 hover:text-white"
@@ -188,23 +188,14 @@ export default async function DashboardPage({
                 {tab.label}
               </a>
             ))}
-            <Link
-              href={account.role === "admin" ? "/shop?preview=public" : "/shop"}
-              className="rounded-lg px-4 py-3 text-sm font-medium text-zinc-400 transition-colors hover:bg-zinc-900 hover:text-white"
-            >
-              Shop
-            </Link>
           </div>
         </nav>
 
         <section className="min-w-0">
-          <div className="mb-7">
-            <h1 className="text-3xl font-bold">
+          <div className="mb-4">
+            <h1 className="text-2xl font-bold">
               {dashboardTitles[activeTab]}
             </h1>
-            <p className="mt-2 text-sm text-zinc-400">
-              Signed in as {account.display_name}
-            </p>
           </div>
 
           {linkedLabel && (
@@ -239,18 +230,18 @@ export default async function DashboardPage({
             (ledInventory?._sum.quantity ?? 0) > 0 ? (
               <LEDTimelineEditor initialUses={ledInventory?._sum.quantity ?? 0} />
             ) : (
-              <section className="rounded-xl border border-zinc-800 bg-zinc-900 p-6">
+              <section className="rounded-lg border border-zinc-800 bg-zinc-900 p-4">
                 <p className="text-sm font-semibold uppercase tracking-widest text-violet-300">
                   LEDS · locked
                 </p>
-                <h2 className="mt-2 text-xl font-semibold">Unlock through the shop</h2>
+                <h2 className="mt-1.5 text-lg font-semibold">Unlock through the shop</h2>
                 <p className="mt-3 text-sm leading-6 text-zinc-400">
                   Buy Custom LED effect in the shop to unlock the editor. Each use
                   consumes one purchased item.
                 </p>
                 <Link
                   href="/shop"
-                  className="mt-5 inline-flex rounded-lg bg-violet-600 px-4 py-2.5 text-sm font-semibold hover:bg-violet-500"
+                  className="mt-3 inline-flex rounded-md bg-violet-600 px-3 py-2 text-sm font-semibold hover:bg-violet-500"
                 >
                   Go to shop
                 </Link>
@@ -259,19 +250,19 @@ export default async function DashboardPage({
           )}
 
           {activeTab === "auth" && (
-            <div className="grid gap-4 lg:grid-cols-2">
+            <div className="grid gap-3 lg:grid-cols-2">
               {[
                 { provider: "discord", label: "Discord", identity: discordIdentity },
                 { provider: "twitch", label: "Twitch", identity: twitchIdentity },
               ].map(({ provider, label, identity }) => (
                 <article
                   key={provider}
-                  className="rounded-xl border border-zinc-800 bg-zinc-900 p-6"
+                  className="rounded-lg border border-zinc-800 bg-zinc-900 p-4"
                 >
                   <div className="flex items-start justify-between gap-3">
                     <div>
                       <h2 className="text-lg font-semibold">{label}</h2>
-                      <p className="mt-2 text-sm text-zinc-400">
+                      <p className="mt-1 text-sm text-zinc-400">
                         {identity
                           ? `Linked as ${identity.display_name}`
                           : "Not linked to this account yet"}
@@ -288,7 +279,7 @@ export default async function DashboardPage({
                   {!identity && (
                     <a
                       href={`/api/login/${provider}`}
-                      className="mt-5 inline-flex min-h-10 items-center justify-center rounded-lg bg-violet-600 px-4 text-sm font-semibold transition-colors hover:bg-violet-500"
+                      className="mt-3 inline-flex min-h-9 items-center justify-center rounded-md bg-violet-600 px-3 text-sm font-semibold transition-colors hover:bg-violet-500"
                     >
                       Connect {label}
                     </a>

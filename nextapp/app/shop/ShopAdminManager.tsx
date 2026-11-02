@@ -257,18 +257,9 @@ export default function ShopAdminManager({
   }
 
   return (
-    <section className="mt-8 rounded-2xl border border-violet-900/60 bg-violet-950/10 p-5 sm:p-6">
-      <p className="text-xs font-semibold uppercase tracking-widest text-violet-300">
-        Shop administration
-      </p>
-      <h2 className="mt-2 text-xl font-bold">Manage shop products</h2>
-      <p className="mt-2 text-sm leading-6 text-zinc-400">
-        Manage all products in one editor. Select a product or create a new one.
-        Set an action key that Streamer.bot receives when an item is used. Items
-        bought for inventory are sent only when redeemed.
-      </p>
+    <section className="mt-5 rounded-xl border border-violet-900/60 bg-violet-950/10 p-3 sm:p-4">
 
-      <div className="mt-5 flex flex-wrap gap-2">
+      <div className="flex flex-wrap gap-1.5">
         {products.map((product) => (
           <div
             key={product.id}
@@ -280,7 +271,7 @@ export default function ShopAdminManager({
                 setSelected(product);
                 setError("");
               }}
-              className={`px-3 py-2 text-sm font-semibold transition-colors ${
+              className={`px-2.5 py-1.5 text-xs font-semibold transition-colors ${
                 selected?.id === product.id
                   ? "bg-violet-950 text-white"
                   : "text-zinc-300 hover:bg-zinc-800"
@@ -293,7 +284,7 @@ export default function ShopAdminManager({
               disabled={visibilityBusyId !== null}
               onClick={() => void toggleProductVisibility(product)}
               aria-label={`${product.active ? "Hide" : "Show"} ${product.name} in shop`}
-              className={`border-l border-zinc-700 px-2.5 py-2 text-xs font-semibold transition-colors disabled:cursor-not-allowed disabled:opacity-50 ${
+              className={`border-l border-zinc-700 px-2 py-1.5 text-[11px] font-semibold transition-colors disabled:cursor-not-allowed disabled:opacity-50 ${
                 product.active
                   ? "text-amber-200 hover:bg-amber-950/60"
                   : "text-emerald-200 hover:bg-emerald-950/60"
@@ -313,7 +304,7 @@ export default function ShopAdminManager({
             setSelected(null);
             setError("");
           }}
-          className={`rounded-lg border px-3 py-2 text-sm font-semibold ${
+          className={`rounded-md border px-2.5 py-1.5 text-xs font-semibold ${
             selected === null
               ? "border-violet-500 bg-violet-950 text-white"
               : "border-zinc-700 text-zinc-300 hover:bg-zinc-800"
@@ -332,7 +323,7 @@ export default function ShopAdminManager({
       <form
         key={selected?.id ?? "new"}
         onSubmit={save}
-        className="mt-5 grid gap-3 rounded-xl border border-zinc-800 bg-zinc-950/50 p-4 sm:grid-cols-2"
+        className="mt-3 grid gap-2.5 rounded-lg border border-zinc-800 bg-zinc-950/50 p-3 sm:grid-cols-2"
       >
         <label className="text-xs font-medium text-zinc-400 sm:col-span-2">
           Product name
@@ -356,7 +347,7 @@ export default function ShopAdminManager({
         </label>
         <label className="text-xs font-medium text-zinc-400">
           Card accent color
-          <div className="mt-1 flex items-center gap-3 rounded-lg border border-zinc-700 bg-zinc-950 px-3 py-2">
+          <div className="mt-1 flex items-center gap-2 rounded-md border border-zinc-700 bg-zinc-950 px-2 py-1.5">
             <input
               name="cardColor"
               type="color"
@@ -364,23 +355,20 @@ export default function ShopAdminManager({
               aria-label="Shop card accent color"
               className="h-8 w-12 cursor-pointer rounded border-0 bg-transparent p-0"
             />
-            <span className="text-xs text-zinc-500">
-              Used for the product card gradient and accent.
-            </span>
           </div>
         </label>
         <div className="text-xs font-medium text-zinc-400 sm:col-span-2">
           Product image
           {selected ? (
-            <div className="mt-1 flex flex-wrap items-center gap-4 rounded-lg border border-zinc-700 bg-zinc-950 p-3">
-              <div className="relative flex h-20 w-20 items-center justify-center overflow-hidden rounded-xl border border-zinc-700 bg-zinc-900">
+            <div className="mt-1 flex flex-wrap items-center gap-3 rounded-md border border-zinc-700 bg-zinc-950 p-2">
+            <div className="relative flex h-14 w-14 items-center justify-center overflow-hidden rounded-lg border border-zinc-700 bg-zinc-900">
                 {selected.image_url ? (
                   <Image
                     src={selected.image_url}
                     alt={`${selected.name} icon`}
                     fill
                     unoptimized
-                    sizes="80px"
+                    sizes="56px"
                     className="object-cover"
                   />
                 ) : (
@@ -388,7 +376,7 @@ export default function ShopAdminManager({
                 )}
               </div>
               <div className="flex flex-wrap gap-2">
-                <label className="cursor-pointer rounded-lg border border-zinc-700 px-3 py-2 text-sm font-semibold text-zinc-200 hover:bg-zinc-800">
+                <label className="cursor-pointer rounded-md border border-zinc-700 px-2.5 py-1.5 text-xs font-semibold text-zinc-200 hover:bg-zinc-800">
                   {imageBusy ? "Uploading…" : selected.image_url ? "Replace image" : "Upload image"}
                   <input
                     type="file"
@@ -407,15 +395,12 @@ export default function ShopAdminManager({
                     type="button"
                     disabled={imageBusy}
                     onClick={() => void removeImage()}
-                    className="rounded-lg border border-red-900 px-3 py-2 text-sm font-semibold text-red-200 hover:bg-red-950/50 disabled:opacity-50"
+                    className="rounded-md border border-red-900 px-2.5 py-1.5 text-xs font-semibold text-red-200 hover:bg-red-950/50 disabled:opacity-50"
                   >
                     Remove image
                   </button>
                 )}
               </div>
-              <span className="basis-full text-zinc-500">
-                PNG, JPEG, or WebP · maximum 2 MB. Replacing an image removes the previous R2 file.
-              </span>
             </div>
           ) : (
             <p className="mt-1 rounded-lg border border-zinc-700 bg-zinc-950 p-3 text-zinc-500">
@@ -433,9 +418,6 @@ export default function ShopAdminManager({
             placeholder="shop.redeemed"
             className="mt-1 w-full rounded-lg border border-zinc-700 bg-zinc-950 px-3 py-2 text-sm text-white"
           />
-          <span className="mt-1 block text-zinc-500">
-            Enter the exact Streamer.bot action name to run. The action receives the product and buyer details.
-          </span>
         </label>
         <label className="text-xs font-medium text-zinc-400">
           Price · Discord points
@@ -495,7 +477,7 @@ export default function ShopAdminManager({
           {busy ? "Saving…" : selected ? "Save product" : "Create product"}
         </button>
       </form>
-      <section className="mt-8 rounded-xl border border-zinc-800 bg-zinc-950/50 p-4">
+      <section className="mt-5 rounded-lg border border-zinc-800 bg-zinc-950/50 p-3">
         <div className="flex flex-wrap items-start justify-between gap-3">
           <div>
             <h3 className="font-semibold">Streamer.bot delivery queue</h3>

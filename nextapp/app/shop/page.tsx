@@ -59,38 +59,31 @@ export default async function ShopPage({
   return (
     <main className="min-h-screen bg-zinc-950 text-white">
       <header className="border-b border-zinc-800 bg-zinc-950/80">
-        <div className="mx-auto flex max-w-6xl items-center justify-between px-4 py-4 sm:px-6">
-          <Link href="/" className="text-xl font-black tracking-widest">N4JT</Link>
-          <div className="flex items-center gap-4">
+        <div className="mx-auto flex max-w-7xl items-center justify-between px-4 py-2.5 sm:px-6">
+          <Link href="/" className="text-lg font-black tracking-widest">N4JT</Link>
+          <div className="flex items-center gap-3">
             <Link href="/dashboard" className="text-sm font-semibold text-zinc-300 hover:text-white">
               Dashboard
             </Link>
             <Link
               href={account ? "/dashboard?tab=leds" : "/login"}
-              className="rounded-lg bg-violet-600 px-4 py-2 text-sm font-semibold hover:bg-violet-500"
+              className="rounded-md bg-violet-600 px-3 py-1.5 text-sm font-semibold hover:bg-violet-500"
             >
               LEDS
             </Link>
           </div>
         </div>
       </header>
-      <div className="mx-auto max-w-6xl px-4 py-10 sm:px-6 md:py-14">
-        <p className="text-sm font-semibold uppercase tracking-[0.3em] text-violet-300">
-          Community shop
-        </p>
-        <h1 className="mt-3 text-4xl font-black sm:text-5xl">Shop</h1>
-        <p className="mt-3 max-w-2xl text-zinc-400">
-          Buy items with Discord points or Twitch CustomBody. Depending on the
-          product settings, an item is used immediately or added to your inventory.
-        </p>
+      <div className="mx-auto max-w-7xl px-4 py-6 sm:px-6 md:py-8">
+        <h1 className="text-2xl font-black tracking-tight sm:text-3xl">Shop</h1>
         {isPublicPreview && (
-          <p className="mt-5 rounded-lg border border-violet-900/60 bg-violet-950/20 p-3 text-sm text-violet-200">
+          <p className="mt-3 rounded-md border border-violet-900/60 bg-violet-950/20 p-2 text-xs text-violet-200">
             Public preview · inactive products and admin tools are hidden.
           </p>
         )}
 
         {!shopTablesReady ? (
-          <section className="mt-8 rounded-xl border border-amber-900 bg-amber-950/40 p-5">
+          <section className="mt-5 rounded-lg border border-amber-900 bg-amber-950/40 p-4">
             <h2 className="font-semibold text-amber-100">The shop requires a database migration</h2>
             <p className="mt-2 text-sm leading-6 text-amber-100/80">
               The shop is unavailable because its database tables are missing. Run
@@ -103,7 +96,7 @@ export default async function ShopPage({
             {account?.role === "admin" && !isPublicPreview && (
               <ShopAdminManager products={products} deliveries={deliveries} />
             )}
-            <section className="mt-8 grid auto-rows-fr gap-5 lg:grid-cols-2">
+            <section className="mt-5 grid auto-rows-fr gap-3 sm:grid-cols-2 xl:grid-cols-3">
               {products
                 .filter((product) => product.active)
                 .map((product) => (
@@ -141,7 +134,7 @@ export default async function ShopPage({
                 ))}
             </section>
             {products.every((product) => !product.active) && (
-              <p className="mt-8 rounded-xl border border-zinc-800 bg-zinc-900 p-5 text-sm text-zinc-400">
+              <p className="mt-5 rounded-lg border border-zinc-800 bg-zinc-900 p-4 text-sm text-zinc-400">
                 {account?.role === "admin" && !isPublicPreview
                   ? "Create a product in the shop admin section below and enable it."
                   : "No products are currently available."}

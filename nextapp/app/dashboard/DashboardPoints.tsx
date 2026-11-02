@@ -67,26 +67,25 @@ export default function DashboardPoints({
   }
 
   return (
-    <div className="space-y-6">
-      <div className="grid gap-4 sm:grid-cols-2">
+    <div className="space-y-4">
+      <div className="grid gap-3 sm:grid-cols-2">
         {liveBalances.discord !== null && (
-          <article className="rounded-xl border border-zinc-800 bg-zinc-900 p-6">
-            <p className="text-sm text-zinc-400">Discord points</p>
-            <p className="mt-2 text-3xl font-bold">{liveBalances.discord.toLocaleString("en-US")}</p>
+          <article className="rounded-lg border border-zinc-800 bg-zinc-900 p-4">
+            <p className="text-xs text-zinc-400">Discord points</p>
+            <p className="mt-1 text-2xl font-bold">{liveBalances.discord.toLocaleString("en-US")}</p>
           </article>
         )}
         {liveBalances.twitchCustom !== null && (
-          <article className="rounded-xl border border-zinc-800 bg-zinc-900 p-6">
-            <p className="text-sm text-zinc-400">Twitch CustomBody</p>
-            <p className="mt-2 text-3xl font-bold">{liveBalances.twitchCustom.toLocaleString("en-US")}</p>
+          <article className="rounded-lg border border-zinc-800 bg-zinc-900 p-4">
+            <p className="text-xs text-zinc-400">Twitch CustomBody</p>
+            <p className="mt-1 text-2xl font-bold">{liveBalances.twitchCustom.toLocaleString("en-US")}</p>
           </article>
         )}
         {liveBalances.twitchCustom !== null && (
-          <article className="rounded-xl border border-zinc-800 bg-zinc-900 p-6 sm:col-span-2">
+          <article className="rounded-lg border border-zinc-800 bg-zinc-900 p-4 sm:col-span-2">
             <p className="text-sm font-semibold">Twitch Channel Points</p>
-            <p className="mt-2 text-sm text-zinc-400">
-              Twitch does not provide an API for apps to read your personal Channel Points balance.
-              These points cannot be loaded or converted.
+            <p className="mt-1 text-sm text-zinc-400">
+              Not available via Twitch API; cannot be converted.
             </p>
           </article>
         )}
@@ -104,19 +103,16 @@ export default function DashboardPoints({
         </p>
       )}
 
-      <section className="rounded-xl border border-zinc-800 bg-zinc-900 p-6">
-        <h2 className="text-xl font-semibold">Conversions</h2>
-        <p className="mt-2 text-sm text-zinc-400">
-          Channel Points cannot be converted. An administrator manages the available exchange rates.
-        </p>
-        <div className="mt-5 grid gap-4 lg:grid-cols-2">
+      <section className="rounded-lg border border-zinc-800 bg-zinc-900 p-4">
+        <h2 className="text-lg font-semibold">Conversions</h2>
+        <div className="mt-3 grid gap-3 lg:grid-cols-2">
           {rates
             .filter((rate) => rate.enabled && linked[rate.source_currency] && linked[rate.target_currency])
             .map((rate) => (
               <form
                 key={`${rate.source_currency}-${rate.target_currency}`}
                 onSubmit={convert}
-                className="rounded-lg border border-zinc-800 p-4"
+                className="rounded-md border border-zinc-800 p-3"
               >
                 <input type="hidden" name="source" value={rate.source_currency} />
                 <input type="hidden" name="target" value={rate.target_currency} />
@@ -126,7 +122,7 @@ export default function DashboardPoints({
                 <p className="mt-1 text-sm text-zinc-400">
                   {rate.source_amount} → {rate.target_amount}
                 </p>
-                <label className="mt-4 block text-sm text-zinc-300">
+                <label className="mt-3 block text-sm text-zinc-300">
                   Amount of {currencyName(rate.source_currency)}
                   <input
                     name="sourceAmount"
@@ -137,7 +133,7 @@ export default function DashboardPoints({
                     className="mt-1 w-full rounded-lg border border-zinc-700 bg-zinc-950 px-3 py-2"
                   />
                 </label>
-                <button className="mt-3 rounded-lg bg-violet-600 px-4 py-2 text-sm font-semibold hover:bg-violet-500">
+                <button className="mt-2 rounded-md bg-violet-600 px-3 py-1.5 text-sm font-semibold hover:bg-violet-500">
                   Convert points
                 </button>
               </form>

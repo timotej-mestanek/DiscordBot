@@ -44,9 +44,9 @@ export default function PersistentAdminCard({
   }
 
   return (
-    <section className="rounded-xl border border-zinc-800 bg-zinc-900 p-6">
-      <header className="mb-4 flex items-center justify-between gap-3">
-        <h2 className="text-xl font-semibold">{title}</h2>
+    <section className="rounded-lg border border-zinc-800 bg-zinc-900 p-4">
+      <header className="mb-3 flex items-center justify-between gap-3">
+        <h2 className="text-lg font-semibold">{title}</h2>
         <button
           type="button"
           aria-expanded={!collapsed}
