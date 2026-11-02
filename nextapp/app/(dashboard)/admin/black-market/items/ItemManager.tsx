@@ -33,7 +33,10 @@ function actionError(result: AdminActionResult<unknown>) {
     FORBIDDEN: "You do not have permission to change items.",
     VALIDATION_ERROR: "Check the item ID, name, group, image, level settings, and selected crate.",
     NOT_FOUND: "This item no longer exists. Refresh and try again.",
-    CONFLICT: "An item with this ID already exists.",
+    CONFLICT: "This item conflicts with an existing item or crate reward.",
+    ITEM_ID_CONFLICT: "An item with this ID already exists. Choose another ID, or delete the existing item first.",
+    EGG_REWARD_EXISTS: "A Golden Eggs currency item already exists.",
+    CRATE_REWARD_EXISTS: "That crate already has this Golden Eggs reward amount.",
     CONFIRMATION_REQUIRED: "Confirm the deletion to continue.",
     INTERNAL_ERROR: "The item could not be saved.",
   };
@@ -245,13 +248,16 @@ export default function ItemManager({
                           <input
                             type="checkbox"
                             checked={settings?.selected ?? false}
-                            onChange={(event) => setCrateSettings((current) => ({
-                              ...current,
-                              [crate.id]: {
-                                ...current[crate.id],
-                                selected: event.currentTarget.checked,
-                              },
-                            }))}
+                            onChange={(event) => {
+                              const selected = event.currentTarget.checked;
+                              setCrateSettings((current) => ({
+                                ...current,
+                                [crate.id]: {
+                                  ...current[crate.id],
+                                  selected,
+                                },
+                              }));
+                            }}
                           />
                           {crate.name}
                         </label>
@@ -266,13 +272,16 @@ export default function ItemManager({
                                 step={0.01}
                                 required
                                 value={settings.dropChance}
-                                onChange={(event) => setCrateSettings((current) => ({
-                                  ...current,
-                                  [crate.id]: {
-                                    ...current[crate.id],
-                                    dropChance: event.currentTarget.value,
-                                  },
-                                }))}
+                                onChange={(event) => {
+                                  const dropChance = event.currentTarget.value;
+                                  setCrateSettings((current) => ({
+                                    ...current,
+                                    [crate.id]: {
+                                      ...current[crate.id],
+                                      dropChance,
+                                    },
+                                  }));
+                                }}
                                 className="w-full rounded-lg border border-zinc-700 bg-zinc-900 px-3 py-2 text-sm text-white"
                               />
                             </label>
@@ -285,13 +294,16 @@ export default function ItemManager({
                                   max={1_000_000_000}
                                   required
                                   value={settings.goldenEggs}
-                                  onChange={(event) => setCrateSettings((current) => ({
-                                    ...current,
-                                    [crate.id]: {
-                                      ...current[crate.id],
-                                      goldenEggs: event.currentTarget.value,
-                                    },
-                                  }))}
+                                  onChange={(event) => {
+                                    const goldenEggs = event.currentTarget.value;
+                                    setCrateSettings((current) => ({
+                                      ...current,
+                                      [crate.id]: {
+                                        ...current[crate.id],
+                                        goldenEggs,
+                                      },
+                                    }));
+                                  }}
                                   className="w-full rounded-lg border border-zinc-700 bg-zinc-900 px-3 py-2 text-sm text-white"
                                 />
                               </label>

@@ -15,6 +15,9 @@ export type AdminActionResult<T = undefined> =
         | "VALIDATION_ERROR"
         | "NOT_FOUND"
         | "CONFLICT"
+        | "ITEM_ID_CONFLICT"
+        | "EGG_REWARD_EXISTS"
+        | "CRATE_REWARD_EXISTS"
         | "INTERNAL_ERROR";
     }
   | {
@@ -66,6 +69,15 @@ async function isAdmin() {
 
 function isRecord(value: unknown): value is Record<string, unknown> {
   return typeof value === "object" && value !== null && !Array.isArray(value);
+}
+
+function uniqueConstraintTarget(error: unknown): string[] {
+  if (!isRecord(error) || !isRecord(error.meta)) return [];
+  const target = error.meta.target;
+  if (typeof target === "string") return [target];
+  return Array.isArray(target)
+    ? target.filter((value): value is string => typeof value === "string")
+    : [];
 }
 
 function isValidSlug(value: unknown): value is string {
@@ -367,9 +379,6 @@ export async function createItem(input: ItemInput): Promise<AdminActionResult> {
     }
     return { type: "success" };
   } catch (error) {
-    if (typeof error === "object" && error !== null && "code" in error && error.code === "P2002") {
-      return { type: "error", code: "CONFLICT" };
-    }
     if (error instanceof Error && error.message === "CRATE_NOT_FOUND") {
       return { type: "error", code: "VALIDATION_ERROR" };
     }
@@ -377,6 +386,19 @@ export async function createItem(input: ItemInput): Promise<AdminActionResult> {
       return { type: "error", code: "VALIDATION_ERROR" };
     }
     if (error instanceof Error && error.message === "EGG_REWARD_EXISTS") {
+      return { type: "error", code: "EGG_REWARD_EXISTS" };
+    }
+    if (typeof error === "object" && error !== null && "code" in error && error.code === "P2002") {
+      const target = uniqueConstraintTarget(error);
+      if (target.some((value) => value.includes("item_type"))) {
+        return { type: "error", code: "EGG_REWARD_EXISTS" };
+      }
+      if (target.some((value) => value.includes("golden_eggs"))) {
+        return { type: "error", code: "CRATE_REWARD_EXISTS" };
+      }
+      if (target.some((value) => value === "id" || value.includes("BlackMarketItem_pkey"))) {
+        return { type: "error", code: "ITEM_ID_CONFLICT" };
+      }
       return { type: "error", code: "CONFLICT" };
     }
     console.error("Black Market item creation failed:", error);
