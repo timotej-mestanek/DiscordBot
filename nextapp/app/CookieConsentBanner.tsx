@@ -63,8 +63,8 @@ export default function CookieConsentBanner() {
       </h2>
       <p className="mt-1.5 text-xs leading-5 text-zinc-300">
         {requested
-          ? "Saving LED designs requires consent to optional local storage. Your choice is saved in a cookie and can be changed at any time."
-          : "We use essential cookies for sign-in. Optional local storage saves LED designs in this browser. LED designs are not saved without your consent."}
+          ? "LED designs need optional local-storage consent. Your choice is saved in a cookie and can be changed anytime."
+          : "Essential cookies keep you signed in. Optional storage saves LED designs; nothing is saved without consent."}
       </p>
       <div className="mt-3 flex flex-wrap justify-end gap-2">
         <button
