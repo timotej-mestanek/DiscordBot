@@ -360,14 +360,25 @@ export default function ShopAdminManager({
         className="mt-3 grid gap-2.5 rounded-lg border border-zinc-800 bg-zinc-950/50 p-3 sm:grid-cols-2"
       >
         <label className="text-xs font-medium text-zinc-400 sm:col-span-2">
-          Product name
+          {productType === "black_market_crate" ? "Product name · from crate" : "Product name"}
           <input
+            key={`${productType}:${blackMarketCrateId}`}
             name="name"
             required
-            maxLength={80}
-            defaultValue={selected?.name ?? ""}
-            className="mt-1 w-full rounded-lg border border-zinc-700 bg-zinc-950 px-3 py-2 text-sm text-white"
+            maxLength={productType === "black_market_crate" ? 100 : 80}
+            readOnly={productType === "black_market_crate"}
+            defaultValue={
+              productType === "black_market_crate"
+                ? crates.find((crate) => crate.id === blackMarketCrateId)?.name ?? ""
+                : selected?.name ?? ""
+            }
+            className="mt-1 w-full rounded-lg border border-zinc-700 bg-zinc-950 px-3 py-2 text-sm text-white read-only:text-zinc-400"
           />
+          {productType === "black_market_crate" && (
+            <span className="mt-1 block text-[11px] text-zinc-500">
+              Automatically uses the selected crate name.
+            </span>
+          )}
         </label>
         <label className="text-xs font-medium text-zinc-400 sm:col-span-2">
           Shop description

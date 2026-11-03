@@ -45,8 +45,8 @@ export async function POST(request: Request) {
     body === null ||
     !("name" in body) ||
     typeof body.name !== "string" ||
-    body.name.trim().length < 1 ||
-    body.name.trim().length > 80 ||
+    ((!("productType" in body) || body.productType !== "black_market_crate") &&
+      (body.name.trim().length < 1 || body.name.trim().length > 80)) ||
     !("description" in body) ||
     typeof body.description !== "string" ||
     body.description.trim().length > 500 ||
@@ -98,7 +98,7 @@ export async function POST(request: Request) {
     return NextResponse.json({ error: "Check the product name, description, and prices." }, { status: 400 });
   }
 
-  const name = body.name.trim();
+  const submittedName = body.name.trim();
   const description = body.description.trim();
   const cardColor = body.cardColor;
   const discordPrice = body.discordPrice;
@@ -115,6 +115,7 @@ export async function POST(request: Request) {
 
   try {
     await prisma.$transaction(async (transaction) => {
+      let name = submittedName;
       const previous = productId
         ? await transaction.shopProduct.findUnique({ where: { id: productId } })
         : null;
@@ -133,9 +134,10 @@ export async function POST(request: Request) {
       if (productType !== "standard" && typeof blackMarketCrateId === "string") {
         const crate = await transaction.blackMarketCrate.findUnique({
           where: { id: blackMarketCrateId },
-          select: { requires_key: true },
+          select: { name: true, requires_key: true },
         });
         if (!crate) throw new Error("Black Market crate not found.");
+        if (productType === "black_market_crate") name = crate.name;
         if (productType === "black_market_key" && !crate.requires_key) {
           throw new Error("This crate does not require a key.");
         }
