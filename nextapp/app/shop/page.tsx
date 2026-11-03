@@ -1,9 +1,9 @@
 import { Prisma } from "@prisma/client";
-import Link from "next/link";
 import { getCurrentAccount } from "@/lib/auth/session";
 import { getAccountPointBalances } from "@/lib/points";
 import { prisma } from "@/lib/prisma";
 import { getAdminShopDeliveries } from "@/lib/shop-admin";
+import AppHeader from "@/app/AppHeader";
 import ShopAdminManager from "./ShopAdminManager";
 import type {
   AdminShopCrate,
@@ -22,11 +22,15 @@ function isMissingShopTable(error: unknown) {
 export default async function ShopPage({
   searchParams,
 }: {
-  searchParams: Promise<{ preview?: string }>;
+  searchParams: Promise<{ preview?: string; view?: string }>;
 }) {
   const account = await getCurrentAccount();
   const params = await searchParams;
   const isPublicPreview = account?.role === "admin" && params.preview === "public";
+  const adminView =
+    account?.role === "admin" &&
+    !isPublicPreview &&
+    params.view === "admin";
   const identities = account?.identities ?? [];
   const balances = account ? await getAccountPointBalances(identities) : null;
   let products: AdminShopProduct[] = [];
@@ -38,7 +42,7 @@ export default async function ShopPage({
   try {
     [products, crates] = await Promise.all([
       prisma.shopProduct.findMany({
-      where: account?.role === "admin" && !isPublicPreview ? {} : { active: true },
+      where: adminView ? {} : { active: true },
       orderBy: { name: "asc" },
       include: {
         _count: { select: { inventory: true, redemptions: true } },
@@ -61,7 +65,7 @@ export default async function ShopPage({
         inventory.map((entry) => [entry.product_id, entry.quantity]),
       );
     }
-    if (account?.role === "admin" && !isPublicPreview) {
+    if (adminView) {
       deliveries = await getAdminShopDeliveries();
     }
   } catch (error) {
@@ -71,25 +75,12 @@ export default async function ShopPage({
   }
 
   return (
-    <main className="min-h-screen bg-zinc-950 text-white">
-      <header className="border-b border-zinc-800 bg-zinc-950/80">
-        <div className="mx-auto flex max-w-7xl items-center justify-between px-4 py-2.5 sm:px-6">
-          <Link href="/" className="text-lg font-black tracking-widest">N4JT</Link>
-          <div className="flex items-center gap-3">
-            <Link href="/dashboard" className="text-sm font-semibold text-zinc-300 hover:text-white">
-              Dashboard
-            </Link>
-            <Link
-              href={account ? "/dashboard?tab=leds" : "/login"}
-              className="rounded-md bg-violet-600 px-3 py-1.5 text-sm font-semibold hover:bg-violet-500"
-            >
-              LEDS
-            </Link>
-          </div>
-        </div>
-      </header>
+    <main className="app-page min-h-screen bg-zinc-950 text-white">
+      <AppHeader account={account} balances={balances} adminView={adminView} />
       <div className="mx-auto max-w-7xl px-4 py-6 sm:px-6 md:py-8">
-        <h1 className="text-2xl font-black tracking-tight sm:text-3xl">Shop</h1>
+        <h1 className="app-page-title text-2xl font-black tracking-tight sm:text-3xl">
+          {adminView ? "Shop management" : "Shop"}
+        </h1>
         {isPublicPreview && (
           <p className="mt-3 rounded-md border border-violet-900/60 bg-violet-950/20 p-2 text-xs text-violet-200">
             Public preview · inactive products and admin tools are hidden.
@@ -107,14 +98,34 @@ export default async function ShopPage({
           </section>
         ) : (
           <>
-            {account?.role === "admin" && !isPublicPreview && (
+            {adminView && (
               <ShopAdminManager
                 products={products}
                 deliveries={deliveries}
                 crates={crates}
               />
             )}
-            <section className="mt-5 grid auto-rows-fr gap-3 sm:grid-cols-2 xl:grid-cols-3">
+            {!adminView && (
+              <>
+                {account && (
+                  <section className="mt-5 grid gap-3 sm:grid-cols-3">
+                    <article className="app-summary-card">
+                      <span>Discord points</span>
+                      <strong>{balances?.discord?.toLocaleString("en-US") ?? "Not linked"}</strong>
+                    </article>
+                    <article className="app-summary-card">
+                      <span>Twitch CustomBody</span>
+                      <strong>{balances?.twitchCustom?.toLocaleString("en-US") ?? "Not linked"}</strong>
+                    </article>
+                    <article className="app-summary-card">
+                      <span>Your shop inventory</span>
+                      <strong>
+                        {[...inventoryByProduct.values()].reduce((total, quantity) => total + quantity, 0)} items
+                      </strong>
+                    </article>
+                  </section>
+                )}
+                <section className="mt-5 grid auto-rows-fr gap-3 sm:grid-cols-2 xl:grid-cols-3">
               {products
                 .filter((product) => {
                   if (!product.active) return false;
@@ -165,13 +176,13 @@ export default async function ShopPage({
                     isLoggedIn={Boolean(account)}
                   />
                 ))}
-            </section>
-            {products.every((product) => !product.active) && (
-              <p className="mt-5 rounded-lg border border-zinc-800 bg-zinc-900 p-4 text-sm text-zinc-400">
-                {account?.role === "admin" && !isPublicPreview
-                  ? "Create a product in the shop admin section below and enable it."
-                  : "No products are currently available."}
-              </p>
+                </section>
+                {products.every((product) => !product.active) && (
+                  <p className="mt-5 rounded-lg border border-zinc-800 bg-zinc-900 p-4 text-sm text-zinc-400">
+                    No products are currently available.
+                  </p>
+                )}
+              </>
             )}
           </>
         )}

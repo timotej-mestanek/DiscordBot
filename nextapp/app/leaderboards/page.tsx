@@ -1,16 +1,19 @@
-import Link from "next/link";
 import { Platform } from "@prisma/client";
+import AppHeader from "@/app/AppHeader";
+import { getCurrentAccount } from "@/lib/auth/session";
 import {
   getProfanityCategoryRankings,
   getGamblingRanking,
   getProfanityRanking,
 } from "@/lib/community-leaderboards";
 import { getPointRanking } from "@/lib/points";
+import { getAccountPointBalances } from "@/lib/points";
 import { prisma } from "@/lib/prisma";
 
 export const dynamic = "force-dynamic";
 
 export default async function LeaderboardsPage() {
+  const account = await getCurrentAccount();
   const [
     overall,
     twitch,
@@ -58,17 +61,13 @@ export default async function LeaderboardsPage() {
       };
     }),
   );
+  const balances = account
+    ? await getAccountPointBalances(account.identities)
+    : null;
 
   return (
-    <main className="min-h-screen bg-zinc-950 text-white">
-      <header className="border-b border-zinc-800">
-        <div className="mx-auto flex max-w-6xl items-center justify-between px-4 py-4 sm:px-6">
-          <Link href="/" className="text-xl font-black tracking-widest">N4JT</Link>
-          <Link href="/" className="text-sm font-semibold text-violet-300 hover:text-violet-200">
-            ← Back to home
-          </Link>
-        </div>
-      </header>
+    <main className="app-page min-h-screen bg-zinc-950 text-white">
+      <AppHeader account={account} balances={balances} />
 
       <div className="mx-auto max-w-6xl px-4 py-10 sm:px-6 md:py-14">
         <p className="text-sm font-semibold uppercase tracking-[0.3em] text-violet-300">

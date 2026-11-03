@@ -153,7 +153,7 @@ export default function CrateOpeningModal({
         role="dialog"
         aria-modal="true"
         aria-label={`Opening ${crate.name}`}
-        className="relative h-full w-full overflow-hidden bg-zinc-950"
+        className="app-fullscreen-dialog relative h-full w-full overflow-hidden bg-zinc-950"
       >
         <div className="absolute inset-0">
           <CrateCanvas

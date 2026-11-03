@@ -1,6 +1,5 @@
 import { getCurrentAccount } from "@/lib/auth/session";
-import Link from "next/link";
-import LivePointBalance from "@/app/LivePointBalance";
+import AppHeader from "@/app/AppHeader";
 import RankingSwitcher from "@/app/RankingSwitcher";
 import {
   StreamLiveBadge,
@@ -62,29 +61,8 @@ export default async function Home() {
   const discordUrl = safeExternalUrl(process.env.NEXT_PUBLIC_DISCORD_URL);
   const instagramUrl = safeExternalUrl(process.env.NEXT_PUBLIC_INSTAGRAM_URL);
   return (
-    <main className="min-h-screen bg-zinc-950 text-white">
-      <header className="border-b border-zinc-800 bg-zinc-950/80">
-        <div className="mx-auto flex max-w-6xl items-center justify-between px-4 py-4 sm:px-6">
-          <div className="flex items-center gap-5">
-            <Link href="/" className="text-xl font-black tracking-widest">N4JT</Link>
-            <Link href="/shop" className="text-sm font-semibold text-zinc-300 hover:text-white">
-              Shop
-            </Link>
-            <Link href="/commands" className="text-sm font-semibold text-zinc-300 hover:text-white">
-              Commands
-            </Link>
-          </div>
-          <div className="flex items-center gap-3">
-            {playerBalances && <LivePointBalance initial={playerBalances} />}
-            <a
-              href={account ? "/dashboard" : "/login"}
-              className="rounded-lg bg-violet-600 px-4 py-2 text-sm font-semibold hover:bg-violet-500"
-            >
-              {account ? "My account" : "Sign in"}
-            </a>
-          </div>
-        </div>
-      </header>
+    <main className="app-page min-h-screen bg-zinc-950 text-white">
+      <AppHeader account={account} balances={playerBalances} />
 
       <StreamStatusProvider initialStatus={streamStatus?.isLive ?? null}>
       <section className="relative overflow-hidden border-b border-zinc-800">

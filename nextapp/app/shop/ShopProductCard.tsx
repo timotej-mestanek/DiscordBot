@@ -130,7 +130,7 @@ export default function ShopProductCard({
 
   return (
     <article
-      className="flex h-full flex-col overflow-hidden rounded-xl border bg-zinc-950/90 shadow-lg shadow-black/20"
+      className="app-product-card flex h-full flex-col overflow-hidden rounded-xl border bg-zinc-950/90 shadow-lg shadow-black/20"
       style={{
         borderColor: `${product.cardColor}88`,
         background: `linear-gradient(150deg, ${product.cardColor}25 0%, rgba(24, 24, 27, 0.96) 35%, rgb(9, 9, 11) 100%)`,
@@ -143,7 +143,7 @@ export default function ShopProductCard({
           style={{ backgroundColor: `${product.cardColor}35` }}
         />
         <div className="relative z-10 min-w-0">
-          <h2 className="break-words text-lg font-bold tracking-tight text-white">
+          <h2 className="line-clamp-2 break-words text-lg font-bold tracking-tight text-white">
             {product.name}
           </h2>
           {product.productType !== "standard" && (
@@ -243,7 +243,7 @@ export default function ShopProductCard({
                     ) : (
                       <Link
                         href="/dashboard?tab=auth"
-                        className="block rounded-md border border-zinc-700 px-2 py-1.5 text-center text-xs font-semibold hover:bg-zinc-800"
+                        className="app-product-action rounded-md border border-zinc-700 px-2 text-center text-xs font-semibold hover:bg-zinc-800"
                       >
                         Link account
                       </Link>
@@ -251,7 +251,7 @@ export default function ShopProductCard({
                   ) : (
                     <Link
                       href="/login"
-                      className="block rounded-md px-2 py-1.5 text-center text-xs font-semibold text-white hover:brightness-110"
+                      className="app-product-action rounded-md px-2 text-center text-xs font-semibold text-white hover:brightness-110"
                       style={{ backgroundColor: product.cardColor }}
                     >
                       Sign in
@@ -272,18 +272,20 @@ export default function ShopProductCard({
             {busy === "redeem" ? "Redeeming…" : "Redeem from inventory"}
           </button>
         )}
-        {message && (
-          <p
-            role={success ? "status" : "alert"}
-            className={`mt-3 rounded-lg border p-2 text-xs ${
-              success
-                ? "border-emerald-900 bg-emerald-950/50 text-emerald-200"
-                : "border-red-900 bg-red-950/50 text-red-200"
-            }`}
-          >
-            {message}
-          </p>
-        )}
+        <div className="app-product-message-slot">
+          {message && (
+            <p
+              role={success ? "status" : "alert"}
+              className={`w-full rounded-lg border p-2 text-xs leading-5 ${
+                success
+                  ? "border-emerald-900 bg-emerald-950/50 text-emerald-200"
+                  : "border-red-900 bg-red-950/50 text-red-200"
+              }`}
+            >
+              {message}
+            </p>
+          )}
+        </div>
       </div>
     </article>
   );

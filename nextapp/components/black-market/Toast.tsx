@@ -20,15 +20,15 @@ export default function Toast({
     <div
       role="status"
       aria-live="polite"
-      className={`fixed bottom-4 left-1/2 z-[70] w-[calc(100%-2rem)] max-w-lg -translate-x-1/2 rounded-xl border px-4 py-3 text-sm shadow-xl ${styles}`}
+      className={`app-toast fixed bottom-4 left-1/2 z-[70] w-[calc(100%-2rem)] max-w-lg -translate-x-1/2 rounded-xl border px-4 py-3 text-sm shadow-xl ${styles}`}
     >
       <div className="flex items-center justify-between gap-3">
-        <span>{message}</span>
+        <span className="app-toast-message">{message}</span>
         <button
           type="button"
           onClick={onDismiss}
           aria-label="Dismiss notification"
-          className="px-1 text-lg leading-none text-zinc-400 hover:text-white"
+          className="h-10 w-10 shrink-0 rounded-lg text-lg leading-none text-zinc-400 hover:text-white"
         >
           ×
         </button>

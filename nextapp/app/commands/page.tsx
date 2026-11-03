@@ -1,6 +1,9 @@
 import type { Metadata } from "next";
 import Link from "next/link";
 import CommandsCatalog from "@/app/commands/CommandsCatalog";
+import AppHeader from "@/app/AppHeader";
+import { getCurrentAccount } from "@/lib/auth/session";
+import { getAccountPointBalances } from "@/lib/points";
 import { ttvCommandGroups } from "@/lib/ttv-commands";
 
 export const metadata: Metadata = {
@@ -9,19 +12,20 @@ export const metadata: Metadata = {
     "Browse N4JT Twitch chat commands, including usage and access levels.",
 };
 
-export default function CommandsPage() {
+export default async function CommandsPage() {
+  const account = await getCurrentAccount();
+  const balances = account
+    ? await getAccountPointBalances(account.identities)
+    : null;
   const commandCount = ttvCommandGroups.reduce(
     (count, group) => count + group.commands.length,
     0,
   );
 
   return (
-    <main className="min-h-screen bg-zinc-950 text-white">
-      <header className="border-b border-zinc-800 bg-zinc-950/80">
-        <div className="mx-auto flex max-w-6xl items-center justify-between gap-4 px-4 py-4 sm:px-6">
-          <Link href="/" className="text-xl font-black tracking-widest">
-            N4JT
-          </Link>
+    <main className="app-page min-h-screen bg-zinc-950 text-white">
+      <AppHeader account={account} balances={balances} />
+      <div className="flex justify-end border-b border-zinc-800 px-4 py-3 sm:px-6">
           <Link
             href="/api/ttv-commands"
             target="_blank"
@@ -29,8 +33,7 @@ export default function CommandsPage() {
           >
             JSON API
           </Link>
-        </div>
-      </header>
+      </div>
 
       <div className="mx-auto max-w-6xl px-4 py-10 sm:px-6 md:py-16">
         <section className="relative mb-8 overflow-hidden rounded-3xl border border-violet-800/40 bg-gradient-to-br from-violet-950/80 via-zinc-900 to-cyan-950/50 p-7 sm:p-10">

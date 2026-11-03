@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
+import { useConfirm } from "@/app/confirm-dialog-context";
 
 type InterestingFact = {
   id: string;
@@ -32,6 +33,7 @@ function errorMessage(result: unknown, fallback: string): string {
 }
 
 export default function InterestingFactsPanel() {
+  const confirm = useConfirm();
   const [facts, setFacts] = useState<InterestingFact[]>([]);
   const [editor, setEditor] = useState<FactEditor>(emptyEditor);
   const [json, setJson] = useState("[]");
@@ -102,19 +104,24 @@ export default function InterestingFactsPanel() {
             editor.category !== (selectedFact.category ?? "")),
       );
 
-  function canLeaveEditor(): boolean {
-    return !isDirty || window.confirm("Discard unsaved changes?");
+  async function canLeaveEditor(): Promise<boolean> {
+    return !isDirty || await confirm({
+      title: "Discard unsaved changes?",
+      message: "Your edits have not been saved and will be lost.",
+      confirmLabel: "Discard changes",
+      danger: true,
+    });
   }
 
-  function selectFact(fact: InterestingFact) {
-    if (fact.id === editor.id || !canLeaveEditor()) return;
+  async function selectFact(fact: InterestingFact) {
+    if (fact.id === editor.id || !(await canLeaveEditor())) return;
     setEditor(toEditor(fact));
     setError("");
     setNotice("");
   }
 
-  function addFact() {
-    if (!canLeaveEditor()) return;
+  async function addFact() {
+    if (!(await canLeaveEditor())) return;
     setEditor({ ...emptyEditor });
     setError("");
     setNotice("");
@@ -159,7 +166,12 @@ export default function InterestingFactsPanel() {
 
   async function deleteFact() {
     if (!editor.id) return;
-    if (!window.confirm(`Delete "${editor.title}"? This cannot be undone.`)) return;
+    if (!(await confirm({
+      title: `Delete ${editor.title}?`,
+      message: "This fun fact will be permanently deleted.",
+      confirmLabel: "Delete fact",
+      danger: true,
+    }))) return;
     setError("");
     setNotice("");
     setDeleting(true);
@@ -203,7 +215,7 @@ export default function InterestingFactsPanel() {
       setError("JSON must be an array of fun facts.");
       return;
     }
-    if (!canLeaveEditor()) return;
+    if (!(await canLeaveEditor())) return;
 
     setSaving(true);
     try {

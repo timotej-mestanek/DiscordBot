@@ -1187,7 +1187,7 @@ export default function LEDTimelineEditor({ initialUses }: { initialUses: number
             role="dialog"
             aria-modal="true"
             aria-labelledby="led-save-consent-title"
-            className="w-full max-w-md rounded-xl border border-zinc-700 bg-[#202020] p-5 text-zinc-100 shadow-2xl"
+            className="app-fixed-dialog"
           >
             <h2 id="led-save-consent-title" className="text-sm font-semibold">
               Consent is required to save

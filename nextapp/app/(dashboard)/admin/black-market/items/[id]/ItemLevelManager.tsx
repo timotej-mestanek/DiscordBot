@@ -2,6 +2,7 @@
 
 import { useRouter } from "next/navigation";
 import { useState } from "react";
+import { useConfirm } from "@/app/confirm-dialog-context";
 import ImageUpload from "@/components/admin/ImageUpload";
 import {
   deleteItemLevel,
@@ -21,6 +22,7 @@ export default function ItemLevelManager({
   levels: ItemLevel[];
   editLevel?: ItemLevel;
 }) {
+  const confirm = useConfirm();
   const router = useRouter();
   const [open, setOpen] = useState(false);
   const [busy, setBusy] = useState(false);
@@ -70,7 +72,12 @@ export default function ItemLevelManager({
     const warning = editLevel.level === 1
       ? " Level 1 is the base item image; crate openings that award this item may fail until another level 1 is added."
       : "";
-    if (!window.confirm(`Delete level ${editLevel.level}?${warning}`)) return;
+    if (!(await confirm({
+      title: `Delete level ${editLevel.level}?`,
+      message: warning.trim() || "This level image and its upgrade data will be removed.",
+      confirmLabel: "Delete level",
+      danger: true,
+    }))) return;
     setBusy(true);
     setError("");
     try {
@@ -106,7 +113,7 @@ export default function ItemLevelManager({
       </button>
       {open && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/75 p-4">
-          <form action={save} className="w-full max-w-xl space-y-5 rounded-2xl border border-zinc-700 bg-zinc-900 p-6 shadow-2xl">
+          <form action={save} role="dialog" aria-modal="true" aria-label={editLevel ? "Edit item level" : "Add item level"} className="app-fixed-dialog space-y-5">
             <div className="flex items-start justify-between gap-3">
               <div>
                 <h2 className="text-xl font-bold">{editLevel ? `Edit level ${editLevel.level}` : "Add item level"}</h2>

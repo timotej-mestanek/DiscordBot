@@ -2,6 +2,7 @@
 
 import { useRouter } from "next/navigation";
 import { useRef, useState } from "react";
+import { useConfirm } from "@/app/confirm-dialog-context";
 import ImageUpload from "@/components/admin/ImageUpload";
 import {
   createCrate,
@@ -144,6 +145,7 @@ export default function CrateManager({
   editCrate?: AdminCrate;
 }) {
   const router = useRouter();
+  const confirm = useConfirm();
   const [open, setOpen] = useState(false);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
@@ -221,7 +223,12 @@ export default function CrateManager({
     const warning = initialValues.inventoryCount > 0
       ? ` This also removes ${initialValues.inventoryCount} users' crate inventory records.`
       : "";
-    if (!window.confirm(`Delete crate "${initialValues.name}"?${warning} This cannot be undone.`)) {
+    if (!(await confirm({
+      title: `Delete ${initialValues.name}?`,
+      message: `${warning.trim()} This cannot be undone.`,
+      confirmLabel: "Delete crate",
+      danger: true,
+    }))) {
       return;
     }
     setBusy(true);
@@ -358,7 +365,10 @@ function CrateForm({
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/75 p-4">
       <form
         action={onSubmit}
-        className="max-h-[90vh] w-full max-w-2xl space-y-5 overflow-y-auto rounded-2xl border border-zinc-700 bg-zinc-900 p-6 shadow-2xl"
+        role="dialog"
+        aria-modal="true"
+        aria-label={crate ? "Edit Black Market crate" : "Create Black Market crate"}
+        className="app-fixed-dialog app-fixed-dialog--wide space-y-5"
       >
         <div className="flex items-start justify-between gap-3">
           <div>

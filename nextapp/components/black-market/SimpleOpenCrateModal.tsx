@@ -81,7 +81,7 @@ export default function SimpleOpenCrateModal({
         role="dialog"
         aria-modal="true"
         aria-labelledby="open-crate-title"
-        className="w-full max-w-md rounded-2xl border border-zinc-700 bg-zinc-900 p-5 shadow-2xl sm:p-6"
+        className="app-fixed-dialog app-fixed-dialog--large"
       >
         <div className="flex items-start justify-between gap-3">
           <div>

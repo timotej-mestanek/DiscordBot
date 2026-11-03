@@ -3,6 +3,7 @@
 import Image from "next/image";
 import { useState } from "react";
 import type { FormEvent } from "react";
+import { useConfirm } from "@/app/confirm-dialog-context";
 
 export type AdminShopProduct = {
   id: string;
@@ -60,6 +61,7 @@ export default function ShopAdminManager({
   deliveries: AdminShopDelivery[];
   crates: AdminShopCrate[];
 }) {
+  const confirm = useConfirm();
   const [selected, setSelected] = useState<AdminShopProduct | null>(null);
   const [error, setError] = useState("");
   const [busy, setBusy] = useState(false);
@@ -154,9 +156,13 @@ export default function ShopAdminManager({
     if (!delivery.source_log_id) return;
     if (
       delivery.attempts > 0 &&
-      !window.confirm(
-        "Stop retries and reverse this purchase? Streamer.bot may already have applied the action before its error was recorded.",
-      )
+      !(await confirm({
+        title: "Reverse this purchase?",
+        message:
+          "Stop retries and reverse this purchase? Streamer.bot may already have applied the action before its error was recorded.",
+        confirmLabel: "Reverse purchase",
+        danger: true,
+      }))
     ) return;
     setError("");
     setRevertingEventId(delivery.event_id);
@@ -185,9 +191,13 @@ export default function ShopAdminManager({
 
   async function cancelFailedDeliveries() {
     if (
-      !window.confirm(
-        "Cancel every failed, still-pending shop delivery and refund/restore its item? Streamer.bot may already have applied some actions before their errors were recorded.",
-      )
+      !(await confirm({
+        title: "Cancel failed deliveries?",
+        message:
+          "Cancel every failed, still-pending shop delivery and refund or restore its item? Streamer.bot may already have applied some actions before their errors were recorded.",
+        confirmLabel: "Cancel deliveries",
+        danger: true,
+      }))
     ) return;
     setError("");
     setNotice("");

@@ -61,7 +61,7 @@ export default function UserInventoryManager({
         role="dialog"
         aria-modal="true"
         aria-labelledby="user-inventory-title"
-        className="max-h-[90vh] w-full max-w-3xl overflow-y-auto rounded-2xl border border-zinc-700 bg-zinc-950 p-5 shadow-2xl sm:p-7"
+        className="app-fixed-dialog app-fixed-dialog--wide"
       >
         <div className="flex items-start justify-between gap-4">
           <div>

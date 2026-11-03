@@ -1,8 +1,9 @@
 import { redirect } from "next/navigation";
-import Link from "next/link";
 import { getCurrentAccount } from "@/lib/auth/session";
+import { getAccountPointBalances } from "@/lib/points";
 import { prisma } from "@/lib/prisma";
 import BlackMarketClient from "@/components/black-market/BlackMarketClient";
+import AppHeader from "@/app/AppHeader";
 
 export default async function BlackMarketPage() {
   const account = await getCurrentAccount();
@@ -17,7 +18,7 @@ export default async function BlackMarketPage() {
     },
     data: { is_equipped: false },
   });
-  const [accountData, crates, ownedItems] = await Promise.all([
+  const [accountData, crates, ownedItems, balances] = await Promise.all([
     prisma.webAccount.findUniqueOrThrow({
       where: { id: account.id },
       select: { golden_eggs: true },
@@ -57,6 +58,7 @@ export default async function BlackMarketPage() {
         },
       },
     }),
+    getAccountPointBalances(account.identities),
   ]);
   const inventory = ownedItems.flatMap((entry) => {
     if (entry.item.item_type === "golden_eggs") return [];
@@ -83,25 +85,8 @@ export default async function BlackMarketPage() {
   });
 
   return (
-    <main className="min-h-screen bg-zinc-950 text-white">
-      <header className="border-b border-zinc-800 bg-zinc-950/80">
-        <div className="mx-auto flex max-w-6xl items-center justify-between gap-4 px-4 py-4 sm:px-6">
-          <Link href="/" className="text-xl font-black tracking-widest">
-            N4JT
-          </Link>
-          <div className="flex items-center gap-4">
-            <Link href="/shop" className="text-sm font-semibold text-violet-300 hover:text-violet-200">
-              Shop
-            </Link>
-            <Link
-              href="/dashboard"
-              className="text-sm font-semibold text-zinc-300 hover:text-white"
-            >
-              Dashboard
-            </Link>
-          </div>
-        </div>
-      </header>
+    <main className="app-page min-h-screen bg-zinc-950 text-white">
+      <AppHeader account={account} balances={balances} />
       <div className="mx-auto max-w-6xl px-4 py-8 sm:px-6 md:py-12">
         <BlackMarketClient
           accountId={account.id}

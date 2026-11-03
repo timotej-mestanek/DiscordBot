@@ -161,7 +161,10 @@ export default function ItemManager({
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/75 p-4">
           <form
             action={save}
-            className="w-full max-w-xl space-y-5 rounded-2xl border border-zinc-700 bg-zinc-900 p-6 shadow-2xl"
+            role="dialog"
+            aria-modal="true"
+            aria-label={item ? "Edit Black Market item" : "Create Black Market item"}
+            className="app-fixed-dialog app-fixed-dialog--wide space-y-5"
           >
             <div className="flex items-start justify-between gap-3">
               <div>
@@ -356,18 +359,21 @@ export default function ItemManager({
             </div>
           </form>
           {confirmDelete && item && (
-            <div role="dialog" aria-modal="true" aria-labelledby="delete-item-title" className="fixed inset-0 z-10 flex items-center justify-center bg-black/80 p-4">
-              <div className="w-full max-w-lg space-y-4 rounded-2xl border border-red-900 bg-zinc-900 p-6 shadow-2xl">
+            <div role="alertdialog" aria-modal="true" aria-labelledby="delete-item-title" className="app-dialog-backdrop">
+              <div className="app-confirm-dialog">
+                <div className="app-confirm-copy">
+                <p className="app-confirm-eyebrow">Destructive action</p>
                 <h3 id="delete-item-title" className="text-xl font-bold text-red-200">Delete an owned item?</h3>
                 <p className="text-sm leading-6 text-zinc-300">
                   <strong>{ownedCount} user{ownedCount === 1 ? "" : "s"}</strong> currently own this item. Deleting it permanently removes it from their inventories, removes it from crates, and deletes all level data.
                 </p>
                 {error && <p role="alert" className="text-sm text-red-300">{error}</p>}
+                </div>
                 <div className="flex justify-end gap-2">
-                  <button type="button" disabled={busy} onClick={() => setConfirmDelete(false)} className="rounded-lg border border-zinc-700 px-4 py-2 text-sm text-zinc-200">
+                  <button type="button" disabled={busy} onClick={() => setConfirmDelete(false)} className="app-confirm-button app-confirm-cancel">
                     Keep item
                   </button>
-                  <button type="button" disabled={busy} onClick={() => void remove()} className="rounded-lg bg-red-700 px-4 py-2 text-sm font-semibold text-white hover:bg-red-600 disabled:opacity-50">
+                  <button type="button" disabled={busy} onClick={() => void remove()} className="app-confirm-button app-confirm-danger disabled:opacity-50">
                     {busy ? "Deleting…" : "Delete item and owned copies"}
                   </button>
                 </div>

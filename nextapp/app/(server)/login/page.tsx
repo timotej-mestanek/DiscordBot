@@ -1,5 +1,6 @@
 import { redirect } from "next/navigation";
 import { getCurrentAccount } from "@/lib/auth/session";
+import AppHeader from "@/app/AppHeader";
 
 const loginProviders = [
   {
@@ -35,7 +36,9 @@ export default async function LoginPage({
             : null;
 
   return (
-    <main className="flex min-h-screen items-center justify-center bg-zinc-950 px-4 py-12 text-white">
+    <main className="app-page min-h-screen bg-zinc-950 text-white">
+      <AppHeader account={null} showSignin={false} />
+      <div className="flex min-h-[calc(100vh-5.25rem)] items-center justify-center px-4 py-12">
       <section className="w-full max-w-md rounded-2xl border border-zinc-800 bg-zinc-900 p-8 shadow-2xl">
         <div className="mb-8 text-center">
           <p className="mb-3 text-sm font-semibold uppercase tracking-[0.2em] text-violet-400">
@@ -69,6 +72,7 @@ export default async function LoginPage({
           By continuing, you allow the app to verify your account identity.
         </p>
       </section>
+      </div>
     </main>
   );
 }

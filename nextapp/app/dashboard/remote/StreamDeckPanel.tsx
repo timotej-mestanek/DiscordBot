@@ -1,6 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useState } from "react";
+import { useConfirm } from "@/app/confirm-dialog-context";
 
 type GameProfile = {
   gameId: string;
@@ -83,6 +84,7 @@ async function fetchWheelData(): Promise<WheelData> {
 }
 
 export default function StreamDeckPanel() {
+  const confirm = useConfirm();
   const [data, setData] = useState<WheelData | null>(null);
   const [error, setError] = useState("");
   const [notice, setNotice] = useState("");
@@ -135,11 +137,12 @@ export default function StreamDeckPanel() {
 
   async function resetResults() {
     if (!liveProfile || resetting) return;
-    if (
-      !window.confirm(
-        `Reset the wheel limit and spin history for ${liveProfile.gameName}?`,
-      )
-    ) {
+    if (!(await confirm({
+      title: "Reset wheel results?",
+      message: `Reset the wheel limit and spin history for ${liveProfile.gameName}?`,
+      confirmLabel: "Reset results",
+      danger: true,
+    }))) {
       return;
     }
 

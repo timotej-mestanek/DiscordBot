@@ -42,7 +42,7 @@ export default function UserPointsEditor({
         role="dialog"
         aria-modal="true"
         aria-labelledby="edit-points-title"
-        className="w-full max-w-md rounded-2xl border border-zinc-700 bg-zinc-950 p-5 shadow-2xl"
+        className="app-fixed-dialog"
       >
         <div className="flex items-start justify-between gap-4">
           <div>
@@ -101,7 +101,7 @@ export default function UserPointsEditor({
           <button
             type="submit"
             disabled={busy}
-            className="rounded-lg bg-violet-600 px-4 py-2 text-sm font-semibold hover:bg-violet-500 disabled:opacity-50"
+            className="app-fixed-button bg-violet-600 text-white hover:bg-violet-500 disabled:opacity-50"
           >
             {busy ? "Saving…" : "Update points"}
           </button>
