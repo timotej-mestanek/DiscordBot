@@ -130,6 +130,7 @@ export default function ShopProductCard({
 
   return (
     <article
+      id={product.id === "custom-led-effect" ? "custom-led-effect" : undefined}
       className="app-product-card flex h-full flex-col overflow-hidden rounded-xl border bg-zinc-950/90 shadow-lg shadow-black/20"
       style={{
         borderColor: `${product.cardColor}88`,
@@ -271,6 +272,14 @@ export default function ShopProductCard({
           >
             {busy === "redeem" ? "Redeeming…" : "Redeem from inventory"}
           </button>
+        )}
+        {quantity > 0 && product.id === "custom-led-effect" && isLoggedIn && (
+          <Link
+            href="/dashboard?view=user&tab=inventory&editor=led"
+            className="mt-3 inline-flex h-11 min-h-11 max-h-11 w-full items-center justify-center overflow-hidden rounded-md bg-violet-600 px-3 text-center text-xs font-bold text-white hover:bg-violet-500"
+          >
+            Apply custom LED profile
+          </Link>
         )}
         <div className="app-product-message-slot">
           {message && (

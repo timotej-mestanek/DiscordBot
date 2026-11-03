@@ -1,12 +1,16 @@
 import { redirect } from "next/navigation";
 import Link from "next/link";
 import AppHeader from "@/app/AppHeader";
-import AdminViewNotice from "@/app/AdminViewNotice";
+import PointBalanceSummary from "@/app/PointBalanceSummary";
 import AdminPanel from "@/app/dashboard/AdminPanel";
 import AdminShopPanel from "@/app/dashboard/AdminShopPanel";
 import DashboardPoints from "@/app/dashboard/DashboardPoints";
 import InterestingFactsPanel from "@/app/dashboard/InterestingFactsPanel";
 import InventoryPanel from "@/app/dashboard/InventoryPanel";
+import type {
+  BlackMarketCrate,
+  BlackMarketInventoryItem,
+} from "@/components/black-market/types";
 import LEDTimelineEditor from "@/app/dashboard/LEDTimelineEditor";
 import WheelAdminPanel from "@/app/dashboard/WheelAdminPanel";
 import OverlayBuilder from "@/app/overlays/OverlayBuilder";
@@ -51,6 +55,7 @@ export default async function DashboardPage({
     linked?: string;
     merged?: string;
     error?: string;
+    editor?: string;
   }>;
 }) {
   const account = await getCurrentAccount();
@@ -104,47 +109,102 @@ export default async function DashboardPage({
           },
         })
       : [];
+  if (activeTab === "inventory") {
+    await prisma.blackMarketInventory.updateMany({
+        where: {
+          account_id: account.id,
+          is_equipped: true,
+          expires_at: { lte: new Date() },
+        },
+        data: { is_equipped: false },
+    });
+  }
+  const blackMarketData =
+    activeTab === "inventory"
+      ? await Promise.all([
+          prisma.webAccount.findUniqueOrThrow({
+            where: { id: account.id },
+            select: { golden_eggs: true },
+          }),
+          prisma.blackMarketCrate.findMany({
+            where: {
+              active: true,
+              AND: [
+                { OR: [{ starts_at: null }, { starts_at: { lte: new Date() } }] },
+                { ends_at: { gt: new Date() } },
+              ],
+            },
+            orderBy: { name: "asc" },
+            include: {
+              inventories: {
+                where: { account_id: account.id },
+                select: { quantity: true },
+              },
+              key_inventories: {
+                where: { account_id: account.id },
+                select: { quantity: true },
+              },
+            },
+          }),
+          prisma.blackMarketInventory.findMany({
+            where: {
+              account_id: account.id,
+              OR: [{ expires_at: null }, { expires_at: { gt: new Date() } }],
+              item: { item_type: { not: "golden_eggs" } },
+            },
+            orderBy: [{ group: "asc" }, { item: { name: "asc" } }],
+            include: {
+              item: { include: { levels: { orderBy: { level: "asc" } } } },
+            },
+          }),
+        ])
+      : null;
+  const blackMarketCrates: BlackMarketCrate[] =
+    blackMarketData?.[1].map((crate) => ({
+      id: crate.id,
+      name: crate.name,
+      previewImageUrl: crate.preview_image_url,
+      textureUrl: crate.texture_url,
+      quantity: crate.inventories[0]?.quantity ?? 0,
+      requiresKey: crate.requires_key,
+      keyQuantity: crate.key_inventories[0]?.quantity ?? 0,
+    })) ?? [];
+  const blackMarketItems: BlackMarketInventoryItem[] =
+    blackMarketData?.[2].flatMap((entry) => {
+      if (entry.item.item_type === "golden_eggs") return [];
+      return [{
+        id: entry.item.id,
+        name: entry.item.name,
+        group: entry.group,
+        itemType: entry.item.item_type,
+        imageUrl:
+          (entry.item.item_type === "progressive"
+            ? entry.item.levels.find(
+                (level) => level.level === entry.current_level,
+              )?.image_url
+            : entry.item.image_url) ?? "",
+        maxLevel: entry.item.max_level,
+        currentLevel: entry.current_level,
+        isEquipped: entry.is_equipped,
+        expiresAt: entry.expires_at?.toISOString() ?? null,
+        levels: entry.item.levels.map((level) => ({
+          level: level.level,
+          imageUrl: level.image_url,
+          upgradeCost: level.upgrade_cost,
+        })),
+      }];
+    }) ?? [];
 
   return (
     <main className="app-page min-h-screen bg-zinc-950 text-white">
       <AppHeader
         account={account}
         section={activeTab === "inventory" ? "inventory" : "account"}
+        adminView={adminView}
+        adminTab={activeTab}
       />
       <div className="mx-auto max-w-7xl px-4 py-6 sm:px-6 md:py-8">
         <section className="min-w-0">
-          {account.role === "admin" && (
-            <AdminViewNotice adminView={adminView} />
-          )}
-
-          {adminView && (
-            <nav aria-label="Admin tools" className="mb-6 grid gap-2 sm:grid-cols-2 lg:grid-cols-4">
-              {[
-                ...adminTabs.map((tab) => ({
-                  id: tab.id,
-                  label: tab.label,
-                  href: `/dashboard?view=admin&tab=${tab.id}`,
-                })),
-                { id: "remote", label: "Stream Deck", href: "/dashboard/remote" },
-                { id: "shop-products", label: "Shop catalog", href: "/shop?view=admin" },
-                { id: "black-market", label: "Blackmarket settings", href: "/admin/black-market" },
-              ].map((item) => (
-                <Link
-                  key={item.id}
-                  href={item.href}
-                  aria-current={activeTab === item.id ? "page" : undefined}
-                  className={`flex min-h-12 items-center rounded-lg border px-3 text-sm font-semibold ${
-                    activeTab === item.id
-                      ? "border-violet-500 bg-violet-900/40 text-white"
-                      : "border-zinc-800 bg-zinc-900 text-zinc-300 hover:border-zinc-700"
-                  }`}
-                >
-                  {item.label}
-                </Link>
-              ))}
-            </nav>
-          )}
-
           <div className="mb-4">
             <h1 className="app-page-title text-2xl font-bold">
               {dashboardTitles[activeTab]}
@@ -173,23 +233,52 @@ export default async function DashboardPage({
 
           {activeTab === "inventory" && (
             <>
-              <section className="mb-4 grid gap-3 sm:grid-cols-2">
-                <article className="app-summary-card">
-                  <span>Discord points</span>
-                  <strong>{balances.discord?.toLocaleString("en-US") ?? "Not linked"}</strong>
-                </article>
-                <article className="app-summary-card">
-                  <span>Twitch CustomBody</span>
-                  <strong>{balances.twitchCustom?.toLocaleString("en-US") ?? "Not linked"}</strong>
-                </article>
-              </section>
-              <InventoryPanel initialItems={inventory} />
+              <PointBalanceSummary
+                className="mb-4"
+                balances={{
+                  discord: balances.discord,
+                  twitchCustom: balances.twitchCustom,
+                }}
+              />
+              {blackMarketData && (
+                <InventoryPanel
+                  initialItems={inventory}
+                  blackMarket={{
+                    accountId: account.id,
+                    goldenEggs: blackMarketData[0].golden_eggs,
+                    crates: blackMarketCrates,
+                    items: blackMarketItems,
+                  }}
+                />
+              )}
               <section className="mt-4 rounded-lg border border-zinc-800 bg-zinc-900 p-4">
                 <p className="text-xs font-semibold uppercase tracking-widest text-violet-300">
                   Inventory · LED editor
                 </p>
-                {(ledInventory?._sum.quantity ?? 0) > 0 ? (
-                  <LEDTimelineEditor initialUses={ledInventory?._sum.quantity ?? 0} />
+                {(ledInventory?._sum.quantity ?? 0) > 0 &&
+                params.editor === "led" ? (
+                  <>
+                    <Link
+                      href="/dashboard?view=user&tab=inventory"
+                      className="mb-4 inline-flex min-h-9 items-center text-sm font-semibold text-violet-300 hover:text-violet-200"
+                    >
+                      ← Back to inventory
+                    </Link>
+                    <LEDTimelineEditor initialUses={ledInventory?._sum.quantity ?? 0} />
+                  </>
+                ) : (ledInventory?._sum.quantity ?? 0) > 0 ? (
+                  <>
+                    <h2 className="mt-1.5 text-lg font-semibold">Your custom LED profile is ready</h2>
+                    <p className="mt-2 text-sm leading-6 text-zinc-400">
+                      Open the profile from its shop listing to start editing.
+                    </p>
+                    <Link
+                      href="/shop#custom-led-effect"
+                      className="mt-3 inline-flex rounded-md bg-violet-600 px-3 py-2 text-sm font-semibold hover:bg-violet-500"
+                    >
+                      Go to custom LED profile
+                    </Link>
+                  </>
                 ) : (
                   <>
                     <h2 className="mt-1.5 text-lg font-semibold">Unlock through the shop</h2>
@@ -198,10 +287,10 @@ export default async function DashboardPage({
                       consumes one purchased item.
                     </p>
                     <Link
-                      href="/shop"
+                      href="/shop#custom-led-effect"
                       className="mt-3 inline-flex rounded-md bg-violet-600 px-3 py-2 text-sm font-semibold hover:bg-violet-500"
                     >
-                      Go to shop
+                      Go to custom LED profile
                     </Link>
                   </>
                 )}

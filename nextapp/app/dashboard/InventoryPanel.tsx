@@ -2,6 +2,11 @@
 
 import Link from "next/link";
 import { useState } from "react";
+import BlackMarketClient from "@/components/black-market/BlackMarketClient";
+import type {
+  BlackMarketCrate,
+  BlackMarketInventoryItem,
+} from "@/components/black-market/types";
 
 type InventoryEntry = {
   product_id: string;
@@ -19,10 +24,17 @@ type Category = (typeof categories)[number]["id"];
 
 export default function InventoryPanel({
   initialItems,
+  blackMarket,
 }: {
   initialItems: InventoryEntry[];
+  blackMarket: {
+    accountId: string;
+    goldenEggs: number;
+    crates: BlackMarketCrate[];
+    items: BlackMarketInventoryItem[];
+  };
 }) {
-  const [category, setCategory] = useState<Category>("applicable");
+  const [category, setCategory] = useState<Category>("warehouse");
   const [items, setItems] = useState(initialItems);
   const [busyProductId, setBusyProductId] = useState<string | null>(null);
   const [message, setMessage] = useState("");
@@ -107,54 +119,77 @@ export default function InventoryPanel({
         aria-labelledby={`inventory-tab-${category}`}
         className="mt-3"
       >
-        {category === "applicable" ? (
-          items.length > 0 ? (
-            <ul className="grid gap-2 sm:grid-cols-2">
-              {items.map((item) => (
-                <li
-                  key={item.product_id}
-                  className="rounded-lg border border-zinc-800 bg-zinc-950/60 p-3"
-                >
-                  <div className="flex items-start justify-between gap-3">
-                    <h2 className="font-semibold">{item.product.name}</h2>
-                    <span                     className="rounded-full bg-zinc-800 px-2 py-0.5 text-[11px] text-zinc-300">
-                      × {item.quantity}
-                    </span>
-                  </div>
-                  {item.product.description && (
-                    <p className="mt-2 text-sm leading-6 text-zinc-400">
-                      {item.product.description}
-                    </p>
-                  )}
-                  {item.product_id === "custom-led-effect" ? (
-                    <Link
-                      href="/dashboard?view=user&tab=inventory"
-                      className="mt-3 inline-flex rounded-md bg-violet-600 px-3 py-1.5 text-xs font-semibold hover:bg-violet-500"
-                    >
-                      Use in LED editor
-                    </Link>
-                  ) : (
-                    <button
-                      type="button"
-                      disabled={busyProductId !== null}
-                      onClick={() => void redeem(item.product_id)}
-                      className="mt-3 rounded-md bg-violet-600 px-3 py-1.5 text-xs font-semibold hover:bg-violet-500 disabled:opacity-50"
-                    >
-                      {busyProductId === item.product_id ? "Redeeming…" : "Redeem"}
-                    </button>
-                  )}
-                </li>
-              ))}
-            </ul>
-          ) : (
-            <p className="rounded-lg border border-zinc-800 bg-zinc-950/50 p-4 text-sm text-zinc-400">
-              No items yet. Purchases for later use appear here.
-            </p>
-          )
-        ) : (
-          <p className="rounded-lg border border-zinc-800 bg-zinc-950/50 p-4 text-sm text-zinc-400">
-            This inventory category is empty for now.
-          </p>
+        {category === "warehouse" && (
+          <BlackMarketClient
+            accountId={blackMarket.accountId}
+            initialGoldenEggs={blackMarket.goldenEggs}
+            initialCrates={blackMarket.crates}
+            initialInventory={blackMarket.items}
+            inventoryCategory="warehouse"
+          />
+        )}
+        {category === "progressive" && (
+          <BlackMarketClient
+            accountId={blackMarket.accountId}
+            initialGoldenEggs={blackMarket.goldenEggs}
+            initialCrates={blackMarket.crates}
+            initialInventory={blackMarket.items}
+            inventoryCategory="progressive"
+          />
+        )}
+        {category === "applicable" && (
+          <div className="space-y-4">
+            {items.length > 0 ? (
+              <ul className="grid gap-2 sm:grid-cols-2">
+                {items.map((item) => (
+                  <li
+                    key={item.product_id}
+                    className="rounded-lg border border-zinc-800 bg-zinc-950/60 p-3"
+                  >
+                    <div className="flex items-start justify-between gap-3">
+                      <h2 className="font-semibold">{item.product.name}</h2>
+                      <span className="rounded-full bg-zinc-800 px-2 py-0.5 text-[11px] text-zinc-300">
+                        × {item.quantity}
+                      </span>
+                    </div>
+                    {item.product.description && (
+                      <p className="mt-2 text-sm leading-6 text-zinc-400">
+                        {item.product.description}
+                      </p>
+                    )}
+                    {item.product_id === "custom-led-effect" ? (
+                      <Link
+                        href="/shop#custom-led-effect"
+                        className="mt-3 inline-flex rounded-md bg-violet-600 px-3 py-1.5 text-xs font-semibold hover:bg-violet-500"
+                      >
+                        Apply custom LED profile in Shop
+                      </Link>
+                    ) : (
+                      <button
+                        type="button"
+                        disabled={busyProductId !== null}
+                        onClick={() => void redeem(item.product_id)}
+                        className="mt-3 rounded-md bg-violet-600 px-3 py-1.5 text-xs font-semibold hover:bg-violet-500 disabled:opacity-50"
+                      >
+                        {busyProductId === item.product_id ? "Redeeming…" : "Redeem"}
+                      </button>
+                    )}
+                  </li>
+                ))}
+              </ul>
+            ) : (
+              <p className="rounded-lg border border-zinc-800 bg-zinc-950/50 p-4 text-sm text-zinc-400">
+                No applicable shop items yet.
+              </p>
+            )}
+            <BlackMarketClient
+              accountId={blackMarket.accountId}
+              initialGoldenEggs={blackMarket.goldenEggs}
+              initialCrates={blackMarket.crates}
+              initialInventory={blackMarket.items}
+              inventoryCategory="applicable"
+            />
+          </div>
         )}
       </div>
     </section>

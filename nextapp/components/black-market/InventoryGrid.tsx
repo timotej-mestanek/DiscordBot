@@ -6,21 +6,31 @@ export default function InventoryGrid({
   pendingItemId,
   onEquip,
   onUpgrade,
+  itemType,
 }: {
   items: BlackMarketInventoryItem[];
   pendingItemId: string | null;
   onEquip: (item: BlackMarketInventoryItem) => void;
   onUpgrade: (item: BlackMarketInventoryItem) => void;
+  itemType?: BlackMarketInventoryItem["itemType"];
 }) {
-  if (items.length === 0) {
+  const visibleItems = itemType
+    ? items.filter((item) => item.itemType === itemType)
+    : items;
+
+  if (visibleItems.length === 0) {
     return (
       <p className="rounded-xl border border-zinc-800 bg-zinc-900 p-5 text-sm text-zinc-400">
-        Your inventory is empty — open a crate to get started!
+        {itemType === "progressive"
+          ? "No progressive items yet."
+          : itemType === "normal"
+            ? "No applicable Black Market items yet."
+            : "Your inventory is empty — open a crate to get started!"}
       </p>
     );
   }
 
-  const groups = items.reduce<Record<string, BlackMarketInventoryItem[]>>(
+  const groups = visibleItems.reduce<Record<string, BlackMarketInventoryItem[]>>(
     (result, item) => {
       (result[item.group] ??= []).push(item);
       return result;

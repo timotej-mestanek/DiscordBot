@@ -4,7 +4,7 @@ import { getAccountPointBalances } from "@/lib/points";
 import { prisma } from "@/lib/prisma";
 import { getAdminShopDeliveries } from "@/lib/shop-admin";
 import AppHeader from "@/app/AppHeader";
-import AdminViewNotice from "@/app/AdminViewNotice";
+import PointBalanceSummary from "@/app/PointBalanceSummary";
 import ShopAdminManager from "./ShopAdminManager";
 import type {
   AdminShopCrate,
@@ -77,11 +77,14 @@ export default async function ShopPage({
 
   return (
     <main className="app-page min-h-screen bg-zinc-950 text-white">
-      <AppHeader account={account} section="shop" shopTab="default" />
+      <AppHeader
+        account={account}
+        section="shop"
+        shopTab="default"
+        adminView={adminView}
+        adminTab="shop"
+      />
       <div className="mx-auto max-w-7xl px-4 py-6 sm:px-6 md:py-8">
-        {account?.role === "admin" && (
-          <AdminViewNotice adminView={adminView} />
-        )}
         <h1 className="app-page-title text-2xl font-black tracking-tight sm:text-3xl">
           {adminView ? "Shop management" : "Shop"}
         </h1>
@@ -112,36 +115,32 @@ export default async function ShopPage({
             {!adminView && (
               <>
                 {account && (
-                  <section className="mt-5 grid gap-3 sm:grid-cols-3">
-                    <article className="app-summary-card">
-                      <span>Discord points</span>
-                      <strong>{balances?.discord?.toLocaleString("en-US") ?? "Not linked"}</strong>
-                    </article>
-                    <article className="app-summary-card">
-                      <span>Twitch CustomBody</span>
-                      <strong>{balances?.twitchCustom?.toLocaleString("en-US") ?? "Not linked"}</strong>
-                    </article>
-                    <article className="app-summary-card">
-                      <span>Your shop inventory</span>
-                      <strong>
+                  <section className="mt-5 flex flex-wrap items-center justify-between gap-3 rounded-xl border border-zinc-800 bg-zinc-900/70 p-3">
+                    <PointBalanceSummary
+                      balances={{
+                        discord: balances?.discord ?? null,
+                        twitchCustom: balances?.twitchCustom ?? null,
+                      }}
+                    />
+                    <p className="text-xs font-medium text-zinc-400">
+                      Inventory:{" "}
+                      <strong className="text-zinc-200">
                         {[...inventoryByProduct.values()].reduce((total, quantity) => total + quantity, 0)} items
                       </strong>
-                    </article>
+                    </p>
                   </section>
                 )}
                 <section className="mt-5 grid auto-rows-fr gap-3 sm:grid-cols-2 xl:grid-cols-3">
               {products
                 .filter((product) => {
-                  if (!product.active) return false;
-                  if (product.product_type === "standard") return true;
-                  const crate = product.black_market_crate;
-                  const now = new Date();
-                  return Boolean(
-                    crate?.active &&
-                    (!crate.starts_at || crate.starts_at <= now) &&
-                    crate.ends_at &&
-                    crate.ends_at > now,
-                  );
+                  if (!product.active) {
+                    return (
+                      product.product_type === "standard" &&
+                      product.id === "custom-led-effect" &&
+                      (inventoryByProduct.get(product.id) ?? 0) > 0
+                    );
+                  }
+                  return product.product_type === "standard";
                 })
                 .map((product) => (
                   <ShopProductCard
@@ -181,7 +180,13 @@ export default async function ShopPage({
                   />
                 ))}
                 </section>
-                {products.every((product) => !product.active) && (
+                {!products.some(
+                  (product) =>
+                    (product.active && product.product_type === "standard") ||
+                    (product.product_type === "standard" &&
+                      product.id === "custom-led-effect" &&
+                      (inventoryByProduct.get(product.id) ?? 0) > 0),
+                ) && (
                   <p className="mt-5 rounded-lg border border-zinc-800 bg-zinc-900 p-4 text-sm text-zinc-400">
                     No products are currently available.
                   </p>

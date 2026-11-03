@@ -2037,6 +2037,42 @@ body:has(.voting-overlay-canvas) {
   gap: 0.6rem;
 }
 
+.app-main-nav.is-admin {
+  flex: 1 1 auto;
+  overflow-x: auto;
+  scrollbar-width: thin;
+}
+
+.app-header-actions {
+  display: flex;
+  flex: 0 0 auto;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+.app-view-switch {
+  display: inline-flex;
+  width: 7rem;
+  min-width: 7rem;
+  height: 2.75rem;
+  align-items: center;
+  justify-content: center;
+  border: 1px solid rgb(167 139 250 / 36%);
+  border-radius: 0.75rem;
+  background: rgb(139 92 246 / 12%);
+  color: #e9ddff;
+  font-size: 0.7rem;
+  font-weight: 800;
+  text-decoration: none;
+  text-transform: uppercase;
+}
+
+.app-view-switch.is-admin {
+  border-color: rgb(52 211 153 / 30%);
+  background: rgb(16 185 129 / 9%);
+  color: #d1fae5;
+}
+
 .app-main-link {
   display: inline-flex;
   min-width: 7rem;
@@ -2080,28 +2116,30 @@ body:has(.voting-overlay-canvas) {
 }
 
 .app-shop-subnav {
-  display: flex;
+  display: grid;
   width: min(100% - 3rem, 82rem);
+  max-width: 32rem;
   min-height: 3rem;
-  align-items: stretch;
-  gap: 0.4rem;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
   margin: 0 auto;
   border-top: 1px solid rgb(255 255 255 / 6%);
 }
 
 .app-shop-subnav-link {
   position: relative;
-  display: inline-flex;
-  min-width: 8rem;
+  display: flex;
+  min-width: 0;
+  width: 100%;
   min-height: 3rem;
   align-items: center;
   justify-content: center;
-  padding: 0 1rem;
+  padding: 0 0.75rem;
   color: #9995a1;
   font-size: 0.72rem;
   font-weight: 750;
   text-decoration: none;
   text-transform: uppercase;
+  white-space: nowrap;
 }
 
 .app-shop-subnav-link:hover,
@@ -2111,9 +2149,9 @@ body:has(.voting-overlay-canvas) {
 
 .app-shop-subnav-link.is-active::after {
   position: absolute;
-  right: 1rem;
+  right: 0.75rem;
   bottom: 0;
-  left: 1rem;
+  left: 0.75rem;
   height: 2px;
   border-radius: 2px;
   background: #a78bfa;
@@ -2135,6 +2173,7 @@ body:has(.voting-overlay-canvas) {
 
   .app-main-nav {
     flex: 1 1 auto;
+    overflow-x: auto;
     gap: 0.2rem;
   }
 
@@ -2144,6 +2183,24 @@ body:has(.voting-overlay-canvas) {
     flex: 1 1 0;
     padding: 0 0.25rem;
     font-size: 0.7rem;
+  }
+
+  .app-main-nav.is-admin .app-main-link {
+    min-width: 5.5rem;
+    flex: 0 0 auto;
+    padding-inline: 0.6rem;
+    font-size: 0.62rem;
+  }
+
+  .app-header-actions {
+    gap: 0.25rem;
+  }
+
+  .app-view-switch {
+    width: 4.65rem;
+    min-width: 4.65rem;
+    height: 2.65rem;
+    font-size: 0.56rem;
   }
 
   .app-header .app-signout-button {
@@ -2158,15 +2215,14 @@ body:has(.voting-overlay-canvas) {
   .app-shop-subnav {
     width: calc(100% - 1rem);
     min-height: 2.8rem;
-    gap: 0;
+    max-width: 32rem;
   }
 
   .app-shop-subnav-link {
     min-width: 0;
     min-height: 2.8rem;
-    flex: 1 1 0;
-    padding: 0 0.35rem;
-    font-size: 0.65rem;
+    padding: 0 0.2rem;
+    font-size: 0.62rem;
     white-space: nowrap;
   }
 
@@ -2174,4 +2230,56 @@ body:has(.voting-overlay-canvas) {
     right: 0.5rem;
     left: 0.5rem;
   }
+}
+
+.app-point-balances {
+  display: flex;
+  min-width: 0;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.55rem 1rem;
+}
+
+.app-point-balance {
+  display: inline-flex;
+  min-height: 2.25rem;
+  align-items: center;
+  gap: 0.45rem;
+  border: 1px solid rgb(255 255 255 / 8%);
+  border-radius: 999px;
+  background: rgb(255 255 255 / 3%);
+  padding: 0 0.8rem;
+  color: #d4d0dc;
+  font-size: 0.72rem;
+  white-space: nowrap;
+}
+
+.app-point-balance-icon {
+  width: 1rem;
+  height: 1rem;
+  flex: 0 0 auto;
+}
+
+.app-point-balance-discord .app-point-balance-icon {
+  color: #8d9eff;
+}
+
+.app-point-balance-twitch .app-point-balance-icon {
+  color: #c084fc;
+}
+
+.app-point-balance-label {
+  color: #a7a3af;
+}
+
+.app-point-balance strong {
+  color: #f4f2f8;
+  font-size: 0.78rem;
+  font-variant-numeric: tabular-nums;
+}
+
+.app-point-balance strong small {
+  color: #8e8997;
+  font-size: 0.62rem;
+  font-weight: 550;
 }

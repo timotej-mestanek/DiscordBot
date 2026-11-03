@@ -3,6 +3,7 @@
 import { useState } from "react";
 import type { FormEvent } from "react";
 import { useLivePointBalances } from "@/app/useLivePointBalances";
+import PointBalanceSummary from "@/app/PointBalanceSummary";
 
 type Currency = "discord" | "twitch_custom";
 type Rate = {
@@ -68,28 +69,20 @@ export default function DashboardPoints({
 
   return (
     <div className="space-y-4">
-      <div className="grid gap-3 sm:grid-cols-2">
-        {liveBalances.discord !== null && (
-          <article className="rounded-lg border border-zinc-800 bg-zinc-900 p-4">
-            <p className="text-xs text-zinc-400">Discord points</p>
-            <p className="mt-1 text-2xl font-bold">{liveBalances.discord.toLocaleString("en-US")}</p>
-          </article>
-        )}
-        {liveBalances.twitchCustom !== null && (
-          <article className="rounded-lg border border-zinc-800 bg-zinc-900 p-4">
-            <p className="text-xs text-zinc-400">Twitch CustomBody</p>
-            <p className="mt-1 text-2xl font-bold">{liveBalances.twitchCustom.toLocaleString("en-US")}</p>
-          </article>
-        )}
-        {liveBalances.twitchCustom !== null && (
-          <article className="rounded-lg border border-zinc-800 bg-zinc-900 p-4 sm:col-span-2">
-            <p className="text-sm font-semibold">Twitch Channel Points</p>
-            <p className="mt-1 text-sm text-zinc-400">
-              Not available via Twitch API; cannot be converted.
-            </p>
-          </article>
-        )}
-      </div>
+      <PointBalanceSummary
+        balances={{
+          discord: liveBalances.discord,
+          twitchCustom: liveBalances.twitchCustom,
+        }}
+      />
+      {liveBalances.twitchCustom !== null && (
+        <article className="rounded-lg border border-zinc-800 bg-zinc-900 p-4">
+          <p className="text-sm font-semibold">Twitch Channel Points</p>
+          <p className="mt-1 text-sm text-zinc-400">
+            Not available via Twitch API; cannot be converted.
+          </p>
+        </article>
+      )}
 
       {balanceError && (
         <p role="status" className="text-sm text-amber-300">

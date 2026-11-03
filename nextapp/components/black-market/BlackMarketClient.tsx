@@ -28,11 +28,13 @@ export default function BlackMarketClient({
   initialGoldenEggs,
   initialCrates,
   initialInventory,
+  inventoryCategory,
 }: {
   accountId: string;
   initialGoldenEggs: number;
   initialCrates: BlackMarketCrate[];
   initialInventory: BlackMarketInventoryItem[];
+  inventoryCategory: "warehouse" | "progressive" | "applicable";
 }) {
   const router = useRouter();
   const [goldenEggs, setGoldenEggs] = useState(initialGoldenEggs);
@@ -67,6 +69,7 @@ export default function BlackMarketClient({
   ) {
     if (result.type === "duplicate" || result.type === "eggs") {
       setGoldenEggs(result.totalGoldenEggs);
+      router.refresh();
       return;
     }
     if (result.type === "empty") return;
@@ -96,6 +99,7 @@ export default function BlackMarketClient({
               left.name.localeCompare(right.name),
           ),
     );
+    router.refresh();
   }
 
   async function handleEquip(item: BlackMarketInventoryItem) {
@@ -192,63 +196,51 @@ export default function BlackMarketClient({
 
   return (
     <>
-      <header className="mb-9 flex flex-wrap items-end justify-between gap-4">
-        <div>
-          <p className="text-sm font-semibold uppercase tracking-[0.3em] text-violet-300">
-            Craft · collect · equip
-          </p>
-          <h1 className="mt-3 text-4xl font-black sm:text-5xl">
-            Black Market
-          </h1>
-          <p className="mt-3 max-w-2xl text-zinc-400">
-            Open crates to collect cosmetics, upgrade their levels, and equip
-            one item in each category.
-          </p>
-        </div>
-        <GoldenEggsBalance eggs={goldenEggs} />
-      </header>
-
-      {crates.some((crate) => crate.quantity > 0) && (
-        <section>
-          <div className="mb-4">
-            <p className="text-xs font-bold uppercase tracking-[0.25em] text-violet-300">
-              Mystery drops
+      {inventoryCategory === "warehouse" && (
+        <section className="space-y-5">
+          <div className="flex flex-wrap items-center justify-between gap-3">
+            <div>
+              <p className="text-xs font-bold uppercase tracking-[0.25em] text-violet-300">
+                Mystery drops
+              </p>
+              <h2 className="mt-1 text-xl font-bold">Black Market crates</h2>
+            </div>
+            <GoldenEggsBalance eggs={goldenEggs} />
+          </div>
+          {crates.some((crate) => crate.quantity > 0) ? (
+            <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-4">
+              {crates.filter((crate) => crate.quantity > 0).map((crate) => (
+                <CrateCard
+                  key={crate.id}
+                  crate={crate}
+                  disabled={
+                    (crate.quantity === 0 || (crate.requiresKey && crate.keyQuantity === 0)) ||
+                    pendingItemId !== null
+                  }
+                  onOpen={() => {
+                    setToast("");
+                    setSelectedCrateId(crate.id);
+                  }}
+                />
+              ))}
+            </div>
+          ) : (
+            <p className="rounded-xl border border-zinc-800 bg-zinc-900 p-5 text-sm text-zinc-400">
+              No crates in your warehouse yet. Visit the Blackmarket Shop to get started.
             </p>
-            <h2 className="mt-1 text-2xl font-bold">Your crates</h2>
-          </div>
-          <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-4">
-            {crates.filter((crate) => crate.quantity > 0).map((crate) => (
-              <CrateCard
-                key={crate.id}
-                crate={crate}
-                disabled={
-                  (crate.quantity === 0 || (crate.requiresKey && crate.keyQuantity === 0)) ||
-                  pendingItemId !== null
-                }
-                onOpen={() => {
-                  setToast("");
-                  setSelectedCrateId(crate.id);
-                }}
-              />
-            ))}
-          </div>
+          )}
         </section>
       )}
 
-      <section className="mt-12">
-        <div className="mb-4">
-          <p className="text-xs font-bold uppercase tracking-[0.25em] text-violet-300">
-            Collection
-          </p>
-          <h2 className="mt-1 text-2xl font-bold">Your inventory</h2>
-        </div>
+      {inventoryCategory !== "warehouse" && (
         <InventoryGrid
           items={inventory}
           pendingItemId={pendingItemId}
           onEquip={(item) => void handleEquip(item)}
           onUpgrade={(item) => setUpgradeItemId(item.id)}
+          itemType={inventoryCategory === "progressive" ? "progressive" : "normal"}
         />
-      </section>
+      )}
 
       <Toast
         message={toast}

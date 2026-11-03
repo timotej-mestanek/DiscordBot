@@ -2,7 +2,6 @@ import { redirect } from "next/navigation";
 import type { ReactNode } from "react";
 import { getCurrentAdmin } from "@/lib/auth/admin";
 import AppHeader from "@/app/AppHeader";
-import AdminViewNotice from "@/app/AdminViewNotice";
 
 export default async function BlackMarketAdminLayout({
   children,
@@ -18,9 +17,10 @@ export default async function BlackMarketAdminLayout({
         account={account}
         section="shop"
         shopTab="blackmarket"
+        adminView
+        adminTab="blackmarket"
       />
       <div className="mx-auto max-w-6xl px-4 py-8 sm:px-6 md:py-12">
-        <AdminViewNotice adminView />
         {children}
       </div>
     </main>

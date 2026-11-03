@@ -4,7 +4,22 @@ type AppHeaderProps = {
   account: { display_name: string; role: string } | null;
   section?: "shop" | "inventory" | "account";
   shopTab?: "default" | "blackmarket";
+  adminView?: boolean;
+  adminTab?: string;
 };
+
+const adminLinks = [
+  { label: "Stream settings", href: "/dashboard?view=admin", tab: "admin" },
+  { label: "Shop", href: "/shop?view=admin", tab: "shop" },
+  { label: "Shop operations", href: "/dashboard?view=admin&tab=admin-shop", tab: "admin-shop" },
+  { label: "Blackmarket", href: "/admin/black-market", tab: "blackmarket" },
+  { label: "Users", href: "/dashboard?view=admin&tab=users", tab: "users" },
+  { label: "Wheels", href: "/dashboard?view=admin&tab=wheels", tab: "wheels" },
+  { label: "Overlays", href: "/dashboard?view=admin&tab=overlays", tab: "overlays" },
+  { label: "Fun facts", href: "/dashboard?view=admin&tab=interesting", tab: "interesting" },
+  { label: "Logs", href: "/dashboard?view=admin&tab=logs", tab: "logs" },
+  { label: "Stream Deck", href: "/dashboard/remote", tab: "remote" },
+] as const;
 
 function MainLink({
   href,
@@ -30,38 +45,81 @@ export default function AppHeader({
   account,
   section,
   shopTab,
+  adminView = false,
+  adminTab,
 }: AppHeaderProps) {
+  const isAdmin = account?.role === "admin";
+
   return (
     <header className="app-header">
       <div className="app-header-row">
-        <nav className="app-main-nav" aria-label="Main navigation">
-          <MainLink href="/shop" active={section === "shop"}>
-            Shop
-          </MainLink>
-          {account && (
+        <nav
+          className={`app-main-nav${adminView && isAdmin ? " is-admin" : ""}`}
+          aria-label={adminView && isAdmin ? "Admin navigation" : "Main navigation"}
+        >
+          {adminView && isAdmin ? (
+            <>
+              {adminLinks.map((item) => (
+                <MainLink
+                  key={item.label}
+                  href={item.href}
+                  active={adminTab === item.tab}
+                >
+                  {item.label}
+                </MainLink>
+              ))}
+              <MainLink
+                href="/dashboard?view=user&tab=account"
+                active={false}
+              >
+                Account
+              </MainLink>
+            </>
+          ) : (
+            <>
+              <MainLink href="/shop" active={section === "shop"}>
+                Shop
+              </MainLink>
+              {account && (
+                <MainLink
+                  href="/dashboard?view=user&tab=inventory"
+                  active={section === "inventory"}
+                >
+                  Inventory
+                </MainLink>
+              )}
             <MainLink
-              href="/dashboard?view=user&tab=inventory"
-              active={section === "inventory"}
+              href={account ? "/dashboard?view=user&tab=account" : "/login"}
+              active={section === "account"}
             >
-              Inventory
+              Account
             </MainLink>
+            </>
           )}
-          <MainLink
-            href={account ? "/dashboard?view=user&tab=account" : "/login"}
-            active={section === "account"}
-          >
-            Account
-          </MainLink>
         </nav>
-        {account && (
-          <form action="/api/logout" method="post">
-            <button className="app-signout-button" type="submit">
-              Logout
-            </button>
-          </form>
-        )}
+        <div className="app-header-actions">
+          {isAdmin && (
+            <Link
+              href={
+                adminView
+                  ? "/dashboard?view=user&tab=account"
+                  : "/dashboard?view=admin"
+              }
+              className={`app-view-switch${adminView ? " is-admin" : ""}`}
+            >
+              {adminView ? "User view" : "Admin view"}
+            </Link>
+          )}
+          {account && (
+            <form action="/api/logout" method="post">
+              <button className="app-signout-button" type="submit">
+                Logout
+              </button>
+            </form>
+          )}
+        </div>
       </div>
-      {shopTab && (
+      {shopTab && !(adminView && isAdmin) && (
         <nav className="app-shop-subnav" aria-label="Shop sections">
           <Link
             href="/shop"
