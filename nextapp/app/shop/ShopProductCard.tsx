@@ -242,7 +242,7 @@ export default function ShopProductCard({
                       </button>
                     ) : (
                       <Link
-                        href="/dashboard?tab=auth"
+                        href="/dashboard?view=user&tab=account"
                         className="app-product-action rounded-md border border-zinc-700 px-2 text-center text-xs font-semibold hover:bg-zinc-800"
                       >
                         Link account

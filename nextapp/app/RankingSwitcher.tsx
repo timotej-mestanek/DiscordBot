@@ -91,7 +91,7 @@ export default function RankingSwitcher({
           <a href="/leaderboards" className="text-sm font-semibold text-violet-300 hover:text-violet-200">
             All leaderboards →
           </a>
-          <a href="/dashboard?tab=points" className="text-sm font-semibold text-zinc-400 hover:text-zinc-200">
+          <a href="/dashboard?view=user&tab=account" className="text-sm font-semibold text-zinc-400 hover:text-zinc-200">
             My points and conversions →
           </a>
         </div>

@@ -3,7 +3,6 @@ import Link from "next/link";
 import CommandsCatalog from "@/app/commands/CommandsCatalog";
 import AppHeader from "@/app/AppHeader";
 import { getCurrentAccount } from "@/lib/auth/session";
-import { getAccountPointBalances } from "@/lib/points";
 import { ttvCommandGroups } from "@/lib/ttv-commands";
 
 export const metadata: Metadata = {
@@ -14,9 +13,6 @@ export const metadata: Metadata = {
 
 export default async function CommandsPage() {
   const account = await getCurrentAccount();
-  const balances = account
-    ? await getAccountPointBalances(account.identities)
-    : null;
   const commandCount = ttvCommandGroups.reduce(
     (count, group) => count + group.commands.length,
     0,
@@ -24,7 +20,7 @@ export default async function CommandsPage() {
 
   return (
     <main className="app-page min-h-screen bg-zinc-950 text-white">
-      <AppHeader account={account} balances={balances} />
+      <AppHeader account={account} />
       <div className="flex justify-end border-b border-zinc-800 px-4 py-3 sm:px-6">
           <Link
             href="/api/ttv-commands"

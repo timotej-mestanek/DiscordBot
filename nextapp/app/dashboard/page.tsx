@@ -1,6 +1,7 @@
 import { redirect } from "next/navigation";
 import Link from "next/link";
 import AppHeader from "@/app/AppHeader";
+import AdminViewNotice from "@/app/AdminViewNotice";
 import AdminPanel from "@/app/dashboard/AdminPanel";
 import AdminShopPanel from "@/app/dashboard/AdminShopPanel";
 import DashboardPoints from "@/app/dashboard/DashboardPoints";
@@ -14,13 +15,6 @@ import { getCurrentAccount } from "@/lib/auth/session";
 import { prisma } from "@/lib/prisma";
 import { getAccountPointBalances } from "@/lib/points";
 
-const userTabs = [
-  { id: "points", label: "My points" },
-  { id: "inventory", label: "Inventory" },
-  { id: "leds", label: "LEDS" },
-  { id: "auth", label: "Authorization" },
-] as const;
-
 const adminTabs = [
   { id: "admin", label: "Stream Settings" },
   { id: "admin-shop", label: "Shop" },
@@ -32,14 +26,13 @@ const adminTabs = [
 ] as const;
 
 type DashboardTab =
-  | (typeof userTabs)[number]["id"]
+  | "account"
+  | "inventory"
   | (typeof adminTabs)[number]["id"];
 
 const dashboardTitles: Record<DashboardTab, string> = {
-  points: "My points",
+  account: "Account",
   inventory: "Inventory",
-  leds: "LEDS",
-  auth: "Authorization",
   interesting: "Fun facts",
   users: "Users",
   admin: "Stream Settings",
@@ -73,9 +66,9 @@ export default async function DashboardPage({
     ? adminTabs.some((tab) => tab.id === params.tab)
       ? (params.tab as (typeof adminTabs)[number]["id"])
       : "admin"
-    : userTabs.some((tab) => tab.id === params.tab)
-      ? (params.tab as (typeof userTabs)[number]["id"])
-      : "points";
+    : params.tab === "inventory" || params.tab === "leds"
+      ? "inventory"
+      : "account";
   const discordIdentity = account.identities.find(
     (identity) => identity.provider === "discord",
   );
@@ -93,7 +86,7 @@ export default async function DashboardPage({
     prisma.pointConversionRate.findMany(),
   ]);
   const ledInventory =
-    activeTab === "leds"
+    activeTab === "inventory"
       ? await prisma.shopInventory.aggregate({
           where: { account_id: account.id, product_id: "custom-led-effect" },
           _sum: { quantity: true },
@@ -116,12 +109,42 @@ export default async function DashboardPage({
     <main className="app-page min-h-screen bg-zinc-950 text-white">
       <AppHeader
         account={account}
-        balances={balances}
-        adminView={adminView}
-        activeTab={activeTab}
+        section={activeTab === "inventory" ? "inventory" : "account"}
       />
       <div className="mx-auto max-w-7xl px-4 py-6 sm:px-6 md:py-8">
         <section className="min-w-0">
+          {account.role === "admin" && (
+            <AdminViewNotice adminView={adminView} />
+          )}
+
+          {adminView && (
+            <nav aria-label="Admin tools" className="mb-6 grid gap-2 sm:grid-cols-2 lg:grid-cols-4">
+              {[
+                ...adminTabs.map((tab) => ({
+                  id: tab.id,
+                  label: tab.label,
+                  href: `/dashboard?view=admin&tab=${tab.id}`,
+                })),
+                { id: "remote", label: "Stream Deck", href: "/dashboard/remote" },
+                { id: "shop-products", label: "Shop catalog", href: "/shop?view=admin" },
+                { id: "black-market", label: "Blackmarket settings", href: "/admin/black-market" },
+              ].map((item) => (
+                <Link
+                  key={item.id}
+                  href={item.href}
+                  aria-current={activeTab === item.id ? "page" : undefined}
+                  className={`flex min-h-12 items-center rounded-lg border px-3 text-sm font-semibold ${
+                    activeTab === item.id
+                      ? "border-violet-500 bg-violet-900/40 text-white"
+                      : "border-zinc-800 bg-zinc-900 text-zinc-300 hover:border-zinc-700"
+                  }`}
+                >
+                  {item.label}
+                </Link>
+              ))}
+            </nav>
+          )}
+
           <div className="mb-4">
             <h1 className="app-page-title text-2xl font-bold">
               {dashboardTitles[activeTab]}
@@ -148,39 +171,50 @@ export default async function DashboardPage({
             </p>
           )}
 
-          {activeTab === "points" && (
-            <DashboardPoints balances={balances} rates={rates} />
-          )}
-
           {activeTab === "inventory" && (
-            <InventoryPanel initialItems={inventory} />
-          )}
-
-          {activeTab === "leds" && (
-            (ledInventory?._sum.quantity ?? 0) > 0 ? (
-              <LEDTimelineEditor initialUses={ledInventory?._sum.quantity ?? 0} />
-            ) : (
-              <section className="rounded-lg border border-zinc-800 bg-zinc-900 p-4">
-                <p className="text-sm font-semibold uppercase tracking-widest text-violet-300">
-                  LEDS · locked
-                </p>
-                <h2 className="mt-1.5 text-lg font-semibold">Unlock through the shop</h2>
-                <p className="mt-3 text-sm leading-6 text-zinc-400">
-                  Buy Custom LED effect in the shop to unlock the editor. Each use
-                  consumes one purchased item.
-                </p>
-                <Link
-                  href="/shop"
-                  className="mt-3 inline-flex rounded-md bg-violet-600 px-3 py-2 text-sm font-semibold hover:bg-violet-500"
-                >
-                  Go to shop
-                </Link>
+            <>
+              <section className="mb-4 grid gap-3 sm:grid-cols-2">
+                <article className="app-summary-card">
+                  <span>Discord points</span>
+                  <strong>{balances.discord?.toLocaleString("en-US") ?? "Not linked"}</strong>
+                </article>
+                <article className="app-summary-card">
+                  <span>Twitch CustomBody</span>
+                  <strong>{balances.twitchCustom?.toLocaleString("en-US") ?? "Not linked"}</strong>
+                </article>
               </section>
-            )
+              <InventoryPanel initialItems={inventory} />
+              <section className="mt-4 rounded-lg border border-zinc-800 bg-zinc-900 p-4">
+                <p className="text-xs font-semibold uppercase tracking-widest text-violet-300">
+                  Inventory · LED editor
+                </p>
+                {(ledInventory?._sum.quantity ?? 0) > 0 ? (
+                  <LEDTimelineEditor initialUses={ledInventory?._sum.quantity ?? 0} />
+                ) : (
+                  <>
+                    <h2 className="mt-1.5 text-lg font-semibold">Unlock through the shop</h2>
+                    <p className="mt-2 text-sm leading-6 text-zinc-400">
+                      Buy Custom LED effect in the shop to unlock the editor. Each use
+                      consumes one purchased item.
+                    </p>
+                    <Link
+                      href="/shop"
+                      className="mt-3 inline-flex rounded-md bg-violet-600 px-3 py-2 text-sm font-semibold hover:bg-violet-500"
+                    >
+                      Go to shop
+                    </Link>
+                  </>
+                )}
+              </section>
+            </>
           )}
 
-          {activeTab === "auth" && (
-            <div className="grid gap-3 lg:grid-cols-2">
+          {activeTab === "account" && !adminView && (
+            <>
+              <DashboardPoints balances={balances} rates={rates} />
+              <section className="mt-5">
+                <h2 className="mb-3 text-lg font-semibold">Authorization</h2>
+                <div className="grid gap-3 lg:grid-cols-2">
               {[
                 { provider: "discord", label: "Discord", identity: discordIdentity },
                 { provider: "twitch", label: "Twitch", identity: twitchIdentity },
@@ -219,7 +253,9 @@ export default async function DashboardPage({
               <p className="text-sm leading-6 text-zinc-500 lg:col-span-2">
                 Linking another sign-in connects that account to this profile. An account already linked elsewhere cannot be merged automatically. Web sign-in remains active for 30 days.
               </p>
-            </div>
+                </div>
+              </section>
+            </>
           )}
 
           {adminView && activeTab === "admin" && (

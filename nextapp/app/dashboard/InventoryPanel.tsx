@@ -128,7 +128,7 @@ export default function InventoryPanel({
                   )}
                   {item.product_id === "custom-led-effect" ? (
                     <Link
-                      href="/dashboard?tab=leds"
+                      href="/dashboard?view=user&tab=inventory"
                       className="mt-3 inline-flex rounded-md bg-violet-600 px-3 py-1.5 text-xs font-semibold hover:bg-violet-500"
                     >
                       Use in LED editor

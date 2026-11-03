@@ -4,6 +4,7 @@ import { getAccountPointBalances } from "@/lib/points";
 import { prisma } from "@/lib/prisma";
 import { getAdminShopDeliveries } from "@/lib/shop-admin";
 import AppHeader from "@/app/AppHeader";
+import AdminViewNotice from "@/app/AdminViewNotice";
 import ShopAdminManager from "./ShopAdminManager";
 import type {
   AdminShopCrate,
@@ -76,8 +77,11 @@ export default async function ShopPage({
 
   return (
     <main className="app-page min-h-screen bg-zinc-950 text-white">
-      <AppHeader account={account} balances={balances} adminView={adminView} />
+      <AppHeader account={account} section="shop" shopTab="default" />
       <div className="mx-auto max-w-7xl px-4 py-6 sm:px-6 md:py-8">
+        {account?.role === "admin" && (
+          <AdminViewNotice adminView={adminView} />
+        )}
         <h1 className="app-page-title text-2xl font-black tracking-tight sm:text-3xl">
           {adminView ? "Shop management" : "Shop"}
         </h1>

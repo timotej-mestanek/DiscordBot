@@ -7,7 +7,6 @@ import {
   getProfanityRanking,
 } from "@/lib/community-leaderboards";
 import { getPointRanking } from "@/lib/points";
-import { getAccountPointBalances } from "@/lib/points";
 import { prisma } from "@/lib/prisma";
 
 export const dynamic = "force-dynamic";
@@ -61,13 +60,9 @@ export default async function LeaderboardsPage() {
       };
     }),
   );
-  const balances = account
-    ? await getAccountPointBalances(account.identities)
-    : null;
-
   return (
     <main className="app-page min-h-screen bg-zinc-950 text-white">
-      <AppHeader account={account} balances={balances} />
+      <AppHeader account={account} />
 
       <div className="mx-auto max-w-6xl px-4 py-10 sm:px-6 md:py-14">
         <p className="text-sm font-semibold uppercase tracking-[0.3em] text-violet-300">

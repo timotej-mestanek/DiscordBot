@@ -86,8 +86,18 @@ export default async function BlackMarketPage() {
 
   return (
     <main className="app-page min-h-screen bg-zinc-950 text-white">
-      <AppHeader account={account} balances={balances} />
+      <AppHeader account={account} section="shop" shopTab="blackmarket" />
       <div className="mx-auto max-w-6xl px-4 py-8 sm:px-6 md:py-12">
+        <section className="mb-6 grid gap-3 sm:grid-cols-2">
+          <article className="app-summary-card">
+            <span>Discord points</span>
+            <strong>{balances.discord?.toLocaleString("en-US") ?? "Not linked"}</strong>
+          </article>
+          <article className="app-summary-card">
+            <span>Twitch CustomBody</span>
+            <strong>{balances.twitchCustom?.toLocaleString("en-US") ?? "Not linked"}</strong>
+          </article>
+        </section>
         <BlackMarketClient
           accountId={account.id}
           initialGoldenEggs={accountData.golden_eggs}

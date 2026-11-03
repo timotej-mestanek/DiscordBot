@@ -7,7 +7,7 @@ import {
   StreamStatusProvider,
 } from "@/app/StreamPresence";
 import TopClipCard from "@/app/TopClipCard";
-import { getAccountPointBalances, getPointRanking } from "@/lib/points";
+import { getPointRanking } from "@/lib/points";
 import { getCachedCurrentPlayback } from "@/lib/services/spotifyService";
 import { getTopTwitchClip, getTwitchLiveStatus } from "@/lib/services/twitchPublic";
 import { prisma } from "@/lib/prisma";
@@ -49,9 +49,6 @@ export default async function Home() {
     }),
   ]);
 
-  const playerBalances = account
-    ? await getAccountPointBalances(account.identities)
-    : null;
   const playback = await getCachedCurrentPlayback().catch((error: unknown) => {
     console.error("Now-playing overlay is unavailable:", error);
     return null;
@@ -62,7 +59,7 @@ export default async function Home() {
   const instagramUrl = safeExternalUrl(process.env.NEXT_PUBLIC_INSTAGRAM_URL);
   return (
     <main className="app-page min-h-screen bg-zinc-950 text-white">
-      <AppHeader account={account} balances={playerBalances} />
+      <AppHeader account={account} />
 
       <StreamStatusProvider initialStatus={streamStatus?.isLive ?? null}>
       <section className="relative overflow-hidden border-b border-zinc-800">

@@ -36,7 +36,7 @@ export default async function LoginPage({
 
   return (
     <main className="app-page min-h-screen bg-zinc-950 text-white">
-      <AppHeader account={null} showSignin={false} />
+      <AppHeader account={null} section="account" />
       <div className="login-page">
         <section className="login-story">
           <div className="login-story-glow" aria-hidden="true" />

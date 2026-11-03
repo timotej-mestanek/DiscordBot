@@ -1,8 +1,8 @@
 import { redirect } from "next/navigation";
 import type { ReactNode } from "react";
 import { getCurrentAdmin } from "@/lib/auth/admin";
-import { getAccountPointBalances } from "@/lib/points";
 import AppHeader from "@/app/AppHeader";
+import AdminViewNotice from "@/app/AdminViewNotice";
 
 export default async function BlackMarketAdminLayout({
   children,
@@ -11,17 +11,16 @@ export default async function BlackMarketAdminLayout({
 }) {
   const account = await getCurrentAdmin();
   if (!account) redirect("/dashboard");
-  const balances = await getAccountPointBalances(account.identities);
 
   return (
     <main className="app-page min-h-screen bg-zinc-950 text-white">
       <AppHeader
         account={account}
-        balances={balances}
-        adminView
-        activeTab="black-market-admin"
+        section="shop"
+        shopTab="blackmarket"
       />
       <div className="mx-auto max-w-6xl px-4 py-8 sm:px-6 md:py-12">
+        <AdminViewNotice adminView />
         {children}
       </div>
     </main>

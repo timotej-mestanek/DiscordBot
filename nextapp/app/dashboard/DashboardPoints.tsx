@@ -99,7 +99,7 @@ export default function DashboardPoints({
 
       {liveBalances.discord === null && liveBalances.twitchCustom === null && (
         <p className="rounded-lg border border-zinc-800 bg-zinc-900 p-5 text-sm text-zinc-400">
-          Link a Discord or Twitch account in the Authorization tab to view your points.
+          Link a Discord or Twitch account in Account to view your points.
         </p>
       )}
 
