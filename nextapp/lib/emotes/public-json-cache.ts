@@ -21,6 +21,9 @@ const ALLOWED_EMOTE_ORIGIN = "http://localhost:5173";
 
 export function withEmoteCors(response: Response, request: Request): Response {
   const headers = new Headers(response.headers);
+  headers.set("Cache-Control", "no-store");
+  headers.set("CDN-Cache-Control", "no-store");
+  headers.set("Cloudflare-CDN-Cache-Control", "no-store");
   const vary = new Set(
     (headers.get("Vary") ?? "")
       .split(",")
@@ -45,7 +48,14 @@ export function withEmoteCors(response: Response, request: Request): Response {
 }
 
 export function emoteCorsOptions(request: Request): Response {
-  const response = new Response(null, { status: 204 });
+  const response = new Response(null, {
+    status: 204,
+    headers: {
+      "Cache-Control": "no-store",
+      "CDN-Cache-Control": "no-store",
+      "Cloudflare-CDN-Cache-Control": "no-store",
+    },
+  });
   return withEmoteCors(response, request);
 }
 
