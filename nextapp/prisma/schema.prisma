@@ -278,23 +278,24 @@ model InterestingFact {
 }
 
 model ShopProduct {
-  id                    String            @id @default(cuid())
-  name                  String
-  description           String
-  product_type          ShopProductType   @default(standard)
-  black_market_crate_id String?
-  discord_price         Int?
-  twitch_price          Int?
-  active                Boolean           @default(false)
-  add_to_inventory      Boolean           @default(false)
-  streamerbot_action    String            @default("shop.redeemed")
-  card_color            String            @default("#7c3aed")
-  image_url             String?
-  image_key             String?
-  updated_at            DateTime          @updatedAt
-  inventory             ShopInventory[]
-  redemptions           ShopRedemption[]
-  black_market_crate    BlackMarketCrate? @relation(fields: [black_market_crate_id], references: [id], onDelete: Restrict)
+  id                     String            @id @default(cuid())
+  name                   String
+  description            String
+  product_type           ShopProductType   @default(standard)
+  black_market_crate_id  String?
+  discord_price          Int?
+  twitch_price           Int?
+  active                 Boolean           @default(false)
+  add_to_inventory       Boolean           @default(false)
+  activation_input_label String?
+  streamerbot_action     String            @default("shop.redeemed")
+  card_color             String            @default("#7c3aed")
+  image_url              String?
+  image_key              String?
+  updated_at             DateTime          @updatedAt
+  inventory              ShopInventory[]
+  redemptions            ShopRedemption[]
+  black_market_crate     BlackMarketCrate? @relation(fields: [black_market_crate_id], references: [id], onDelete: Restrict)
 
   @@index([black_market_crate_id, product_type])
 }

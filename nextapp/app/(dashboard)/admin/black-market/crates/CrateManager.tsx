@@ -442,7 +442,7 @@ function CrateForm({
           Active and visible to users
         </label>
         <label className="flex items-center gap-2 text-sm text-zinc-200">
-          <input type="checkbox" name="requiresKey" defaultChecked={crate?.requiresKey ?? false} />
+          <input type="checkbox" name="requiresKey" defaultChecked={crate?.requiresKey ?? true} />
           Requires a crate-specific key to open
         </label>
         <ImageUpload type="crate-preview" label="Preview image" value={previewUrl} onChange={onPreviewChange} />

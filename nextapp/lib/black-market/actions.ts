@@ -3,6 +3,7 @@
 import { getCurrentAccount } from "@/lib/auth/session";
 import { prisma } from "@/lib/prisma";
 import type { Prisma } from "@prisma/client";
+import { invalidateCachedRepresentation } from "@/lib/emotes/public-json-cache";
 import { DUPLICATE_EGG_REWARD } from "./constants";
 import { pickByChance } from "./random";
 
@@ -35,6 +36,9 @@ export type OpenCrateResult =
   | {
       type: "duplicate";
       videoVariant: "gold" | "normal";
+      itemName: string;
+      imageUrl: string;
+      itemType: "normal" | "progressive";
       goldenEggsGained: number;
       totalGoldenEggs: number;
     }
@@ -95,7 +99,7 @@ export async function openCrate(
     const authError = await authorizeAccount(accountId);
     if (authError) return { type: "error", code: authError };
 
-    return await prisma.$transaction(async (transaction) => {
+    const result: OpenCrateResult = await prisma.$transaction(async (transaction) => {
       await lockAccount(transaction, accountId);
 
       const crate = await transaction.blackMarketCrate.findUnique({
@@ -199,7 +203,7 @@ export async function openCrate(
         where: {
           account_id_item_id: { account_id: accountId, item_id: item.id },
         },
-        select: { id: true, expires_at: true },
+        select: { id: true, expires_at: true, current_level: true },
       });
       if (owned && (!owned.expires_at || owned.expires_at > now)) {
         const updatedAccount = await transaction.webAccount.update({
@@ -213,6 +217,11 @@ export async function openCrate(
             item.item_type === "progressive" || item.expiry === "permanent"
               ? "gold"
               : "normal",
+          itemName: item.name,
+          imageUrl: item.item_type === "progressive"
+            ? item.levels.find((level) => level.level === owned.current_level)?.image_url ?? imageUrl
+            : imageUrl,
+          itemType: item.item_type,
           goldenEggsGained: DUPLICATE_EGG_REWARD,
           totalGoldenEggs: updatedAccount.golden_eggs,
         };
@@ -267,6 +276,10 @@ export async function openCrate(
         })),
       };
     });
+    if (result.type === "item") {
+      invalidateCachedRepresentation("emotes-map");
+    }
+    return result;
   } catch (error) {
     if (error instanceof ExpectedActionError) {
       return { type: "error", code: error.code };
@@ -284,7 +297,7 @@ export async function upgradeItem(
     const authError = await authorizeAccount(accountId);
     if (authError) return { type: "error", code: authError };
 
-    return await prisma.$transaction(async (transaction) => {
+    const result: UpgradeItemResult = await prisma.$transaction(async (transaction) => {
       await lockAccount(transaction, accountId);
       const owned = await transaction.blackMarketInventory.findUnique({
         where: { account_id_item_id: { account_id: accountId, item_id: itemId } },
@@ -330,6 +343,10 @@ export async function upgradeItem(
         goldenEggsLeft: account.golden_eggs,
       };
     });
+    if (result.type === "success") {
+      invalidateCachedRepresentation("emotes-map");
+    }
+    return result;
   } catch (error) {
     console.error("Black Market item upgrade failed:", error);
     return { type: "error", code: "INTERNAL_ERROR" };
@@ -353,7 +370,7 @@ export async function equipItem(
     const authError = await authorizeAccount(accountId);
     if (authError) return { type: "error", code: authError };
 
-    return await prisma.$transaction(async (transaction) => {
+    const result: EquipItemResult = await prisma.$transaction(async (transaction) => {
       await lockAccount(transaction, accountId);
       await transaction.blackMarketInventory.updateMany({
         where: { account_id: accountId, is_equipped: true, expires_at: { lte: new Date() } },
@@ -378,16 +395,22 @@ export async function equipItem(
         return { type: "error", code: "INVALID_INPUT" };
       }
 
-      await transaction.blackMarketInventory.updateMany({
-        where: { account_id: accountId, group: owned.group, is_equipped: true },
-        data: { is_equipped: false },
-      });
+      if (owned.group === "overlay") {
+        await transaction.blackMarketInventory.updateMany({
+          where: { account_id: accountId, group: "overlay", is_equipped: true },
+          data: { is_equipped: false },
+        });
+      }
       await transaction.blackMarketInventory.update({
         where: { account_id_item_id: { account_id: accountId, item_id: itemId } },
         data: { is_equipped: true, use_input: userInput?.trim() ?? null },
       });
       return { type: "success", group: owned.group };
     });
+    if (result.type === "success") {
+      invalidateCachedRepresentation("emotes-map");
+    }
+    return result;
   } catch (error) {
     console.error("Black Market item equip failed:", error);
     return { type: "error", code: "INTERNAL_ERROR" };

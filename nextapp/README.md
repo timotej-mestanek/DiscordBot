@@ -93,7 +93,10 @@ level-specific ID of their equipped progressive item in the `overlay` group,
 followed by their unlocked emotes from the `emote` group. Both endpoints use
 strong SHA-256 ETags and return 304 for a matching `If-None-Match`. Twitch
 logins are matched by Twitch user ID, with the OAuth identity display name as a
-fallback. The map cache lasts 30 seconds, and the metadata cache lasts one day.
+fallback. The map is revalidated by clients on every request and its server-side
+cache normally lasts 30 seconds; opening an item, equipping an item, or upgrading
+a progressive item invalidates that cache so the next request rebuilds it. The
+metadata cache lasts one day.
 `GET /health` returns `{"ok":true}`.
 
 ### Shop actions in Streamer.bot
@@ -101,7 +104,10 @@ fallback. The map cache lasts 30 seconds, and the metadata cache lasts one day.
 Each shop product has a **Streamer.bot action** containing the exact name of a
 Streamer.bot action. Buying an immediate-use product queues that action;
 buying an inventory product only adds it to inventory, and using **Redeem from
-inventory** queues the action later. Shop events are saved in PostgreSQL in the
+inventory** queues the action later. Standard products can optionally specify
+an activation input label; users are prompted for that text when activating the
+item, and the trimmed value is included as `effect.userInput` in the queued
+event. Shop events are saved in PostgreSQL in the
 same transaction as the point deduction or inventory decrement, then delivered
 over one authenticated outbound WebSocket at
 `wss://<your-domain>/api/integrations/streamerbot/shop/live`. If Streamer.bot is
@@ -120,7 +126,8 @@ the site uses a different domain. The selected action receives `shopEventId`,
 identity fields, and payment fields (payment is `null` for later inventory
 redemption). `shopEffectJson` contains the event's effect payload: for a custom
 LED editor redemption it is the full timeline; for a generic shop item it is
-the item's name and description. The selected action decides what to do with it.
+the item's name and description, plus `userInput` when configured. The selected
+action decides what to do with it.
 
 The WSS client acknowledges an event after it has started the matching action
 and stored the event ID in the persistent

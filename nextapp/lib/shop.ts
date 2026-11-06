@@ -414,6 +414,7 @@ export async function redeemShopProduct(input: {
   accountId: string;
   identities: Identity[];
   productId: string;
+  userInput: string | null;
 }) {
   return prisma.$transaction(async (transaction) => {
     const product = await transaction.shopProduct.findUnique({
@@ -424,11 +425,25 @@ export async function redeemShopProduct(input: {
         description: true,
         product_type: true,
         add_to_inventory: true,
+        activation_input_label: true,
         streamerbot_action: true,
       },
     });
     if (!product || product.id === "custom-led-effect" || product.product_type !== "standard") {
       throw new ShopActionError("This item cannot be redeemed from the shop.");
+    }
+    if (
+      product.activation_input_label
+        ? input.userInput === null ||
+          input.userInput.trim().length === 0 ||
+          input.userInput.length > 500
+        : input.userInput !== null
+    ) {
+      throw new ShopActionError(
+        product.activation_input_label
+          ? `Enter the requested value: ${product.activation_input_label}`
+          : "This item does not accept additional input.",
+      );
     }
 
     const identity = input.identities.find(
@@ -454,6 +469,7 @@ export async function redeemShopProduct(input: {
       type: "shop-item",
       name: product.name,
       description: product.description,
+      ...(input.userInput === null ? {} : { userInput: input.userInput.trim() }),
     } satisfies Prisma.InputJsonObject;
     const redemption = await transaction.shopRedemption.create({
       data: {

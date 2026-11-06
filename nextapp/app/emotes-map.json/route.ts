@@ -14,13 +14,14 @@ export const dynamic = "force-dynamic";
 
 const CACHE_KEY = "emotes-map";
 const CACHE_TTL_MS = 30_000;
-const CACHE_CONTROL = "public, max-age=30, s-maxage=30";
+const CACHE_CONTROL = "public, max-age=0, s-maxage=0, must-revalidate";
 const OVERLAY_GROUP = "overlay";
 
 export async function GET(request: Request): Promise<Response> {
   const cached = getCachedRepresentation(CACHE_KEY);
   if (
     cached &&
+    Date.now() - cached.cachedAt < CACHE_TTL_MS &&
     matchesIfNoneMatch(request.headers.get("if-none-match"), cached.etag)
   ) {
     return jsonResponse(request, cached, "HIT", CACHE_CONTROL, "Accept-Encoding");

@@ -34,7 +34,7 @@ export default function BlackMarketClient({
   initialCrates: BlackMarketCrate[];
   initialKeys: BlackMarketKey[];
   initialInventory: BlackMarketInventoryItem[];
-  view: "warehouse" | "progressive";
+  view: "warehouse" | "items";
 }) {
   const router = useRouter();
   const [goldenEggs, setGoldenEggs] = useState(initialGoldenEggs);
@@ -130,13 +130,15 @@ export default function BlackMarketClient({
     setToast("");
     setInventory((current) =>
       current.map((entry) =>
-        entry.group === item.group
+        item.group === "overlay" && entry.group === "overlay"
           ? {
               ...entry,
               isEquipped: entry.id === item.id,
               useInput: entry.id === item.id ? userInput : entry.useInput,
             }
-          : entry,
+          : entry.id === item.id
+            ? { ...entry, isEquipped: true, useInput: userInput }
+            : entry,
       ),
     );
 
@@ -191,18 +193,12 @@ export default function BlackMarketClient({
             })),
         ]
       : []),
-    ...inventory
-      .filter((item) =>
-        view === "progressive"
-          ? item.itemType === "progressive"
-          : item.itemType === "normal",
-      )
-      .map((item) => ({
-        kind: "item" as const,
-        id: item.id,
-        quantity: 1,
-        item,
-      })),
+    ...(view === "items" ? inventory : []).map((item) => ({
+      kind: "item" as const,
+      id: item.id,
+      quantity: 1,
+      item,
+    })),
   ];
   const totalItems = sources.reduce((total, source) => total + source.quantity, 0);
   const pageCount = Math.max(1, Math.ceil(totalItems / 50));
@@ -318,8 +314,8 @@ export default function BlackMarketClient({
         </div>
       ) : (
         <p className="rounded-lg bg-zinc-900/70 p-3 text-sm text-zinc-400">
-          {view === "progressive"
-            ? "You don't have any progressive items yet."
+          {view === "items"
+            ? "You don't have any items yet."
             : "Your warehouse is empty. Visit the Blackmarket Shop to get started."}
         </p>
       )}

@@ -29,6 +29,7 @@ export type AdminShopProduct = {
     ends_at?: Date | null;
   } | null;
   add_to_inventory: boolean;
+  activation_input_label: string | null;
   streamerbot_action: string;
   _count: { inventory: number; redemptions: number };
 };
@@ -83,6 +84,7 @@ export default function ShopAdminManager({
   const [notice, setNotice] = useState("");
   const [visibilityBusyId, setVisibilityBusyId] = useState<string | null>(null);
   const [productType, setProductType] = useState<AdminShopProduct["product_type"]>("standard");
+  const [addToInventory, setAddToInventory] = useState(false);
   const [blackMarketCrateId, setBlackMarketCrateId] = useState("");
   const revertedLogIds = new Set(
     shopLogs.flatMap((log) => log.reverted_log_id ? [log.reverted_log_id] : []),
@@ -118,7 +120,11 @@ export default function ShopAdminManager({
       active: form.get("active") === "true",
       productType,
       blackMarketCrateId: productType === "standard" ? null : blackMarketCrateId,
-      addToInventory: productType === "standard" && form.get("addToInventory") === "true",
+      addToInventory: productType === "standard" && addToInventory,
+      activationInputLabel:
+        productType === "standard" && addToInventory
+          ? String(form.get("activationInputLabel") ?? "").trim() || null
+          : null,
       streamerbotAction: productType === "standard"
         ? String(form.get("streamerbotAction") ?? "")
         : "shop.redeemed",
@@ -161,6 +167,10 @@ export default function ShopAdminManager({
           productType: product.product_type,
           blackMarketCrateId: product.black_market_crate_id,
           addToInventory: product.product_type === "standard" && product.add_to_inventory,
+          activationInputLabel:
+            product.product_type === "standard" && product.add_to_inventory
+              ? product.activation_input_label
+              : null,
           streamerbotAction: product.product_type === "standard"
             ? product.streamerbot_action
             : "shop.redeemed",
@@ -361,6 +371,7 @@ export default function ShopAdminManager({
               onClick={() => {
                 setSelected(product);
                 setProductType(product.product_type);
+                setAddToInventory(product.add_to_inventory);
                 setBlackMarketCrateId(product.black_market_crate_id ?? "");
                 setError("");
               }}
@@ -396,6 +407,7 @@ export default function ShopAdminManager({
           onClick={() => {
             setSelected(null);
             setProductType("standard");
+            setAddToInventory(false);
             setBlackMarketCrateId("");
             setError("");
           }}
@@ -606,12 +618,26 @@ export default function ShopAdminManager({
           Purchase behavior
           <select
             name="addToInventory"
-            defaultValue={String(selected?.add_to_inventory ?? false)}
+            value={String(addToInventory)}
+            onChange={(event) => setAddToInventory(event.currentTarget.value === "true")}
             className="mt-1 block w-full rounded-lg border border-zinc-700 bg-zinc-950 px-3 py-2 text-sm text-white"
           >
             <option value="false">Use immediately; do not add to inventory</option>
             <option value="true">Add to inventory for later use</option>
           </select>
+        </label>}
+        {productType === "standard" && addToInventory && <label className="text-xs font-medium text-zinc-400 sm:col-span-2">
+          Activation input label (optional)
+          <input
+            name="activationInputLabel"
+            maxLength={120}
+            defaultValue={selected?.activation_input_label ?? ""}
+            placeholder="For example: Enter RGB color (e.g. 255, 0, 0)"
+            className="mt-1 w-full rounded-lg border border-zinc-700 bg-zinc-950 px-3 py-2 text-sm text-white"
+          />
+          <span className="mt-1 block text-[11px] text-zinc-500">
+            When users activate this inventory item, they will be asked for this text.
+          </span>
         </label>}
         <label className="text-xs font-medium text-zinc-400">
           Status

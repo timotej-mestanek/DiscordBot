@@ -2,6 +2,7 @@
 
 import Link from "next/link";
 import { useState } from "react";
+import type { FormEvent } from "react";
 import BlackMarketClient from "@/components/black-market/BlackMarketClient";
 import type {
   BlackMarketCrate,
@@ -12,12 +13,16 @@ import type {
 type InventoryEntry = {
   product_id: string;
   quantity: number;
-  product: { name: string; description: string };
+  product: {
+    name: string;
+    description: string;
+    activation_input_label: string | null;
+  };
 };
 
 const categories = [
   { id: "warehouse", label: "Warehouse" },
-  { id: "progressive", label: "Progressive items" },
+  { id: "items", label: "Normal items" },
   { id: "applicable", label: "Applicable items" },
 ] as const;
 
@@ -40,20 +45,21 @@ export default function InventoryPanel({
   const [items, setItems] = useState(initialItems);
   const [busyProductId, setBusyProductId] = useState<string | null>(null);
   const [message, setMessage] = useState("");
+  const [inputItem, setInputItem] = useState<InventoryEntry | null>(null);
 
-  async function redeem(productId: string) {
+  async function redeem(productId: string, userInput: string | null = null): Promise<boolean> {
     setBusyProductId(productId);
     setMessage("");
     try {
       const response = await fetch("/api/shop/redeem-item", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ productId }),
+        body: JSON.stringify({ productId, userInput }),
       });
       const result: { error?: string; quantity?: number } = await response.json();
       if (!response.ok) {
         setMessage(result.error ?? "The item could not be redeemed.");
-        return;
+        return false;
       }
       if (
         typeof result.quantity !== "number" ||
@@ -62,7 +68,7 @@ export default function InventoryPanel({
       ) {
         setMessage("The item was redeemed, but the updated inventory count is unavailable.");
         window.setTimeout(() => window.location.reload(), 1200);
-        return;
+        return true;
       }
       const quantity = result.quantity;
       setItems((current) =>
@@ -75,11 +81,22 @@ export default function InventoryPanel({
         ),
       );
       setMessage("Item redeemed and queued for Streamer.bot.");
+      return true;
     } catch (error) {
       console.error("Inventory item redemption failed:", error);
       setMessage("The item could not be redeemed.");
+      return false;
     } finally {
       setBusyProductId(null);
+    }
+  }
+
+  async function submitActivation(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    if (!inputItem) return;
+    const userInput = String(new FormData(event.currentTarget).get("userInput") ?? "");
+    if (await redeem(inputItem.product_id, userInput)) {
+      setInputItem(null);
     }
   }
 
@@ -134,7 +151,7 @@ export default function InventoryPanel({
         aria-labelledby={`inventory-tab-${category}`}
         className="mt-2"
       >
-        {(category === "warehouse" || category === "progressive") && (
+        {(category === "warehouse" || category === "items") && (
           <BlackMarketClient
             accountId={blackMarket.accountId}
             initialGoldenEggs={blackMarket.goldenEggs}
@@ -175,10 +192,20 @@ export default function InventoryPanel({
                       <button
                         type="button"
                         disabled={busyProductId !== null}
-                        onClick={() => void redeem(item.product_id)}
+                        onClick={() => {
+                          if (item.product.activation_input_label) {
+                            setInputItem(item);
+                          } else {
+                            void redeem(item.product_id);
+                          }
+                        }}
                         className="mt-2 rounded-full bg-violet-600 px-3 py-1 text-xs font-semibold hover:bg-violet-500 disabled:opacity-50"
                       >
-                        {busyProductId === item.product_id ? "Redeeming…" : "Redeem"}
+                        {busyProductId === item.product_id
+                          ? "Activating…"
+                          : item.product.activation_input_label
+                            ? "Activate"
+                            : "Redeem"}
                       </button>
                     )}
                   </li>
@@ -192,6 +219,54 @@ export default function InventoryPanel({
           </div>
         )}
       </div>
+      {inputItem?.product.activation_input_label && (
+        <div className="fixed inset-0 z-[80] flex items-center justify-center bg-black/75 p-4">
+          <form
+            onSubmit={submitActivation}
+            role="dialog"
+            aria-modal="true"
+            aria-labelledby="shop-item-input-title"
+            className="app-fixed-dialog space-y-5"
+          >
+            <div className="flex items-start justify-between gap-3">
+              <div>
+                <p className="text-xs font-bold uppercase tracking-[0.2em] text-violet-300">
+                  Activate item
+                </p>
+                <h2 id="shop-item-input-title" className="mt-1 text-xl font-black">
+                  {inputItem.product.name}
+                </h2>
+              </div>
+              <button
+                type="button"
+                disabled={busyProductId !== null}
+                onClick={() => setInputItem(null)}
+                className="rounded-full bg-zinc-800 px-3 py-1.5 text-sm font-semibold hover:bg-zinc-700 disabled:opacity-50"
+              >
+                Cancel
+              </button>
+            </div>
+            <label className="block space-y-2 text-sm text-zinc-300">
+              <span className="block">{inputItem.product.activation_input_label}</span>
+              <input
+                name="userInput"
+                type="text"
+                required
+                maxLength={500}
+                autoFocus
+                className="w-full rounded-lg border border-zinc-700 bg-zinc-950 px-3 py-2 text-white"
+              />
+            </label>
+            <button
+              type="submit"
+              disabled={busyProductId !== null}
+              className="w-full rounded-lg bg-violet-600 px-4 py-2.5 text-sm font-semibold hover:bg-violet-500 disabled:opacity-50"
+            >
+              {busyProductId === inputItem.product_id ? "Activating…" : "Activate"}
+            </button>
+          </form>
+        </div>
+      )}
     </section>
   );
 }

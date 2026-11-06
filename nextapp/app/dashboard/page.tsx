@@ -112,7 +112,13 @@ export default async function DashboardPage({
           select: {
             product_id: true,
             quantity: true,
-            product: { select: { name: true, description: true } },
+            product: {
+              select: {
+                name: true,
+                description: true,
+                activation_input_label: true,
+              },
+            },
           },
         })
       : [];

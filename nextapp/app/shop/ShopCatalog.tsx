@@ -5,7 +5,7 @@ import ShopProductCard from "./ShopProductCard";
 import type { ShopProduct } from "./ShopProductCard";
 
 type Currency = "discord" | "twitch_custom";
-type CatalogLayout = "standard" | "black-market";
+type CatalogLayout = "standard" | "compact" | "black-market";
 type Balances = { discord: number | null; twitch: number | null } | null;
 type LinkedAccounts = { discord: boolean; twitch: boolean } | null;
 
@@ -89,9 +89,14 @@ export default function ShopCatalog({
   return (
     <div>
       <header className="mb-6 flex flex-wrap items-center justify-between gap-3">
-        {layout === "standard" && (
+        {layout !== "black-market" && (
           <h1 className="app-page-title text-2xl font-black tracking-tight sm:text-3xl">
             Shop
+          </h1>
+        )}
+        {layout === "black-market" && (
+          <h1 className="app-page-title text-2xl font-black tracking-tight sm:text-3xl">
+            Blackmarket Shop
           </h1>
         )}
         <section
@@ -162,7 +167,7 @@ export default function ShopCatalog({
               </h2>
             )}
             <div className={`grid ${
-              layout === "black-market"
+              layout !== "standard"
                 ? "grid-cols-2 gap-3 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6"
                 : "gap-x-5 gap-y-6 sm:grid-cols-2 lg:grid-cols-3"
             }`}>
@@ -175,7 +180,7 @@ export default function ShopCatalog({
                   linked={linked}
                   quantity={currentQuantities[product.id] ?? 0}
                   isLoggedIn={isLoggedIn}
-                  compact={layout === "black-market"}
+                  compact={layout !== "standard"}
                   onPurchase={(currency, price, quantity) =>
                     handlePurchase(product.id, currency, price, quantity)
                   }

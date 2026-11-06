@@ -14,6 +14,7 @@ type CacheResult = {
 const cache = new Map<string, JsonRepresentation>();
 const inFlight = new Map<string, Promise<JsonRepresentation>>();
 const refreshTimers = new Map<string, ReturnType<typeof setTimeout>>();
+const generations = new Map<string, number>();
 
 export const EMOTE_GROUP = "emote";
 
@@ -35,8 +36,9 @@ export async function getOrBuildRepresentation(
 
   let pending = inFlight.get(key);
   if (!pending) {
+    const generation = generations.get(key) ?? 0;
     pending = buildBody().then((body) => {
-      return storeRepresentation(key, body);
+      return storeRepresentation(key, body, generation);
     });
     inFlight.set(key, pending);
   }
@@ -50,13 +52,28 @@ export async function getOrBuildRepresentation(
   }
 }
 
-function storeRepresentation(key: string, body: string): JsonRepresentation {
+export function invalidateCachedRepresentation(key: string): void {
+  generations.set(key, (generations.get(key) ?? 0) + 1);
+  cache.delete(key);
+  inFlight.delete(key);
+  const timer = refreshTimers.get(key);
+  if (timer) clearTimeout(timer);
+  refreshTimers.delete(key);
+}
+
+function storeRepresentation(
+  key: string,
+  body: string,
+  generation: number,
+): JsonRepresentation {
   const representation = {
     body,
     etag: `"${createHash("sha256").update(body).digest("hex")}"`,
     cachedAt: Date.now(),
   };
-  cache.set(key, representation);
+  if ((generations.get(key) ?? 0) === generation) {
+    cache.set(key, representation);
+  }
   return representation;
 }
 
@@ -73,10 +90,11 @@ export function scheduleRepresentationRefresh(
       return;
     }
 
+    const generation = generations.get(key) ?? 0;
     const pending = buildBody()
-      .then((body) => storeRepresentation(key, body))
+      .then((body) => storeRepresentation(key, body, generation))
       .catch((error: unknown) => {
-        cache.delete(key);
+        if ((generations.get(key) ?? 0) === generation) cache.delete(key);
         console.error(`Background refresh failed for ${key}:`, error);
         throw error;
       });

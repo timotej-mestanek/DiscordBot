@@ -134,6 +134,7 @@ export default async function ShopPage({
               <>
                 <div>
                   <ShopCatalog
+                    layout="compact"
                     products={products
                       .filter((product) => {
                         if (!product.active) {

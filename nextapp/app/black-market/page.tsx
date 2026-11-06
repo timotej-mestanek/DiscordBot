@@ -31,6 +31,17 @@ export default async function BlackMarketPage({
             active: true,
             starts_at: true,
             ends_at: true,
+            items: {
+              include: {
+                item: {
+                  select: {
+                    name: true,
+                    item_type: true,
+                    expiry: true,
+                  },
+                },
+              },
+            },
           },
         },
       },
@@ -74,12 +85,6 @@ export default async function BlackMarketPage({
         adminTab="blackmarket"
       />
       <div className="mx-auto max-w-7xl px-4 py-6 sm:px-6 md:py-8">
-        <header className="mb-5">
-          <h1 className="text-3xl font-black tracking-tight">
-            Blackmarket Shop
-          </h1>
-        </header>
-
         {availableProducts.length > 0 || availableShopItems.length > 0 ? (
           <ShopCatalog
             layout="black-market"
@@ -103,6 +108,15 @@ export default async function BlackMarketPage({
                       name: product.black_market_crate.name,
                     }
                   : null,
+                blackMarketCrateRewards: product.black_market_crate?.items.map(
+                  (entry) => ({
+                    name: entry.item.name,
+                    itemType: entry.item.item_type,
+                    expiry: entry.item.expiry,
+                    dropChance: Number(entry.drop_chance),
+                    goldenEggs: entry.golden_eggs,
+                  }),
+                ),
                 addToInventory: product.add_to_inventory,
               })),
               ...availableShopItems.map((item) => ({

@@ -24,7 +24,10 @@ export async function POST(request: Request) {
     !("productId" in body) ||
     typeof body.productId !== "string" ||
     body.productId.length < 1 ||
-    body.productId.length > 64
+    body.productId.length > 64 ||
+    ("userInput" in body &&
+      body.userInput !== null &&
+      (typeof body.userInput !== "string" || body.userInput.length > 500))
   ) {
     return NextResponse.json({ error: "Select a valid product." }, { status: 400 });
   }
@@ -34,6 +37,10 @@ export async function POST(request: Request) {
       accountId: account.id,
       identities: account.identities,
       productId: body.productId,
+      userInput:
+        "userInput" in body && typeof body.userInput === "string"
+          ? body.userInput
+          : null,
     });
     return NextResponse.json({ ok: true, ...result });
   } catch (error) {

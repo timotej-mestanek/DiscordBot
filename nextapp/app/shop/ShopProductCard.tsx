@@ -22,6 +22,13 @@ export type ShopProduct = {
   blackMarketCrate: { id: string; name: string } | null;
   addToInventory: boolean;
   blackMarketItemExpiry?: "permanent" | "seven_days" | "thirty_days" | "event_end" | null;
+  blackMarketCrateRewards?: {
+    name: string;
+    itemType: "normal" | "progressive" | "golden_eggs";
+    expiry: "permanent" | "seven_days" | "thirty_days" | "event_end";
+    dropChance: number;
+    goldenEggs: number | null;
+  }[];
 };
 
 export default function ShopProductCard({
@@ -170,11 +177,20 @@ export default function ShopProductCard({
       : product.productType === "black_market_key"
         ? "Key"
         : "Shop item";
+  const rarityClass = (reward: NonNullable<ShopProduct["blackMarketCrateRewards"]>[number]) => {
+    if (reward.itemType === "progressive") return "border-amber-500/30 bg-amber-500/10 text-amber-200";
+    if (reward.itemType === "golden_eggs" || reward.expiry === "permanent") {
+      return "border-rose-500/30 bg-rose-500/10 text-rose-200";
+    }
+    if (reward.expiry === "thirty_days") return "border-sky-500/30 bg-sky-500/10 text-sky-200";
+    if (reward.expiry === "seven_days") return "border-emerald-500/30 bg-emerald-500/10 text-emerald-200";
+    return "border-zinc-700 bg-zinc-800/60 text-zinc-200";
+  };
 
   return (
     <article
       id={product.id === "custom-led-effect" ? "custom-led-effect" : undefined}
-      className="flex h-full flex-col"
+      className="relative flex h-full flex-col"
     >
       <div
         className={`relative flex aspect-[4/3] w-full items-center justify-center overflow-hidden ${
@@ -194,26 +210,82 @@ export default function ShopProductCard({
         }}
       >
         <ShopProductArtwork product={product} />
-        {product.productType === "black_market_crate" && (
-          <>
-            <button
-              type="button"
-              title={product.description || "Black Market crate"}
-              aria-label={`More information about ${product.name}`}
-              aria-expanded={showCrateInfo}
-              onClick={() => setShowCrateInfo((current) => !current)}
-              className="absolute right-2 top-2 flex h-6 w-6 items-center justify-center rounded-full border border-white/30 bg-black/70 text-xs font-bold text-white"
-            >
-              ?
-            </button>
-            {showCrateInfo && (
-              <p className="absolute right-2 top-10 z-10 max-w-[90%] rounded-lg border border-zinc-700 bg-zinc-950/95 p-2 text-left text-xs leading-4 text-zinc-200 shadow-xl">
-                {product.description || "No additional crate information."}
-              </p>
-            )}
-          </>
-        )}
       </div>
+      {product.productType === "black_market_crate" && (
+        <>
+          <button
+            type="button"
+            title={product.description || "Black Market crate"}
+            aria-label={`More information about ${product.name}`}
+            aria-expanded={showCrateInfo}
+            onClick={() => setShowCrateInfo((current) => !current)}
+            className="absolute right-2 top-2 z-20 flex h-6 w-6 items-center justify-center rounded-full border border-white/30 bg-black/70 text-xs font-bold text-white"
+          >
+            ?
+          </button>
+          {showCrateInfo && (
+            <div className="absolute right-2 top-10 z-20 max-h-64 w-72 max-w-[calc(100vw-2rem)] overflow-y-auto rounded-lg border border-zinc-700 bg-zinc-950/95 p-3 text-left text-xs leading-4 text-zinc-200 shadow-xl">
+              {product.description && <p className="mb-2">{product.description}</p>}
+              <p className="mb-2 font-bold text-white">Possible rewards</p>
+              {product.blackMarketCrateRewards?.length ? (
+                <>
+                  <ul className="space-y-1.5">
+                    {product.blackMarketCrateRewards.map((reward, index) => {
+                      const isRare =
+                        reward.itemType === "progressive" ||
+                        reward.itemType === "golden_eggs" ||
+                        reward.expiry === "permanent";
+                      return (
+                        <li
+                          key={`${reward.name}:${index}`}
+                          className={`flex items-center justify-between gap-2 rounded-md border px-2 py-1.5 ${rarityClass(reward)}`}
+                        >
+                          <span className="min-w-0">
+                            <span className="block truncate font-semibold">
+                              {reward.itemType === "golden_eggs"
+                                ? `${reward.goldenEggs ?? 0} Golden Eggs`
+                                : reward.name}
+                            </span>
+                            <span className="text-[10px] opacity-75">
+                              {isRare
+                                ? reward.itemType === "progressive"
+                                  ? "Rare · Progressive"
+                                  : reward.itemType === "golden_eggs"
+                                    ? "Rare · Golden Eggs"
+                                    : "Rare · Permanent"
+                                : reward.expiry === "thirty_days"
+                                  ? "30-day"
+                                  : reward.expiry === "seven_days"
+                                    ? "7-day"
+                                    : "Event-limited"}
+                            </span>
+                          </span>
+                          <span className="shrink-0 font-bold tabular-nums">
+                            {reward.dropChance.toLocaleString("en-US", {
+                              maximumFractionDigits: 2,
+                            })}%
+                          </span>
+                        </li>
+                      );
+                    })}
+                  </ul>
+                  <p className="mt-2 text-right text-[10px] text-zinc-400">
+                    No reward: {Math.max(
+                      0,
+                      100 - product.blackMarketCrateRewards.reduce(
+                        (total, reward) => total + reward.dropChance,
+                        0,
+                      ),
+                    ).toLocaleString("en-US", { maximumFractionDigits: 2 })}%
+                  </p>
+                </>
+              ) : (
+                <p className="text-zinc-400">No rewards configured.</p>
+              )}
+            </div>
+          )}
+        </>
+      )}
       <div className={`flex flex-1 flex-col px-2 text-center ${compact ? "pb-2 pt-1" : "pb-3 pt-1"}`}>
         {!compact && (
           <p

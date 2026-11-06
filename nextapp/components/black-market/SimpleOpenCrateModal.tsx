@@ -1,7 +1,7 @@
 "use client";
 
 import Image from "next/image";
-import { useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import { openCrate } from "@/lib/black-market/actions";
 import type { OpenCrateResult } from "@/lib/black-market/actions";
@@ -28,18 +28,19 @@ export default function SimpleOpenCrateModal({
   externalPending?: boolean;
 }) {
   const router = useRouter();
-  const [pending, setPending] = useState(false);
+  const externallyManaged = externalPending !== undefined;
+  const [pending, setPending] = useState(!externallyManaged);
   const [result, setResult] = useState<
     Exclude<OpenCrateResult, { type: "error" }> | null
   >(null);
   const [hasSucceeded, setHasSucceeded] = useState(false);
-  const externallyManaged = externalPending !== undefined;
+  const autoOpenStarted = useRef(false);
   const shownResult = externallyManaged ? externalResult ?? null : result;
   const isPending = externallyManaged ? externalPending : pending;
 
-  async function handleOpen() {
+  const handleOpen = useCallback(async (autoOpen = false) => {
     if (
-      isPending ||
+      (isPending && !autoOpen) ||
       crate.quantity < 1 ||
       (crate.requiresKey && crate.keyQuantity < 1)
     ) return;
@@ -68,7 +69,23 @@ export default function SimpleOpenCrateModal({
     setResult(response);
     setHasSucceeded(true);
     onSuccess(response);
-  }
+  }, [
+    accountId,
+    crate.id,
+    crate.keyQuantity,
+    crate.quantity,
+    crate.requiresKey,
+    isPending,
+    onError,
+    onQuantityChange,
+    onSuccess,
+  ]);
+
+  useEffect(() => {
+    if (externallyManaged || autoOpenStarted.current) return;
+    autoOpenStarted.current = true;
+    void handleOpen(true);
+  }, [externallyManaged, handleOpen]);
 
   function close() {
     if (hasSucceeded && !externallyManaged) router.refresh();
@@ -128,15 +145,29 @@ export default function SimpleOpenCrateModal({
               Added to inventory!
             </p>
           </div>
-        ) : shownResult?.type === "duplicate" || shownResult?.type === "eggs" ? (
+        ) : shownResult?.type === "duplicate" ? (
+          <div className="mt-5">
+            <div className="relative aspect-square animate-[simple-reveal_400ms_ease-out_both] overflow-hidden rounded-xl border border-amber-700/60 bg-zinc-950 motion-reduce:animate-none">
+              <Image
+                src={shownResult.imageUrl}
+                alt={shownResult.itemName}
+                fill
+                unoptimized
+                sizes="400px"
+                className="object-cover"
+              />
+            </div>
+            <h3 className="mt-4 text-center text-xl font-black">{shownResult.itemName}</h3>
+            <p className="mt-1 text-center text-sm text-amber-200">
+              You already own this item. +{shownResult.goldenEggsGained} Golden Eggs have been added.
+            </p>
+          </div>
+        ) : shownResult?.type === "eggs" ? (
           <div className="mt-8 rounded-xl border border-amber-700/60 bg-amber-950/40 p-8 text-center">
             <p className="text-6xl" aria-hidden="true">🥚</p>
             <p className="mt-3 text-2xl font-black text-amber-100">
               +{shownResult.goldenEggsGained} Golden Eggs
             </p>
-            {shownResult.type === "duplicate" && (
-              <p className="mt-1 text-sm text-amber-100/70">Duplicate item</p>
-            )}
           </div>
         ) : shownResult?.type === "empty" ? (
           <div className="my-8 rounded-xl border border-zinc-800 bg-zinc-950 p-5 text-center">
@@ -154,10 +185,10 @@ export default function SimpleOpenCrateModal({
           {shownResult && crate.quantity > 0 && !externallyManaged && (
             <button
               type="button"
-              onClick={() => setResult(null)}
+              onClick={close}
               className="rounded-lg border border-zinc-700 px-4 py-2 text-sm font-semibold hover:bg-zinc-800"
             >
-              Open another
+              Choose another crate
             </button>
           )}
           {!shownResult && !isPending && !externallyManaged && (

@@ -55,6 +55,12 @@ export async function POST(request: Request) {
     !/^#[0-9a-fA-F]{6}$/u.test(body.cardColor) ||
     !("addToInventory" in body) ||
     typeof body.addToInventory !== "boolean" ||
+    !("activationInputLabel" in body) ||
+    !(body.activationInputLabel === null || (
+      typeof body.activationInputLabel === "string" &&
+      body.activationInputLabel.trim().length <= 120 &&
+      !/[\u0000-\u0008\u000b\u000c\u000e-\u001f\u007f]/u.test(body.activationInputLabel)
+    )) ||
     !("streamerbotAction" in body) ||
     typeof body.streamerbotAction !== "string" ||
     body.streamerbotAction.trim().length < 1 ||
@@ -93,9 +99,13 @@ export async function POST(request: Request) {
       ? body.blackMarketCrateId !== null
       : typeof body.blackMarketCrateId !== "string") ||
     (body.productType !== "standard" && body.addToInventory) ||
+    (body.productType !== "standard" && body.activationInputLabel !== null) ||
+    (body.productType === "standard" &&
+      !body.addToInventory &&
+      body.activationInputLabel !== null) ||
     ("productId" in body && typeof body.productId !== "string")
   ) {
-    return NextResponse.json({ error: "Check the product name, description, and prices." }, { status: 400 });
+    return NextResponse.json({ error: "Check the product name, description, prices, and activation input label." }, { status: 400 });
   }
 
   const submittedName = body.name.trim();
@@ -107,6 +117,12 @@ export async function POST(request: Request) {
   const productType = body.productType;
   const blackMarketCrateId = body.blackMarketCrateId;
   const addToInventory = productType === "standard" && body.addToInventory;
+  const activationInputLabel =
+    productType === "standard" &&
+    typeof body.activationInputLabel === "string" &&
+    body.activationInputLabel.trim()
+      ? body.activationInputLabel.trim()
+      : null;
   const streamerbotAction = productType === "standard"
     ? body.streamerbotAction.trim()
     : "shop.redeemed";
@@ -156,6 +172,7 @@ export async function POST(request: Request) {
               twitch_price: twitchPrice,
               active,
               add_to_inventory: addToInventory,
+              activation_input_label: activationInputLabel,
               streamerbot_action: streamerbotAction,
             },
           })
@@ -170,6 +187,7 @@ export async function POST(request: Request) {
               twitch_price: twitchPrice,
               active,
               add_to_inventory: addToInventory,
+              activation_input_label: activationInputLabel,
               streamerbot_action: streamerbotAction,
             },
           });
@@ -191,6 +209,7 @@ export async function POST(request: Request) {
                   productType: previous.product_type,
                   blackMarketCrateId: previous.black_market_crate_id,
                   addToInventory: previous.add_to_inventory,
+                  activationInputLabel: previous.activation_input_label,
                   streamerbotAction: previous.streamerbot_action,
                 }
               : null,
@@ -204,6 +223,7 @@ export async function POST(request: Request) {
               productType,
               blackMarketCrateId,
               addToInventory,
+              activationInputLabel,
               streamerbotAction,
             },
           },
