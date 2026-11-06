@@ -21,9 +21,7 @@ const ALLOWED_EMOTE_ORIGIN = "http://localhost:5173";
 
 export function withEmoteCors(response: Response, request: Request): Response {
   const headers = new Headers(response.headers);
-  headers.set("Cache-Control", "no-store");
-  headers.set("CDN-Cache-Control", "no-store");
-  headers.set("Cloudflare-CDN-Cache-Control", "no-store");
+  
   const vary = new Set(
     (headers.get("Vary") ?? "")
       .split(",")
@@ -32,13 +30,10 @@ export function withEmoteCors(response: Response, request: Request): Response {
   );
   vary.add("Origin");
   headers.set("Vary", [...vary].join(", "));
-
-  if (request.headers.get("origin") === ALLOWED_EMOTE_ORIGIN) {
-    headers.set("Access-Control-Allow-Origin", ALLOWED_EMOTE_ORIGIN);
-    headers.set("Access-Control-Allow-Methods", "GET, OPTIONS");
-    headers.set("Access-Control-Allow-Headers", "If-None-Match");
-    headers.set("Access-Control-Expose-Headers", "ETag");
-  }
+  headers.set("Access-Control-Allow-Origin", "*");
+  headers.set("Access-Control-Allow-Methods", "GET, OPTIONS");
+  headers.set("Access-Control-Allow-Headers", "If-None-Match");
+  headers.set("Access-Control-Expose-Headers", "ETag");
 
   return new Response(response.body, {
     status: response.status,
