@@ -11,14 +11,17 @@ type AppHeaderProps = {
 const adminLinks = [
   { label: "Stream settings", href: "/dashboard?view=admin", tab: "admin" },
   { label: "Shop", href: "/shop?view=admin", tab: "shop" },
-  { label: "Shop operations", href: "/dashboard?view=admin&tab=admin-shop", tab: "admin-shop" },
   { label: "Blackmarket", href: "/admin/black-market", tab: "blackmarket" },
   { label: "Users", href: "/dashboard?view=admin&tab=users", tab: "users" },
-  { label: "Wheels", href: "/dashboard?view=admin&tab=wheels", tab: "wheels" },
-  { label: "Overlays", href: "/dashboard?view=admin&tab=overlays", tab: "overlays" },
-  { label: "Fun facts", href: "/dashboard?view=admin&tab=interesting", tab: "interesting" },
   { label: "Logs", href: "/dashboard?view=admin&tab=logs", tab: "logs" },
+] as const;
+
+const otherAdminLinks = [
+  { label: "Overlays", href: "/dashboard?view=admin&tab=overlays", tab: "overlays" },
   { label: "Stream Deck", href: "/dashboard/remote", tab: "remote" },
+  { label: "Account", href: "/dashboard?view=user&tab=account", tab: "account" },
+  { label: "Fun facts", href: "/dashboard?view=admin&tab=interesting", tab: "interesting" },
+  { label: "Wheels", href: "/dashboard?view=admin&tab=wheels", tab: "wheels" },
 ] as const;
 
 function MainLink({
@@ -68,12 +71,32 @@ export default function AppHeader({
                   {item.label}
                 </MainLink>
               ))}
-              <MainLink
-                href="/dashboard?view=user&tab=account"
-                active={false}
+              <details
+                className="app-admin-other"
+                open={otherAdminLinks.some((item) => adminTab === item.tab)}
               >
-                Account
-              </MainLink>
+                <summary
+                  className={`app-main-link app-admin-other-trigger${
+                    otherAdminLinks.some((item) => adminTab === item.tab)
+                      ? " is-active"
+                      : ""
+                  }`}
+                >
+                  Other
+                  <span aria-hidden="true">⌄</span>
+                </summary>
+                <div className="app-admin-other-menu">
+                  {otherAdminLinks.map((item) => (
+                    <MainLink
+                      key={item.label}
+                      href={item.href}
+                      active={adminTab === item.tab}
+                    >
+                      {item.label}
+                    </MainLink>
+                  ))}
+                </div>
+              </details>
             </>
           ) : (
             <>

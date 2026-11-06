@@ -16,8 +16,12 @@ export type AdminItem = {
   group: string;
   itemType: "normal" | "progressive" | "golden_eggs";
   imageUrl: string;
+  useInputLabel: string | null;
   maxLevel: number;
   expiry: "permanent" | "seven_days" | "thirty_days" | "event_end";
+  shopEnabled: boolean;
+  shopDiscordPrice: number | null;
+  shopTwitchPrice: number | null;
   ownedCount: number;
 };
 
@@ -60,6 +64,7 @@ export default function ItemManager({
   const [itemType, setItemType] = useState<"normal" | "progressive" | "golden_eggs">(
     item?.itemType ?? "progressive",
   );
+  const [shopEnabled, setShopEnabled] = useState(item?.shopEnabled ?? false);
   const [imageUrl, setImageUrl] = useState(item?.imageUrl ?? "");
   const [crateSettings, setCrateSettings] = useState<Record<string, CrateSettings>>(
     Object.fromEntries(crates.map((crate) => [
@@ -75,16 +80,27 @@ export default function ItemManager({
     }
     setBusy(true);
     setError("");
+    const sellInShop = shopEnabled && itemType !== "golden_eggs";
     const input = {
       id: String(formData.get("id") ?? "").trim(),
       name: String(formData.get("name") ?? "").trim(),
       group: String(formData.get("group") ?? "").trim().toLowerCase(),
       itemType,
+      useInputLabel: itemType === "golden_eggs"
+        ? null
+        : String(formData.get("useInputLabel") ?? "").trim() || null,
       imageUrl,
       maxLevel: itemType === "progressive" ? Number(formData.get("maxLevel")) : 1,
       expiry: itemType === "normal"
         ? String(formData.get("expiry") ?? "permanent") as AdminItem["expiry"]
         : "permanent",
+      shopEnabled: sellInShop,
+      shopDiscordPrice: sellInShop && String(formData.get("shopDiscordPrice") ?? "")
+        ? Number(formData.get("shopDiscordPrice"))
+        : null,
+      shopTwitchPrice: sellInShop && String(formData.get("shopTwitchPrice") ?? "")
+        ? Number(formData.get("shopTwitchPrice"))
+        : null,
       crateAssignments: item
         ? []
         : crates.flatMap((crate) => {
@@ -223,6 +239,21 @@ export default function ItemManager({
                   </p>
                 </div>
               )}
+              {itemType !== "golden_eggs" && (
+                <label className="space-y-2 text-sm text-zinc-300 sm:col-span-2">
+                  <span className="block">Optional text input when equipping</span>
+                  <input
+                    name="useInputLabel"
+                    maxLength={100}
+                    defaultValue={item?.useInputLabel ?? ""}
+                    placeholder="For example: Enter the target username"
+                    className="w-full rounded-lg border border-zinc-700 bg-zinc-950 px-3 py-2 text-white"
+                  />
+                  <span className="block text-xs text-zinc-500">
+                    Leave blank if the user does not need to enter any text.
+                  </span>
+                </label>
+              )}
               {itemType === "progressive" ? (
                 <label className="space-y-2 text-sm text-zinc-300">
                 <span className="block">Maximum level</span>
@@ -240,11 +271,54 @@ export default function ItemManager({
                     <option value="permanent">Permanent</option>
                     <option value="seven_days">7 days after obtaining</option>
                     <option value="thirty_days">30 days after obtaining</option>
-                    <option value="event_end">Until the crate event ends</option>
+                    <option value="event_end">Until the season / crate event ends</option>
                   </select>
                 </label>
               )}
             </div>
+            {itemType !== "golden_eggs" && (
+              <fieldset className="rounded-xl border border-zinc-800 p-3">
+                <div className="flex flex-wrap items-center gap-3">
+                  <label className="flex items-center gap-2 text-sm font-medium text-zinc-200">
+                    <input
+                      name="shopEnabled"
+                      type="checkbox"
+                      checked={shopEnabled}
+                      onChange={(event) => setShopEnabled(event.currentTarget.checked)}
+                    />
+                    Sell this item in the Black Market Shop
+                  </label>
+                  {shopEnabled && (
+                    <>
+                      <label className="flex items-center gap-2 text-xs text-zinc-400">
+                        Discord
+                        <input
+                          name="shopDiscordPrice"
+                          type="number"
+                          min={1}
+                          step={1}
+                          placeholder="Price"
+                          defaultValue={item?.shopDiscordPrice ?? ""}
+                          className="w-28 rounded-lg border border-zinc-700 bg-zinc-950 px-2 py-1.5 text-sm text-white"
+                        />
+                      </label>
+                      <label className="flex items-center gap-2 text-xs text-zinc-400">
+                        Twitch
+                        <input
+                          name="shopTwitchPrice"
+                          type="number"
+                          min={1}
+                          step={1}
+                          placeholder="Price"
+                          defaultValue={item?.shopTwitchPrice ?? ""}
+                          className="w-28 rounded-lg border border-zinc-700 bg-zinc-950 px-2 py-1.5 text-sm text-white"
+                        />
+                      </label>
+                    </>
+                  )}
+                </div>
+              </fieldset>
+            )}
             <ImageUpload
               type="item-level"
               label={itemType === "progressive" ? "Item image (level 1)" : "Item image"}

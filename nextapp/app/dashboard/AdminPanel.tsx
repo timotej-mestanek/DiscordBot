@@ -24,7 +24,6 @@ type Rate = {
 };
 type Log = {
   id: string;
-  reverted_log_id: string | null;
   action: string;
   details: unknown;
   created_at: string;
@@ -70,37 +69,9 @@ type AdminData = {
 const currencyLabel = (currency: Currency) =>
   currency === "discord" ? "Discord points" : "Twitch CustomBody";
 
-function isRecord(value: unknown): value is Record<string, unknown> {
-  return typeof value === "object" && value !== null && !Array.isArray(value);
-}
-
-function canRevertShopLog(log: Log): boolean {
-  if (log.action === "shop.product_created") return true;
-  if (!isRecord(log.details)) return false;
-  const details = log.details;
-  if (log.action === "shop.product_updated") {
-    return isRecord(details.before);
-  }
-  if (log.action === "shop.purchased") {
-    return (
-      typeof details.productId === "string" &&
-      (details.currency === "discord" || details.currency === "twitch_custom") &&
-      typeof details.price === "number"
-    );
-  }
-  if (log.action === "shop.redeemed") {
-    return (
-      typeof details.productId === "string" &&
-      typeof details.redemptionId === "string"
-    );
-  }
-  return false;
-}
-
 export default function AdminPanel({ view }: { view: "settings" | "logs" }) {
   const [data, setData] = useState<AdminData | null>(null);
   const [error, setError] = useState("");
-  const [revertingLogId, setRevertingLogId] = useState<string | null>(null);
   const [streamerBotLogs, setStreamerBotLogs] = useState<StreamerBotIntegrationLog[]>([]);
   const [streamerBotLogCursor, setStreamerBotLogCursor] = useState<string | null>(null);
   const [streamerBotLogError, setStreamerBotLogError] = useState("");
@@ -243,29 +214,6 @@ export default function AdminPanel({ view }: { view: "settings" | "logs" }) {
       return;
     }
     form.reset();
-  }
-
-  async function revertShopOperation(logId: string) {
-    setError("");
-    setRevertingLogId(logId);
-    try {
-      const response = await fetch("/api/admin", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ action: "shop-revert", logId }),
-      });
-      const result: { error?: string } = await response.json();
-      if (!response.ok) {
-        setError(result.error ?? "Could not revert the shop operation.");
-        return;
-      }
-      await load();
-    } catch (revertError) {
-      console.error("Shop operation revert failed:", revertError);
-      setError("Could not revert the shop operation.");
-    } finally {
-      setRevertingLogId(null);
-    }
   }
 
   async function savePubgRoster(event: FormEvent<HTMLFormElement>) {
@@ -570,7 +518,7 @@ export default function AdminPanel({ view }: { view: "settings" | "logs" }) {
 
       <PersistentAdminCard id="audit-log" title="Audit log">
         <div className="mt-4 h-96 space-y-2 overflow-y-auto overscroll-contain rounded-lg border border-zinc-800 p-2">
-          {data.logs.map((log) => (
+          {data.logs.filter((log) => !log.action.startsWith("shop.")).map((log) => (
             <article key={log.id} className="rounded-lg border border-zinc-800 p-3 text-sm">
               <div className="flex flex-wrap items-start justify-between gap-3">
                 <div>
@@ -580,24 +528,15 @@ export default function AdminPanel({ view }: { view: "settings" | "logs" }) {
                     {log.target ? ` → ${log.target.display_name}` : ""}
                   </p>
                 </div>
-                {canRevertShopLog(log) &&
-                  !data.logs.some((entry) => entry.reverted_log_id === log.id) && (
-                    <button
-                      type="button"
-                      disabled={revertingLogId !== null}
-                      onClick={() => void revertShopOperation(log.id)}
-                      className="rounded-lg border border-amber-800 px-3 py-1.5 text-xs font-semibold text-amber-200 hover:bg-amber-950 disabled:opacity-50"
-                    >
-                      {revertingLogId === log.id ? "Reverting…" : "REVERT"}
-                    </button>
-                  )}
               </div>
               <pre className="mt-2 overflow-x-auto whitespace-pre-wrap break-words text-xs text-zinc-500">
                 {JSON.stringify(log.details)}
               </pre>
             </article>
           ))}
-          {data.logs.length === 0 && <p className="text-sm text-zinc-500">No entries yet.</p>}
+          {data.logs.every((log) => log.action.startsWith("shop.")) && (
+            <p className="text-sm text-zinc-500">No entries yet.</p>
+          )}
         </div>
       </PersistentAdminCard>
 

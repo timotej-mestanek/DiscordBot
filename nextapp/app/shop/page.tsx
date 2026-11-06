@@ -2,16 +2,19 @@ import { Prisma } from "@prisma/client";
 import { getCurrentAccount } from "@/lib/auth/session";
 import { getAccountPointBalances } from "@/lib/points";
 import { prisma } from "@/lib/prisma";
-import { getAdminShopDeliveries } from "@/lib/shop-admin";
+import {
+  getAdminShopAuditLogs,
+  getAdminShopDeliveries,
+} from "@/lib/shop-admin";
 import AppHeader from "@/app/AppHeader";
-import PointBalanceSummary from "@/app/PointBalanceSummary";
 import ShopAdminManager from "./ShopAdminManager";
+import ShopCatalog from "./ShopCatalog";
 import type {
   AdminShopCrate,
+  AdminShopAuditLog,
   AdminShopDelivery,
   AdminShopProduct,
 } from "./ShopAdminManager";
-import ShopProductCard from "./ShopProductCard";
 
 function isMissingShopTable(error: unknown) {
   return (
@@ -36,6 +39,7 @@ export default async function ShopPage({
   const balances = account ? await getAccountPointBalances(identities) : null;
   let products: AdminShopProduct[] = [];
   let deliveries: AdminShopDelivery[] = [];
+  let shopLogs: AdminShopAuditLog[] = [];
   let crates: AdminShopCrate[] = [];
   let inventoryByProduct = new Map<string, number>();
   let shopTablesReady = true;
@@ -48,7 +52,15 @@ export default async function ShopPage({
       include: {
         _count: { select: { inventory: true, redemptions: true } },
         black_market_crate: {
-          select: { id: true, name: true, requires_key: true, active: true, starts_at: true, ends_at: true },
+          select: {
+            id: true,
+            name: true,
+            requires_key: true,
+            preview_image_url: true,
+            active: true,
+            starts_at: true,
+            ends_at: true,
+          },
         },
       },
       }),
@@ -67,7 +79,10 @@ export default async function ShopPage({
       );
     }
     if (adminView) {
-      deliveries = await getAdminShopDeliveries();
+      [deliveries, shopLogs] = await Promise.all([
+        getAdminShopDeliveries(),
+        getAdminShopAuditLogs(),
+      ]);
     }
   } catch (error) {
     if (!isMissingShopTable(error)) throw error;
@@ -85,9 +100,11 @@ export default async function ShopPage({
         adminTab="shop"
       />
       <div className="mx-auto max-w-7xl px-4 py-6 sm:px-6 md:py-8">
-        <h1 className="app-page-title text-2xl font-black tracking-tight sm:text-3xl">
-          {adminView ? "Shop management" : "Shop"}
-        </h1>
+        {adminView && (
+          <h1 className="app-page-title text-2xl font-black tracking-tight sm:text-3xl">
+            Shop management
+          </h1>
+        )}
         {isPublicPreview && (
           <p className="mt-3 rounded-md border border-violet-900/60 bg-violet-950/20 p-2 text-xs text-violet-200">
             Public preview · inactive products and admin tools are hidden.
@@ -110,47 +127,33 @@ export default async function ShopPage({
                 products={products}
                 deliveries={deliveries}
                 crates={crates}
+                shopLogs={shopLogs}
               />
             )}
             {!adminView && (
               <>
-                {account && (
-                  <section className="mt-5 flex flex-wrap items-center justify-between gap-3 rounded-xl border border-zinc-800 bg-zinc-900/70 p-3">
-                    <PointBalanceSummary
-                      balances={{
-                        discord: balances?.discord ?? null,
-                        twitchCustom: balances?.twitchCustom ?? null,
-                      }}
-                    />
-                    <p className="text-xs font-medium text-zinc-400">
-                      Inventory:{" "}
-                      <strong className="text-zinc-200">
-                        {[...inventoryByProduct.values()].reduce((total, quantity) => total + quantity, 0)} items
-                      </strong>
-                    </p>
-                  </section>
-                )}
-                <section className="mt-5 grid auto-rows-fr gap-3 sm:grid-cols-2 xl:grid-cols-3">
-              {products
-                .filter((product) => {
-                  if (!product.active) {
-                    return (
-                      product.product_type === "standard" &&
-                      product.id === "custom-led-effect" &&
-                      (inventoryByProduct.get(product.id) ?? 0) > 0
-                    );
-                  }
-                  return product.product_type === "standard";
-                })
-                .map((product) => (
-                  <ShopProductCard
-                    key={product.id}
-                    product={{
+                <div>
+                  <ShopCatalog
+                    products={products
+                      .filter((product) => {
+                        if (!product.active) {
+                          return (
+                            product.product_type === "standard" &&
+                            product.id === "custom-led-effect" &&
+                            (inventoryByProduct.get(product.id) ?? 0) > 0
+                          );
+                        }
+                        return product.product_type === "standard";
+                      })
+                      .map((product) => ({
                       id: product.id,
                       name: product.name,
                       description: product.description,
                       cardColor: product.card_color,
-                      imageUrl: product.image_url,
+                      imageUrl:
+                        product.product_type === "black_market_crate"
+                          ? product.black_market_crate?.preview_image_url ?? product.image_url
+                          : product.image_url,
                       discordPrice: product.discord_price,
                       twitchPrice: product.twitch_price,
                       active: product.active,
@@ -159,7 +162,7 @@ export default async function ShopPage({
                         ? { id: product.black_market_crate.id, name: product.black_market_crate.name }
                         : null,
                       addToInventory: product.add_to_inventory,
-                    }}
+                      }))}
                     balances={
                       balances
                         ? { discord: balances.discord, twitch: balances.twitchCustom }
@@ -173,13 +176,10 @@ export default async function ShopPage({
                           }
                         : null
                     }
-                    quantity={
-                      inventoryByProduct.get(product.id) ?? 0
-                    }
+                    quantities={Object.fromEntries(inventoryByProduct)}
                     isLoggedIn={Boolean(account)}
                   />
-                ))}
-                </section>
+                </div>
                 {!products.some(
                   (product) =>
                     (product.active && product.product_type === "standard") ||

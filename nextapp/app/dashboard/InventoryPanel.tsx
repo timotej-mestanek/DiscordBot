@@ -6,6 +6,7 @@ import BlackMarketClient from "@/components/black-market/BlackMarketClient";
 import type {
   BlackMarketCrate,
   BlackMarketInventoryItem,
+  BlackMarketKey,
 } from "@/components/black-market/types";
 
 type InventoryEntry = {
@@ -31,6 +32,7 @@ export default function InventoryPanel({
     accountId: string;
     goldenEggs: number;
     crates: BlackMarketCrate[];
+    keys: BlackMarketKey[];
     items: BlackMarketInventoryItem[];
   };
 }) {
@@ -82,8 +84,8 @@ export default function InventoryPanel({
   }
 
   return (
-    <section className="rounded-lg border border-zinc-800 bg-zinc-900 p-4">
-      <div className="flex flex-wrap gap-2" role="tablist" aria-label="Inventory categories">
+    <section>
+      <div className="flex flex-wrap gap-1.5" role="tablist" aria-label="Inventory categories">
         {categories.map((item) => (
           <button
             key={item.id}
@@ -96,10 +98,10 @@ export default function InventoryPanel({
               setCategory(item.id);
               setMessage("");
             }}
-            className={`rounded-md px-3 py-1.5 text-xs font-semibold ${
+            className={`rounded-full px-3 py-1.5 text-xs font-semibold ${
               category === item.id
                 ? "bg-violet-600 text-white"
-                : "border border-zinc-700 text-zinc-300 hover:bg-zinc-800"
+                : "bg-zinc-900 text-zinc-300 hover:bg-zinc-800"
             }`}
           >
             {item.label}
@@ -108,33 +110,38 @@ export default function InventoryPanel({
       </div>
 
       {message && (
-        <p role="status" className="mt-4 rounded-lg border border-zinc-700 bg-zinc-950/70 p-3 text-sm text-zinc-200">
-          {message}
-        </p>
+        <div className="fixed inset-x-0 bottom-0 z-[70] px-3 pb-3 sm:px-6 sm:pb-5">
+          <div
+            role="status"
+            className="mx-auto flex max-w-xl items-center justify-between gap-3 rounded-xl bg-zinc-800 px-4 py-3 text-sm text-white shadow-xl"
+          >
+            <span>{message}</span>
+            <button
+              type="button"
+              onClick={() => setMessage("")}
+              aria-label="Dismiss inventory notification"
+              className="shrink-0 rounded-full bg-white/10 px-2 py-1 text-xs font-semibold hover:bg-white/20"
+            >
+              Close
+            </button>
+          </div>
+        </div>
       )}
 
       <div
         id="inventory-panel"
         role="tabpanel"
         aria-labelledby={`inventory-tab-${category}`}
-        className="mt-3"
+        className="mt-2"
       >
-        {category === "warehouse" && (
+        {(category === "warehouse" || category === "progressive") && (
           <BlackMarketClient
             accountId={blackMarket.accountId}
             initialGoldenEggs={blackMarket.goldenEggs}
             initialCrates={blackMarket.crates}
+            initialKeys={blackMarket.keys}
             initialInventory={blackMarket.items}
-            inventoryCategory="warehouse"
-          />
-        )}
-        {category === "progressive" && (
-          <BlackMarketClient
-            accountId={blackMarket.accountId}
-            initialGoldenEggs={blackMarket.goldenEggs}
-            initialCrates={blackMarket.crates}
-            initialInventory={blackMarket.items}
-            inventoryCategory="progressive"
+            view={category}
           />
         )}
         {category === "applicable" && (
@@ -144,7 +151,7 @@ export default function InventoryPanel({
                 {items.map((item) => (
                   <li
                     key={item.product_id}
-                    className="rounded-lg border border-zinc-800 bg-zinc-950/60 p-3"
+                    className="rounded-lg bg-zinc-900/70 p-2.5"
                   >
                     <div className="flex items-start justify-between gap-3">
                       <h2 className="font-semibold">{item.product.name}</h2>
@@ -153,23 +160,23 @@ export default function InventoryPanel({
                       </span>
                     </div>
                     {item.product.description && (
-                      <p className="mt-2 text-sm leading-6 text-zinc-400">
+                      <p className="mt-1 text-xs leading-5 text-zinc-400">
                         {item.product.description}
                       </p>
                     )}
                     {item.product_id === "custom-led-effect" ? (
                       <Link
-                        href="/shop#custom-led-effect"
-                        className="mt-3 inline-flex rounded-md bg-violet-600 px-3 py-1.5 text-xs font-semibold hover:bg-violet-500"
+                        href="/dashboard?view=user&tab=led-editor"
+                        className="mt-2 inline-flex rounded-full bg-violet-600 px-3 py-1 text-xs font-semibold hover:bg-violet-500"
                       >
-                        Apply custom LED profile in Shop
+                        Apply custom LED profile
                       </Link>
                     ) : (
                       <button
                         type="button"
                         disabled={busyProductId !== null}
                         onClick={() => void redeem(item.product_id)}
-                        className="mt-3 rounded-md bg-violet-600 px-3 py-1.5 text-xs font-semibold hover:bg-violet-500 disabled:opacity-50"
+                        className="mt-2 rounded-full bg-violet-600 px-3 py-1 text-xs font-semibold hover:bg-violet-500 disabled:opacity-50"
                       >
                         {busyProductId === item.product_id ? "Redeeming…" : "Redeem"}
                       </button>
@@ -178,17 +185,10 @@ export default function InventoryPanel({
                 ))}
               </ul>
             ) : (
-              <p className="rounded-lg border border-zinc-800 bg-zinc-950/50 p-4 text-sm text-zinc-400">
+              <p className="rounded-lg bg-zinc-900/60 p-3 text-sm text-zinc-400">
                 No applicable shop items yet.
               </p>
             )}
-            <BlackMarketClient
-              accountId={blackMarket.accountId}
-              initialGoldenEggs={blackMarket.goldenEggs}
-              initialCrates={blackMarket.crates}
-              initialInventory={blackMarket.items}
-              inventoryCategory="applicable"
-            />
           </div>
         )}
       </div>

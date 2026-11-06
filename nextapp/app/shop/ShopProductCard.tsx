@@ -1,11 +1,11 @@
 "use client";
 
 import Link from "next/link";
-import Image from "next/image";
 import { useState } from "react";
+import ShopProductArtwork from "./ShopProductArtwork";
 
 type Currency = "discord" | "twitch_custom";
-type Product = {
+export type ShopProduct = {
   id: string;
   name: string;
   description: string;
@@ -14,72 +14,109 @@ type Product = {
   discordPrice: number | null;
   twitchPrice: number | null;
   active: boolean;
-  productType: "standard" | "black_market_crate" | "black_market_key";
+  productType:
+    | "standard"
+    | "black_market_crate"
+    | "black_market_key"
+    | "black_market_item";
   blackMarketCrate: { id: string; name: string } | null;
   addToInventory: boolean;
+  blackMarketItemExpiry?: "permanent" | "seven_days" | "thirty_days" | "event_end" | null;
 };
 
 export default function ShopProductCard({
   product,
+  currency,
   balances,
   linked,
   quantity,
   isLoggedIn,
+  compact = false,
+  onPurchase,
+  onQuantityChange,
+  onNotice,
 }: {
-  product: Product;
+  product: ShopProduct;
+  currency: Currency;
   balances: { discord: number | null; twitch: number | null } | null;
   linked: { discord: boolean; twitch: boolean } | null;
   quantity: number;
   isLoggedIn: boolean;
+  compact?: boolean;
+  onPurchase: (
+    currency: Currency,
+    price: number,
+    quantity?: number,
+  ) => void;
+  onQuantityChange: (quantity: number) => void;
+  onNotice: (message: string, isError?: boolean) => void;
 }) {
-  const [message, setMessage] = useState("");
-  const [success, setSuccess] = useState(false);
   const [busy, setBusy] = useState<Currency | "redeem" | null>(null);
+  const [showCrateInfo, setShowCrateInfo] = useState(false);
 
   async function purchase(currency: Currency) {
     setBusy(currency);
-    setMessage("");
-    setSuccess(false);
     try {
-      const response = await fetch("/api/shop/purchase", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ currency, productId: product.id }),
-      });
+      const isBlackMarketItem = product.productType === "black_market_item";
+      const response = await fetch(
+        isBlackMarketItem ? "/api/black-market/purchase-item" : "/api/shop/purchase",
+        {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify(
+            isBlackMarketItem
+              ? { currency, itemId: product.id }
+              : { currency, productId: product.id },
+          ),
+        },
+      );
       const result: {
         error?: string;
         addToInventory?: boolean;
+        quantity?: number;
         deliveryEventId?: string | null;
         blackMarketType?: "black_market_crate" | "black_market_key" | null;
+        blackMarketQuantity?: number;
+        autoEquipped?: boolean;
       } = await response.json();
       if (!response.ok) {
-        setMessage(result.error ?? "The purchase could not be completed.");
+        onNotice(result.error ?? "The purchase could not be completed.", true);
+        return;
+      }
+      const purchasedQuantity = result.blackMarketType
+        ? result.blackMarketQuantity
+        : result.addToInventory
+          ? result.quantity
+          : undefined;
+      onPurchase(currency, price ?? 0, purchasedQuantity);
+      if (isBlackMarketItem) {
+        onNotice(
+          result.autoEquipped
+            ? "Seasonal item purchased and activated."
+            : "Item added to your Black Market inventory. Activate it when you're ready.",
+        );
         return;
       }
       if (result.blackMarketType) {
-        setSuccess(true);
-        setMessage(
+        onNotice(
           result.blackMarketType === "black_market_crate"
             ? "Crate added to your Black Market."
             : "Key added to your Black Market.",
         );
-        window.setTimeout(() => window.location.reload(), 900);
         return;
       }
       if (!result.addToInventory) {
-        setSuccess(true);
-        setMessage(
+        onNotice(
           result.deliveryEventId
             ? "Purchased and queued for Streamer.bot."
             : "Purchased. The item was not configured for Streamer.bot delivery.",
         );
-        window.setTimeout(() => window.location.reload(), 900);
         return;
       }
-      window.location.reload();
+      onNotice("Purchased and added to your inventory.");
     } catch (error) {
       console.error("Shop purchase request failed:", error);
-      setMessage("The purchase could not be completed.");
+      onNotice("The purchase could not be completed.", true);
     } finally {
       setBusy(null);
     }
@@ -87,214 +124,245 @@ export default function ShopProductCard({
 
   async function redeem() {
     setBusy("redeem");
-    setMessage("");
-    setSuccess(false);
     try {
       const response = await fetch("/api/shop/redeem-item", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ productId: product.id }),
       });
-      const result: { error?: string; deliveryEventId?: string } = await response.json();
+      const result: { error?: string; deliveryEventId?: string; quantity?: number } =
+        await response.json();
       if (!response.ok) {
-        setMessage(result.error ?? "The item could not be redeemed.");
+        onNotice(result.error ?? "The item could not be redeemed.", true);
         return;
       }
-      setSuccess(true);
-      setMessage("Redeemed and queued for Streamer.bot.");
-      window.setTimeout(() => window.location.reload(), 900);
+      if (
+        typeof result.quantity !== "number" ||
+        !Number.isSafeInteger(result.quantity) ||
+        result.quantity < 0
+      ) {
+        onNotice(
+          "The item was redeemed, but the updated inventory count is unavailable.",
+          true,
+        );
+        return;
+      }
+      onQuantityChange(result.quantity);
+      onNotice("Redeemed and queued for Streamer.bot.");
     } catch (error) {
       console.error("Shop item redemption request failed:", error);
-      setMessage("The item could not be redeemed.");
+      onNotice("The item could not be redeemed.", true);
     } finally {
       setBusy(null);
     }
   }
 
-  const prices = [
-    {
-      currency: "discord" as const,
-      label: "Discord",
-      price: product.discordPrice,
-      balance: balances?.discord ?? null,
-      connected: linked?.discord ?? false,
-    },
-    {
-      currency: "twitch_custom" as const,
-      label: "Twitch",
-      price: product.twitchPrice,
-      balance: balances?.twitch ?? null,
-      connected: linked?.twitch ?? false,
-    },
-  ];
+  const price = currency === "discord" ? product.discordPrice : product.twitchPrice;
+  const balance =
+    currency === "discord" ? balances?.discord ?? null : balances?.twitch ?? null;
+  const connected =
+    currency === "discord" ? linked?.discord ?? false : linked?.twitch ?? false;
+  const currencyLabel =
+    currency === "discord" ? "Discord points" : "Twitch CustomBody";
+  const productKind =
+    product.productType === "black_market_crate"
+      ? "Crate"
+      : product.productType === "black_market_key"
+        ? "Key"
+        : "Shop item";
 
   return (
     <article
       id={product.id === "custom-led-effect" ? "custom-led-effect" : undefined}
-      className="app-product-card flex h-full flex-col overflow-hidden rounded-xl border bg-zinc-950/90 shadow-lg shadow-black/20"
-      style={{
-        borderColor: `${product.cardColor}88`,
-        background: `linear-gradient(150deg, ${product.cardColor}25 0%, rgba(24, 24, 27, 0.96) 35%, rgb(9, 9, 11) 100%)`,
-      }}
+      className="flex h-full flex-col"
     >
-      <div className="relative flex min-h-20 items-center justify-between gap-3 overflow-hidden border-b border-white/10 px-4 py-3">
-        <div
-          aria-hidden="true"
-          className="pointer-events-none absolute -right-8 -top-14 h-36 w-36 rounded-full blur-3xl"
-          style={{ backgroundColor: `${product.cardColor}35` }}
-        />
-        <div className="relative z-10 min-w-0">
-          <h2 className="line-clamp-2 break-words text-lg font-bold tracking-tight text-white">
-            {product.name}
-          </h2>
-          {product.productType !== "standard" && (
-            <p className="mt-0.5 text-xs text-violet-200">
-              {product.productType === "black_market_crate"
-                ? "Black Market crate"
-                : `Key · ${product.blackMarketCrate?.name ?? "crate"}`}
-            </p>
-          )}
-        </div>
-        <div
-          aria-hidden={product.imageUrl ? undefined : true}
-          className="relative z-10 flex h-12 w-12 shrink-0 items-center justify-center overflow-hidden rounded-xl border bg-black/20 shadow-lg backdrop-blur-sm"
-          style={{ borderColor: `${product.cardColor}70`, color: product.cardColor }}
-        >
-          {product.imageUrl ? (
-            <Image
-              src={product.imageUrl}
-              alt={`${product.name} icon`}
-              fill
-              unoptimized
-              sizes="48px"
-              className="object-cover"
-            />
-          ) : (
-            <svg
-              viewBox="0 0 48 48"
-              fill="none"
-              className="h-7 w-7"
-              stroke="currentColor"
-              strokeWidth="2"
-              strokeLinecap="round"
-              strokeLinejoin="round"
+      <div
+        className={`relative flex aspect-[4/3] w-full items-center justify-center overflow-hidden ${
+          product.productType === "black_market_key"
+            ? "text-amber-300"
+            : product.productType === "black_market_crate"
+              ? "text-orange-200"
+              : "text-violet-300"
+        }`}
+        style={{
+          background:
+            product.productType === "black_market_key"
+              ? "radial-gradient(ellipse at center, rgb(245 158 11 / 12%), transparent 68%)"
+              : product.productType === "black_market_crate"
+                ? "radial-gradient(ellipse at center, rgb(249 115 22 / 12%), transparent 68%)"
+                : `radial-gradient(ellipse at center, ${product.cardColor}20, transparent 68%)`,
+        }}
+      >
+        <ShopProductArtwork product={product} />
+        {product.productType === "black_market_crate" && (
+          <>
+            <button
+              type="button"
+              title={product.description || "Black Market crate"}
+              aria-label={`More information about ${product.name}`}
+              aria-expanded={showCrateInfo}
+              onClick={() => setShowCrateInfo((current) => !current)}
+              className="absolute right-2 top-2 flex h-6 w-6 items-center justify-center rounded-full border border-white/30 bg-black/70 text-xs font-bold text-white"
             >
-              <path d="M7 20h34v22H7zM4 13h40v7H4zM24 13v29" />
-              <path d="M24 13H14a5 5 0 1 1 5-5c0 3 5 5 5 5Zm0 0h10a5 5 0 1 0-5-5c0 3-5 5-5 5Z" />
-            </svg>
-          )}
-        </div>
-        {quantity > 0 && (
-          <span className="absolute bottom-2 left-4 z-10 rounded-full border border-emerald-900 bg-emerald-950/80 px-2 py-0.5 text-[11px] font-semibold text-emerald-200">
-            Owned ×{quantity}
-          </span>
+              ?
+            </button>
+            {showCrateInfo && (
+              <p className="absolute right-2 top-10 z-10 max-w-[90%] rounded-lg border border-zinc-700 bg-zinc-950/95 p-2 text-left text-xs leading-4 text-zinc-200 shadow-xl">
+                {product.description || "No additional crate information."}
+              </p>
+            )}
+          </>
         )}
       </div>
-      <div className="flex flex-1 flex-col p-4">
-        <p
-          className="line-clamp-2 min-h-10 overflow-hidden text-sm leading-5 text-zinc-300"
-          title={product.description}
-        >
-          {product.description}
-        </p>
+      <div className={`flex flex-1 flex-col px-2 text-center ${compact ? "pb-2 pt-1" : "pb-3 pt-1"}`}>
+        {!compact && (
+          <p
+            className={`text-[10px] font-bold uppercase tracking-[0.2em] ${
+              product.productType === "black_market_key"
+                ? "text-amber-300"
+                : product.productType === "black_market_crate"
+                  ? "text-orange-200"
+                  : "text-violet-300"
+            }`}
+          >
+            {productKind}
+            {product.blackMarketCrate && product.productType === "black_market_key"
+              ? ` for ${product.blackMarketCrate.name}`
+              : ""}
+          </p>
+        )}
+        <h2 className={`break-words font-bold text-white ${
+          compact ? "text-sm sm:text-base" : "mt-1 text-lg sm:text-xl"
+        }`}>
+          {product.name}
+        </h2>
+        {compact && product.blackMarketItemExpiry &&
+          product.blackMarketItemExpiry !== "permanent" && (
+            <p className="mt-1 text-[10px] text-amber-200">
+              {product.blackMarketItemExpiry === "event_end"
+                ? "Use until season ends"
+                : `Expires after ${product.blackMarketItemExpiry === "seven_days" ? "7 days" : "30 days"}`}
+            </p>
+          )}
+        {(!compact ||
+          (product.description &&
+            product.productType !== "black_market_crate")) && (
+          <p
+            className={`mx-auto max-w-sm text-zinc-400 ${
+              compact
+                ? "mt-1 line-clamp-2 text-xs leading-4"
+                : "mt-2 line-clamp-3 text-sm leading-6"
+            }`}
+            title={product.description}
+          >
+            {product.description}
+          </p>
+        )}
+        <div className={`${compact ? "mt-1 h-5" : "mt-2 h-6"} flex items-center justify-center`}>
+          {isLoggedIn &&
+            product.productType === "standard" &&
+            product.id !== "custom-led-effect" && (
+              <button
+                type="button"
+                disabled={busy !== null || quantity === 0}
+                onClick={() => void redeem()}
+                className={`whitespace-nowrap text-center font-semibold text-emerald-300 hover:text-emerald-200 disabled:opacity-50 ${
+                  compact ? "text-[10px]" : "min-w-44 text-xs"
+                } ${
+                  quantity === 0 ? "invisible" : ""
+                }`}
+              >
+                {busy === "redeem" ? "Redeeming…" : "Redeem from inventory"}
+              </button>
+            )}
+        </div>
+      </div>
 
+      <div className={`mt-auto flex flex-col items-center px-2 ${
+        compact ? "gap-1 pb-2 pt-1" : "gap-3 pb-5 pt-4"
+      }`}>
         {!product.active ? (
-          <p className="mt-3 rounded-lg border border-zinc-800 bg-zinc-950/60 p-2 text-sm text-zinc-400">
+          <p className="text-xs text-zinc-500">
             This product is not currently for sale.
           </p>
         ) : (
-          <div className="mt-3 grid flex-1 gap-2 sm:grid-cols-2">
-            {prices.map(({ currency, label, price, balance, connected }) => (
-              <div key={currency} className="flex flex-col rounded-lg border border-white/10 bg-black/25 p-3">
-                <p className="text-xs font-semibold text-zinc-300">{label}</p>
-                <p className="mt-0.5 text-sm font-semibold text-white">
-                  {price?.toLocaleString("en-US") ?? "—"} <span className="text-xs font-normal text-zinc-400">pts</span>
+          <div className={`flex w-full flex-col items-center ${compact ? "gap-1" : "gap-3"}`}>
+            {!compact && (
+              <div className="w-full text-center">
+                <p className="text-[10px] uppercase tracking-wide text-zinc-500">
+                  {currencyLabel}
                 </p>
-                {connected && balance !== null && (
-                  <p className="mt-0.5 text-[11px] text-zinc-500">
-                    Balance {balance.toLocaleString("en-US")}
-                  </p>
-                )}
-                <div className="mt-auto pt-2">
-                  {isLoggedIn ? (
-                    connected ? (
-                      <button
-                        type="button"
-                        disabled={
-                          price === null ||
-                          busy !== null ||
-                          balance === null ||
-                          balance < price
-                        }
-                        onClick={() => void purchase(currency)}
-                        className="w-full rounded-md px-2 py-1.5 text-xs font-bold text-white transition hover:brightness-110 disabled:cursor-not-allowed disabled:bg-zinc-800 disabled:text-zinc-500"
-                        style={{
-                          backgroundColor: product.cardColor,
-                          color: "white",
-                        }}
-                      >
-                        {busy === currency
-                          ? "Purchasing…"
-                          : balance !== null && price !== null && balance < price
-                            ? "Not enough points"
+                <p className="mt-1 flex items-baseline justify-center gap-1 text-2xl font-black tabular-nums text-white">
+                  {price?.toLocaleString("en-US") ?? "—"}
+                  <span className="text-xs font-normal text-zinc-400">pts</span>
+                </p>
+              </div>
+            )}
+            {isLoggedIn ? (
+              connected ? (
+                <button
+                  type="button"
+                  disabled={
+                    price === null ||
+                    busy !== null ||
+                    balance === null ||
+                    balance < price
+                  }
+                  onClick={() => void purchase(currency)}
+                  className={`w-full whitespace-nowrap rounded-full font-bold text-white transition hover:brightness-110 disabled:cursor-not-allowed disabled:bg-zinc-800 disabled:text-zinc-500 ${
+                    compact ? "h-8 px-2 text-xs" : "h-11 max-w-xs px-5 text-sm"
+                  }`}
+                  style={{
+                    backgroundColor:
+                      price !== null && balance !== null && balance >= price
+                        ? product.cardColor
+                        : undefined,
+                  }}
+                  title={
+                    price === null
+                      ? `This product is not available for ${currencyLabel}.`
+                      : undefined
+                  }
+                >
+                  {compact
+                    ? busy === currency
+                      ? "…"
+                      : `${price?.toLocaleString("en-US") ?? "—"} pts`
+                    : busy === currency
+                      ? "Buying…"
+                      : price === null
+                        ? "Unavailable"
+                        : balance === null
+                          ? "Balance unavailable"
+                          : balance < price
+                            ? "Not enough"
                             : product.addToInventory
                               ? "Buy"
-                              : "Buy and use"}
-                      </button>
-                    ) : (
-                      <Link
-                        href="/dashboard?view=user&tab=account"
-                        className="app-product-action rounded-md border border-zinc-700 px-2 text-center text-xs font-semibold hover:bg-zinc-800"
-                      >
-                        Link account
-                      </Link>
-                    )
-                  ) : (
-                    <Link
-                      href="/login"
-                      className="app-product-action rounded-md px-2 text-center text-xs font-semibold text-white hover:brightness-110"
-                      style={{ backgroundColor: product.cardColor }}
-                    >
-                      Sign in
-                    </Link>
-                  )}
-                </div>
-              </div>
-            ))}
+                              : "Buy & use"}
+                </button>
+              ) : (
+                <Link
+                  href="/dashboard?view=user&tab=account"
+                  className={`inline-flex w-full items-center justify-center rounded-full bg-zinc-800 font-semibold hover:bg-zinc-700 ${
+                    compact ? "min-h-8 px-2 text-xs" : "min-h-11 max-w-xs px-4 text-sm"
+                  }`}
+                >
+                  Link account
+                </Link>
+              )
+            ) : (
+              <Link
+                href="/login"
+                className={`inline-flex w-full items-center justify-center rounded-full px-2 font-semibold text-white hover:brightness-110 ${
+                  compact ? "min-h-8 text-xs" : "min-h-11 max-w-xs text-sm"
+                }`}
+                style={{ backgroundColor: product.cardColor }}
+              >
+                Sign in
+              </Link>
+            )}
           </div>
         )}
-        {quantity > 0 && product.id !== "custom-led-effect" && isLoggedIn && (
-          <button
-            type="button"
-            disabled={busy !== null}
-            onClick={() => void redeem()}
-            className="mt-3 w-full rounded-md border border-emerald-800 bg-emerald-950/40 px-3 py-1.5 text-xs font-semibold text-emerald-200 hover:bg-emerald-900/50 disabled:opacity-50"
-          >
-            {busy === "redeem" ? "Redeeming…" : "Redeem from inventory"}
-          </button>
-        )}
-        {quantity > 0 && product.id === "custom-led-effect" && isLoggedIn && (
-          <Link
-            href="/dashboard?view=user&tab=inventory&editor=led"
-            className="mt-3 inline-flex h-11 min-h-11 max-h-11 w-full items-center justify-center overflow-hidden rounded-md bg-violet-600 px-3 text-center text-xs font-bold text-white hover:bg-violet-500"
-          >
-            Apply custom LED profile
-          </Link>
-        )}
-        <div className="app-product-message-slot">
-          {message && (
-            <p
-              role={success ? "status" : "alert"}
-              className={`w-full rounded-lg border p-2 text-xs leading-5 ${
-                success
-                  ? "border-emerald-900 bg-emerald-950/50 text-emerald-200"
-                  : "border-red-900 bg-red-950/50 text-red-200"
-              }`}
-            >
-              {message}
-            </p>
-          )}
-        </div>
       </div>
     </article>
   );

@@ -44,6 +44,10 @@ Start the local database from the repository root with
 `nextapp` with `pnpm dev`. Production `pnpm build` and `pnpm start` continue to
 use the normal `.env` and deployment environment.
 
+Uploads made with `pnpm dev` are stored locally in `nextapp/public/dev-uploads`
+and are ignored by Git. Production uploads continue to use the configured R2
+bucket.
+
 Copy the new integration settings from `.env.example` into `.env` and configure:
 
 - `APP_URL` as the public site origin (defaults to `https://najtik.stream` in the production container). Set it to your site's origin if your domain differs; for local development use `http://localhost:3000` (or `http://localhost:3001` through Docker Compose). This must be the browser-facing site URL, never the container bind address `0.0.0.0`.
@@ -55,7 +59,7 @@ Copy the new integration settings from `.env.example` into `.env` and configure:
 - Twitch Extension PubSub uses separate credentials for the two Extensions: set `TWITCH_SPOTIFY_EXTENSION_ID` and `TWITCH_SPOTIFY_EXTENSION_SECRET_BASE64` from the Spotify Extension, and `TWITCH_GAMESTATS_EXTENSION_ID` and `TWITCH_GAMESTATS_EXTENSION_SECRET_BASE64` from the Game Stats Extension. `TWITCH_EXTENSION_BROADCASTER_ID` is the broadcaster's numeric Twitch ID and is shared. The authenticated `POST /api/integrations/streamerbot/extensions/pubsub` endpoint publishes leaderboards and PUBG snapshots to the Game Stats Extension's `broadcast` target when called by Streamer.bot. The app also publishes a `gamestats` snapshot to Game Stats Extension immediately at startup and every two minutes. For testing, Game Stats always marks its own panel live and defaults to PUBG when Twitch has no current game, so PUBG roster stats are still fetched while the channel is offline. Spotify independently reports the actual Twitch live state and shows its offline panel; Spotify only fetches playback and publishes while the channel is live. PUBG statistics are supported; CS2 GSI is deliberately not used, and CS2 stats await the planned FACEIT/API source. No Streamer.bot action is needed for Spotify. Each panel subscribes with `Twitch.ext.listen("broadcast", callback)` and parses its message JSON.
 - `SPOTIFY_CLIENT_ID`, `SPOTIFY_CLIENT_SECRET`, and `SPOTIFY_REDIRECT_URI`. Register the exact redirect URI in the Spotify application settings.
 - `NEXT_PUBLIC_DISCORD_URL` and `NEXT_PUBLIC_INSTAGRAM_URL` for the hero links.
-- Shop product images use one Cloudflare R2 bucket, under the `shop-icons/`
+- Production shop product images use one Cloudflare R2 bucket, under the `shop-icons/`
   prefix. Create an R2 API token scoped to that bucket with object read, write,
   and delete access, then set `R2_ACCOUNT_ID`, `R2_ACCESS_KEY_ID`,
   `R2_SECRET_ACCESS_KEY`, and `R2_BUCKET_NAME`. Set `R2_PUBLIC_URL` to the
@@ -76,6 +80,21 @@ The public Twitch Channel Points balance is not available through the supported 
 The public home page checks the broadcaster's current live status through the Twitch Helix API (`TWITCH_BROADCASTER_LOGIN`) and refreshes it while open; Spotify playback and its overlay stay hidden when Twitch reports the channel offline. Upcoming stream times are managed in Dashboard → Admin. Admins manage all shop entries through one shared editor on `/shop`; each entry can be configured to be used immediately when purchased or added to the account inventory for later use. Shop purchases, uses, and configuration changes are recorded in the admin log and can be reverted there. LED editor access uses inventory purchases; keyframes snap to 60 fps and the effect is included in the same queued shop event as any other redemption. Its configured Streamer.bot action decides how to apply the effect (for example, forward it to a device). Public point, chat profanity, gambling, and event-statistic rankings are available at `/leaderboards`.
 
 Black Market crates require an event end date and can require a matching crate-specific key. Configure crate and key products in the shop editor; purchases use either linked Discord or Twitch points and add the item directly to the buyer's Black Market inventory. Normal crate items can be permanent, expire 7 or 30 days after acquisition, or expire when the crate event ends. The migration assigns legacy crates without an end date a temporary end date 30 days after their start (or creation) time; review those dates in the crate admin before relying on them.
+
+Black Market items can also be individually enabled for direct sale from the item editor, with optional Discord and/or Twitch point prices. Enabled items are available through the end of the current season, taken from the latest end date of active Black Market crates. Purchased items are added to the Black Market inventory; users activate them with **Use**. Items with an ownership duration of 7 or 30 days expire from acquisition, while permanent items remain after the season. Items set to expire at the end of the season use the season end date and are automatically activated.
+
+### Emote extension JSON
+
+The Twitch extension can fetch `GET /emotes-map.json` for each user's unlocked
+emotes and current overlay, and `GET /emotes-meta.json` for emote and overlay
+image URLs. Normal items use their item ID and `image_url`; progressive items
+use a level-specific ID. Each user's map starts with `{ "o": null }` or the
+level-specific ID of their equipped progressive item in the `overlay` group,
+followed by their unlocked emotes from the `emote` group. Both endpoints use
+strong SHA-256 ETags and return 304 for a matching `If-None-Match`. Twitch
+logins are matched by Twitch user ID, with the OAuth identity display name as a
+fallback. The map cache lasts 30 seconds, and the metadata cache lasts one day.
+`GET /health` returns `{"ok":true}`.
 
 ### Shop actions in Streamer.bot
 

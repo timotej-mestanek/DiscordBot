@@ -3,13 +3,13 @@ import Link from "next/link";
 import AppHeader from "@/app/AppHeader";
 import PointBalanceSummary from "@/app/PointBalanceSummary";
 import AdminPanel from "@/app/dashboard/AdminPanel";
-import AdminShopPanel from "@/app/dashboard/AdminShopPanel";
 import DashboardPoints from "@/app/dashboard/DashboardPoints";
 import InterestingFactsPanel from "@/app/dashboard/InterestingFactsPanel";
 import InventoryPanel from "@/app/dashboard/InventoryPanel";
 import type {
   BlackMarketCrate,
   BlackMarketInventoryItem,
+  BlackMarketKey,
 } from "@/components/black-market/types";
 import LEDTimelineEditor from "@/app/dashboard/LEDTimelineEditor";
 import WheelAdminPanel from "@/app/dashboard/WheelAdminPanel";
@@ -21,7 +21,6 @@ import { getAccountPointBalances } from "@/lib/points";
 
 const adminTabs = [
   { id: "admin", label: "Stream Settings" },
-  { id: "admin-shop", label: "Shop" },
   { id: "wheels", label: "Wheels" },
   { id: "overlays", label: "Overlays" },
   { id: "interesting", label: "Fun facts" },
@@ -32,15 +31,16 @@ const adminTabs = [
 type DashboardTab =
   | "account"
   | "inventory"
+  | "led-editor"
   | (typeof adminTabs)[number]["id"];
 
 const dashboardTitles: Record<DashboardTab, string> = {
   account: "Account",
   inventory: "Inventory",
+  "led-editor": "Custom LED editor",
   interesting: "Fun facts",
   users: "Users",
   admin: "Stream Settings",
-  "admin-shop": "Shop",
   wheels: "Wheels",
   logs: "Logs",
   overlays: "Overlays",
@@ -55,13 +55,15 @@ export default async function DashboardPage({
     linked?: string;
     merged?: string;
     error?: string;
-    editor?: string;
   }>;
 }) {
   const account = await getCurrentAccount();
   if (!account) redirect("/login");
 
   const params = await searchParams;
+  if (account.role === "admin" && params.tab === "admin-shop") {
+    redirect("/shop?view=admin");
+  }
   const adminView =
     account.role === "admin" &&
     params.view !== "user" &&
@@ -71,7 +73,9 @@ export default async function DashboardPage({
     ? adminTabs.some((tab) => tab.id === params.tab)
       ? (params.tab as (typeof adminTabs)[number]["id"])
       : "admin"
-    : params.tab === "inventory" || params.tab === "leds"
+    : params.tab === "led-editor"
+      ? "led-editor"
+      : params.tab === "inventory" || params.tab === "leds"
       ? "inventory"
       : "account";
   const discordIdentity = account.identities.find(
@@ -91,12 +95,15 @@ export default async function DashboardPage({
     prisma.pointConversionRate.findMany(),
   ]);
   const ledInventory =
-    activeTab === "inventory"
+    activeTab === "led-editor"
       ? await prisma.shopInventory.aggregate({
           where: { account_id: account.id, product_id: "custom-led-effect" },
           _sum: { quantity: true },
         })
       : null;
+  if (activeTab === "led-editor" && (ledInventory?._sum.quantity ?? 0) < 1) {
+    redirect("/dashboard?view=user&tab=inventory");
+  }
   const inventory =
     activeTab === "inventory"
       ? await prisma.shopInventory.findMany({
@@ -128,10 +135,20 @@ export default async function DashboardPage({
           }),
           prisma.blackMarketCrate.findMany({
             where: {
-              active: true,
               AND: [
-                { OR: [{ starts_at: null }, { starts_at: { lte: new Date() } }] },
-                { ends_at: { gt: new Date() } },
+                {
+                  OR: [
+                    {
+                      active: true,
+                      AND: [
+                        { OR: [{ starts_at: null }, { starts_at: { lte: new Date() } }] },
+                        { ends_at: { gt: new Date() } },
+                      ],
+                    },
+                    { inventories: { some: { account_id: account.id, quantity: { gt: 0 } } } },
+                    { key_inventories: { some: { account_id: account.id, quantity: { gt: 0 } } } },
+                  ],
+                },
               ],
             },
             orderBy: { name: "asc" },
@@ -157,6 +174,15 @@ export default async function DashboardPage({
               item: { include: { levels: { orderBy: { level: "asc" } } } },
             },
           }),
+          prisma.blackMarketKeyInventory.findMany({
+            where: { account_id: account.id, quantity: { gt: 0 } },
+            orderBy: { crate: { name: "asc" } },
+            select: {
+              crate_id: true,
+              quantity: true,
+              crate: { select: { name: true } },
+            },
+          }),
         ])
       : null;
   const blackMarketCrates: BlackMarketCrate[] =
@@ -164,10 +190,21 @@ export default async function DashboardPage({
       id: crate.id,
       name: crate.name,
       previewImageUrl: crate.preview_image_url,
-      textureUrl: crate.texture_url,
+      openingVideoGoldUrl: crate.opening_video_gold_url,
+      openingVideoNormalUrl: crate.opening_video_normal_url,
       quantity: crate.inventories[0]?.quantity ?? 0,
       requiresKey: crate.requires_key,
       keyQuantity: crate.key_inventories[0]?.quantity ?? 0,
+      available:
+        crate.active &&
+        (!crate.starts_at || crate.starts_at <= new Date()) &&
+        crate.ends_at > new Date(),
+    })) ?? [];
+  const blackMarketKeys: BlackMarketKey[] =
+    blackMarketData?.[3].map((key) => ({
+      crateId: key.crate_id,
+      crateName: key.crate.name,
+      quantity: key.quantity,
     })) ?? [];
   const blackMarketItems: BlackMarketInventoryItem[] =
     blackMarketData?.[2].flatMap((entry) => {
@@ -177,6 +214,8 @@ export default async function DashboardPage({
         name: entry.item.name,
         group: entry.group,
         itemType: entry.item.item_type,
+        useInputLabel: entry.item.use_input_label,
+        useInput: entry.use_input,
         imageUrl:
           (entry.item.item_type === "progressive"
             ? entry.item.levels.find(
@@ -191,6 +230,7 @@ export default async function DashboardPage({
           level: level.level,
           imageUrl: level.image_url,
           upgradeCost: level.upgrade_cost,
+          description: level.description,
         })),
       }];
     }) ?? [];
@@ -247,55 +287,24 @@ export default async function DashboardPage({
                     accountId: account.id,
                     goldenEggs: blackMarketData[0].golden_eggs,
                     crates: blackMarketCrates,
+                    keys: blackMarketKeys,
                     items: blackMarketItems,
                   }}
                 />
               )}
-              <section className="mt-4 rounded-lg border border-zinc-800 bg-zinc-900 p-4">
-                <p className="text-xs font-semibold uppercase tracking-widest text-violet-300">
-                  Inventory · LED editor
-                </p>
-                {(ledInventory?._sum.quantity ?? 0) > 0 &&
-                params.editor === "led" ? (
-                  <>
-                    <Link
-                      href="/dashboard?view=user&tab=inventory"
-                      className="mb-4 inline-flex min-h-9 items-center text-sm font-semibold text-violet-300 hover:text-violet-200"
-                    >
-                      ← Back to inventory
-                    </Link>
-                    <LEDTimelineEditor initialUses={ledInventory?._sum.quantity ?? 0} />
-                  </>
-                ) : (ledInventory?._sum.quantity ?? 0) > 0 ? (
-                  <>
-                    <h2 className="mt-1.5 text-lg font-semibold">Your custom LED profile is ready</h2>
-                    <p className="mt-2 text-sm leading-6 text-zinc-400">
-                      Open the profile from its shop listing to start editing.
-                    </p>
-                    <Link
-                      href="/shop#custom-led-effect"
-                      className="mt-3 inline-flex rounded-md bg-violet-600 px-3 py-2 text-sm font-semibold hover:bg-violet-500"
-                    >
-                      Go to custom LED profile
-                    </Link>
-                  </>
-                ) : (
-                  <>
-                    <h2 className="mt-1.5 text-lg font-semibold">Unlock through the shop</h2>
-                    <p className="mt-2 text-sm leading-6 text-zinc-400">
-                      Buy Custom LED effect in the shop to unlock the editor. Each use
-                      consumes one purchased item.
-                    </p>
-                    <Link
-                      href="/shop#custom-led-effect"
-                      className="mt-3 inline-flex rounded-md bg-violet-600 px-3 py-2 text-sm font-semibold hover:bg-violet-500"
-                    >
-                      Go to custom LED profile
-                    </Link>
-                  </>
-                )}
-              </section>
             </>
+          )}
+
+          {activeTab === "led-editor" && (
+            <section>
+              <Link
+                href="/dashboard?view=user&tab=inventory"
+                className="mb-4 inline-flex min-h-9 items-center text-sm font-semibold text-violet-300 hover:text-violet-200"
+              >
+                ← Back to inventory
+              </Link>
+              <LEDTimelineEditor initialUses={ledInventory?._sum.quantity ?? 0} />
+            </section>
           )}
 
           {activeTab === "account" && !adminView && (
@@ -355,9 +364,6 @@ export default async function DashboardPage({
           )}
           {adminView && activeTab === "users" && (
             <UsersPanel />
-          )}
-          {adminView && activeTab === "admin-shop" && (
-            <AdminShopPanel />
           )}
           {adminView && activeTab === "wheels" && (
             <WheelAdminPanel />

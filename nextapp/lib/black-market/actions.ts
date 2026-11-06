@@ -16,26 +16,35 @@ class ExpectedActionError extends Error {
 export type OpenCrateResult =
   | {
       type: "item";
+      videoVariant: "gold" | "normal";
       itemId: string;
       itemName: string;
       imageUrl: string;
       group: string;
       itemType: "normal" | "progressive";
       maxLevel: number;
+      useInputLabel: string | null;
       expiresAt: string | null;
-      levels: { level: number; cost: number | null; imageUrl: string }[];
+      levels: {
+        level: number;
+        cost: number | null;
+        imageUrl: string;
+        description: string;
+      }[];
     }
   | {
       type: "duplicate";
+      videoVariant: "gold" | "normal";
       goldenEggsGained: number;
       totalGoldenEggs: number;
     }
   | {
       type: "eggs";
+      videoVariant: "normal";
       goldenEggsGained: number;
       totalGoldenEggs: number;
     }
-  | { type: "empty" }
+  | { type: "empty"; videoVariant: "normal" }
   | {
       type: "error";
       code:
@@ -61,7 +70,7 @@ export type UpgradeItemResult =
 
 export type EquipItemResult =
   | { type: "success"; group: string }
-  | { type: "error"; code: "NOT_OWNED" | CommonErrorCode };
+  | { type: "error"; code: "NOT_OWNED" | "INVALID_INPUT" | CommonErrorCode };
 
 async function authorizeAccount(accountId: string) {
   const account = await getCurrentAccount();
@@ -156,7 +165,7 @@ export async function openCrate(
         where: { id: crateId },
         data: { open_count: { increment: 1 } },
       });
-      if (!selected) return { type: "empty" };
+      if (!selected) return { type: "empty", videoVariant: "normal" };
 
       const item = selected.item;
       if (item.item_type === "golden_eggs") {
@@ -171,6 +180,7 @@ export async function openCrate(
         });
         return {
           type: "eggs",
+          videoVariant: "normal",
           goldenEggsGained: amount,
           totalGoldenEggs: account.golden_eggs,
         };
@@ -199,6 +209,10 @@ export async function openCrate(
         });
         return {
           type: "duplicate",
+          videoVariant:
+            item.item_type === "progressive" || item.expiry === "permanent"
+              ? "gold"
+              : "normal",
           goldenEggsGained: DUPLICATE_EGG_REWARD,
           totalGoldenEggs: updatedAccount.golden_eggs,
         };
@@ -220,6 +234,7 @@ export async function openCrate(
           group: item.group,
           current_level: 1,
           is_equipped: false,
+          use_input: null,
           expires_at: expiresAt,
         };
       if (owned) {
@@ -232,17 +247,23 @@ export async function openCrate(
       }
       return {
         type: "item",
+        videoVariant:
+          item.item_type === "progressive" || item.expiry === "permanent"
+            ? "gold"
+            : "normal",
         itemId: item.id,
         itemName: item.name,
         imageUrl,
         group: item.group,
         itemType: item.item_type,
         maxLevel: item.max_level,
+        useInputLabel: item.use_input_label,
         expiresAt: expiresAt?.toISOString() ?? null,
         levels: item.levels.map((level) => ({
           level: level.level,
           cost: level.upgrade_cost,
           imageUrl: level.image_url,
+          description: level.description,
         })),
       };
     });
@@ -318,7 +339,16 @@ export async function upgradeItem(
 export async function equipItem(
   accountId: string,
   itemId: string,
+  userInput: string | null = null,
 ): Promise<EquipItemResult> {
+  if (
+    userInput !== null &&
+    (typeof userInput !== "string" ||
+      userInput.trim().length === 0 ||
+      userInput.length > 500)
+  ) {
+    return { type: "error", code: "INVALID_INPUT" };
+  }
   try {
     const authError = await authorizeAccount(accountId);
     if (authError) return { type: "error", code: authError };
@@ -331,10 +361,21 @@ export async function equipItem(
       });
       const owned = await transaction.blackMarketInventory.findUnique({
         where: { account_id_item_id: { account_id: accountId, item_id: itemId } },
-        select: { group: true, expires_at: true },
+        select: {
+          group: true,
+          expires_at: true,
+          item: { select: { use_input_label: true } },
+        },
       });
       if (!owned || (owned.expires_at && owned.expires_at <= new Date())) {
         return { type: "error", code: "NOT_OWNED" };
+      }
+      if (
+        owned.item.use_input_label
+          ? userInput === null || userInput.trim().length === 0
+          : userInput !== null
+      ) {
+        return { type: "error", code: "INVALID_INPUT" };
       }
 
       await transaction.blackMarketInventory.updateMany({
@@ -343,7 +384,7 @@ export async function equipItem(
       });
       await transaction.blackMarketInventory.update({
         where: { account_id_item_id: { account_id: accountId, item_id: itemId } },
-        data: { is_equipped: true },
+        data: { is_equipped: true, use_input: userInput?.trim() ?? null },
       });
       return { type: "success", group: owned.group };
     });

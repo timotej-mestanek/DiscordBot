@@ -4,6 +4,8 @@ import Image from "next/image";
 import { useState } from "react";
 import type { FormEvent } from "react";
 import { useConfirm } from "@/app/confirm-dialog-context";
+import { canRevertShopLog } from "@/lib/shop-audit";
+import type { ShopAuditLog } from "@/lib/shop-audit";
 
 export type AdminShopProduct = {
   id: string;
@@ -21,6 +23,7 @@ export type AdminShopProduct = {
     id: string;
     name: string;
     requires_key: boolean;
+    preview_image_url?: string | null;
     active?: boolean;
     starts_at?: Date | null;
     ends_at?: Date | null;
@@ -52,26 +55,51 @@ export type AdminShopDelivery = {
   source_action: string | null;
 };
 
+export type AdminShopAuditLog = ShopAuditLog & {
+  created_at: Date;
+  actor: { display_name: string } | null;
+  target: { display_name: string } | null;
+};
+
 export default function ShopAdminManager({
   products,
   deliveries,
   crates,
+  shopLogs,
 }: {
   products: AdminShopProduct[];
   deliveries: AdminShopDelivery[];
   crates: AdminShopCrate[];
+  shopLogs: AdminShopAuditLog[];
 }) {
   const confirm = useConfirm();
   const [selected, setSelected] = useState<AdminShopProduct | null>(null);
   const [error, setError] = useState("");
   const [busy, setBusy] = useState(false);
   const [revertingEventId, setRevertingEventId] = useState<string | null>(null);
+  const [revertingLogId, setRevertingLogId] = useState<string | null>(null);
   const [imageBusy, setImageBusy] = useState(false);
   const [bulkCancelBusy, setBulkCancelBusy] = useState(false);
   const [notice, setNotice] = useState("");
   const [visibilityBusyId, setVisibilityBusyId] = useState<string | null>(null);
   const [productType, setProductType] = useState<AdminShopProduct["product_type"]>("standard");
   const [blackMarketCrateId, setBlackMarketCrateId] = useState("");
+  const revertedLogIds = new Set(
+    shopLogs.flatMap((log) => log.reverted_log_id ? [log.reverted_log_id] : []),
+  );
+  const activeDeliveryLogIds = new Set(
+    deliveries.flatMap((delivery) =>
+      delivery.source_log_id ? [delivery.source_log_id] : [],
+    ),
+  );
+  function canRevertActivity(log: AdminShopAuditLog) {
+    return (
+      canRevertShopLog(log) &&
+      log.reverted_log_id === null &&
+      !revertedLogIds.has(log.id) &&
+      !activeDeliveryLogIds.has(log.id)
+    );
+  }
 
   async function save(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
@@ -186,6 +214,29 @@ export default function ShopAdminManager({
       setError("Could not cancel and revert this delivery.");
     } finally {
       setRevertingEventId(null);
+    }
+  }
+
+  async function revertShopOperation(logId: string) {
+    setError("");
+    setRevertingLogId(logId);
+    try {
+      const response = await fetch("/api/admin", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ action: "shop-revert", logId }),
+      });
+      const result: { error?: string } = await response.json();
+      if (!response.ok) {
+        setError(result.error ?? "Could not revert the shop operation.");
+        return;
+      }
+      window.location.reload();
+    } catch (requestError) {
+      console.error("Shop operation revert failed:", requestError);
+      setError("Could not revert the shop operation.");
+    } finally {
+      setRevertingLogId(null);
     }
   }
 
@@ -585,6 +636,53 @@ export default function ShopAdminManager({
           {busy ? "Saving…" : selected ? "Save product" : "Create product"}
         </button>
       </form>
+      <section className="mt-5 rounded-lg border border-zinc-800 bg-zinc-950/50 p-3">
+        <h3 className="font-semibold">Shop operations and history</h3>
+        <p className="mt-1 text-xs text-zinc-500">
+          Review shop changes, purchases, and redemptions. Supported operations can
+          be reverted here; pending deliveries can be managed from the queue below.
+        </p>
+        <ol className="mt-3 divide-y divide-zinc-800">
+          {shopLogs.map((log) => (
+            <li key={log.id} className="py-3 text-sm">
+              <div className="flex flex-wrap items-start justify-between gap-3">
+                <div>
+                  <p className="font-medium">{log.action}</p>
+                  <p className="mt-1 text-xs text-zinc-500">
+                    {new Date(log.created_at).toLocaleString("en-GB")} ·{" "}
+                    {log.actor?.display_name ?? "System"}
+                    {log.target ? ` → ${log.target.display_name}` : ""}
+                  </p>
+                  <pre className="mt-2 overflow-x-auto whitespace-pre-wrap break-words text-xs text-zinc-500">
+                    {JSON.stringify(log.details)}
+                  </pre>
+                </div>
+                {canRevertActivity(log) ? (
+                  <button
+                    type="button"
+                    disabled={revertingLogId !== null}
+                    onClick={() => void revertShopOperation(log.id)}
+                    className="rounded-lg border border-amber-800 px-3 py-1.5 text-xs font-semibold text-amber-200 hover:bg-amber-950 disabled:opacity-50"
+                  >
+                    {revertingLogId === log.id ? "Reverting…" : "Revert"}
+                  </button>
+                ) : (
+                  <span className="text-xs text-zinc-500">
+                    {log.reverted_log_id !== null || revertedLogIds.has(log.id)
+                      ? "Reverted"
+                      : activeDeliveryLogIds.has(log.id)
+                        ? "See delivery queue"
+                        : "Not reversible"}
+                  </span>
+                )}
+              </div>
+            </li>
+          ))}
+          {shopLogs.length === 0 && (
+            <li className="py-3 text-sm text-zinc-500">No shop operations yet.</li>
+          )}
+        </ol>
+      </section>
       <section className="mt-5 rounded-lg border border-zinc-800 bg-zinc-950/50 p-3">
         <div className="flex flex-wrap items-start justify-between gap-3">
           <div>

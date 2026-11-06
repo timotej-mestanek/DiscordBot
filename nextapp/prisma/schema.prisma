@@ -56,20 +56,19 @@ enum ShopProductType {
 //////////////////////////////////////////////////
 
 model User {
-  id         Int     @id @default(autoincrement())
-  name       String  
-  password   String
+  id       Int    @id @default(autoincrement())
+  name     String
+  password String
 
-  spotify_rt String?
-  twitch_rt  String?
-  discord_rt String?
-  spotify_at String?
-  twitch_at  String?
-  discord_at String?
-  twitch_exp DateTime?
+  spotify_rt  String?
+  twitch_rt   String?
+  discord_rt  String?
+  spotify_at  String?
+  twitch_at   String?
+  discord_at  String?
+  twitch_exp  DateTime?
   spotify_exp DateTime?
   discord_exp DateTime?
-
 }
 
 //////////////////////////////////////////////////
@@ -77,30 +76,30 @@ model User {
 //////////////////////////////////////////////////
 
 model Entity {
-  id         Int      @id @default(autoincrement())
-  name       String   @unique
+  id   Int    @id @default(autoincrement())
+  name String @unique
 
-  twitch_id  String?  @unique
-  discord_id String?  @unique
+  twitch_id  String? @unique
+  discord_id String? @unique
 
-  created_at DateTime @default(now())
+  created_at DateTime         @default(now())
   stats      StatisticEvent[]
 }
 
 model Statistic {
-  id     Int               @id @default(autoincrement())
+  id     Int              @id @default(autoincrement())
   name   String
   events StatisticEvent[]
 }
 
 model StatisticEvent {
-  id           Int        @id @default(autoincrement())
+  id           Int       @id @default(autoincrement())
   statistic_id Int
   entity_id    Int
   value        Int
-  created_at   DateTime   @default(now())
-  entity       Entity     @relation(fields: [entity_id], references: [id])
-  statistic    Statistic  @relation(fields: [statistic_id], references: [id])
+  created_at   DateTime  @default(now())
+  entity       Entity    @relation(fields: [entity_id], references: [id])
+  statistic    Statistic @relation(fields: [statistic_id], references: [id])
 
   @@index([entity_id])
   @@index([statistic_id])
@@ -108,31 +107,31 @@ model StatisticEvent {
 }
 
 model DiscordTwitchConnection {
-  discord_id  String   @id
-  twitch_id   String?  @unique
-  twitch_name String?
-  verification_method String @default("discord_connection")
-  linked_at   DateTime @default(now())
-  updated_at  DateTime @updatedAt
+  discord_id          String   @id
+  twitch_id           String?  @unique
+  twitch_name         String?
+  verification_method String   @default("discord_connection")
+  linked_at           DateTime @default(now())
+  updated_at          DateTime @updatedAt
 }
 
 model WebAccount {
-  id           String             @id @default(cuid())
-  display_name String
-  role         WebRole            @default(user)
-  created_at   DateTime           @default(now())
-  identities   OAuthIdentity[]
-  sessions     WebSession[]
-  audit_events AdminAuditLog[]    @relation("AuditActor")
-  target_events AdminAuditLog[]   @relation("AuditTarget")
-  point_events PointLedgerEntry[]
-  spotify_oauth_states SpotifyOAuthState[]
-  shop_inventory ShopInventory[]
-  shop_redemptions ShopRedemption[]
-  golden_eggs Int @default(0)
-  black_market_inventory BlackMarketInventory[]
+  id                           String                      @id @default(cuid())
+  display_name                 String
+  role                         WebRole                     @default(user)
+  created_at                   DateTime                    @default(now())
+  identities                   OAuthIdentity[]
+  sessions                     WebSession[]
+  audit_events                 AdminAuditLog[]             @relation("AuditActor")
+  target_events                AdminAuditLog[]             @relation("AuditTarget")
+  point_events                 PointLedgerEntry[]
+  spotify_oauth_states         SpotifyOAuthState[]
+  shop_inventory               ShopInventory[]
+  shop_redemptions             ShopRedemption[]
+  golden_eggs                  Int                         @default(0)
+  black_market_inventory       BlackMarketInventory[]
   black_market_crate_inventory BlackMarketCrateInventory[]
-  black_market_key_inventory BlackMarketKeyInventory[]
+  black_market_key_inventory   BlackMarketKeyInventory[]
 }
 
 model OAuthIdentity {
@@ -209,28 +208,28 @@ model AdminAuditLog {
 }
 
 model StreamerBotIntegrationLog {
-  id                String   @id @default(cuid())
-  request_id        String   @unique
-  operation         String?
-  success           Boolean
-  status_code       Int
-  request_details   String?
-  response_details  String
-  created_at        DateTime @default(now())
+  id               String   @id @default(cuid())
+  request_id       String   @unique
+  operation        String?
+  success          Boolean
+  status_code      Int
+  request_details  String?
+  response_details String
+  created_at       DateTime @default(now())
 
   @@index([created_at, id])
   @@index([success, created_at])
 }
 
 model WheelProfile {
-  id         String   @id
+  id         String    @id
   kind       String
-  game_id    String?  @unique
+  game_id    String?   @unique
   game_name  String?
-  spin_count Int      @default(0)
+  spin_count Int       @default(0)
   reset_at   DateTime?
   config     Json
-  updated_at DateTime @updatedAt
+  updated_at DateTime  @updatedAt
 }
 
 model WheelSpin {
@@ -249,21 +248,21 @@ model WheelSpin {
 }
 
 model StreamOverlayIntegration {
-  id               String   @id
+  id               String    @id
   spotify_rt       String?
   spotify_at       String?
   spotify_exp      DateTime?
-  pubg_player_name String   @default("N4JTIK")
-  pubg_teammates   Json     @default("[]")
-  updated_at       DateTime @updatedAt
+  pubg_player_name String    @default("N4JTIK")
+  pubg_teammates   Json      @default("[]")
+  updated_at       DateTime  @updatedAt
 }
 
 model StreamEvent {
-  id         String   @id @default(cuid())
+  id         String    @id @default(cuid())
   title      String
   starts_at  DateTime
   ends_at    DateTime?
-  created_at DateTime @default(now())
+  created_at DateTime  @default(now())
 
   @@index([starts_at])
 }
@@ -279,23 +278,23 @@ model InterestingFact {
 }
 
 model ShopProduct {
-  id              String          @id @default(cuid())
-  name            String
-  description     String
-  product_type    ShopProductType @default(standard)
+  id                    String            @id @default(cuid())
+  name                  String
+  description           String
+  product_type          ShopProductType   @default(standard)
   black_market_crate_id String?
-  discord_price   Int?
-  twitch_price    Int?
-  active          Boolean         @default(false)
-  add_to_inventory Boolean        @default(false)
-  streamerbot_action String       @default("shop.redeemed")
-  card_color      String          @default("#7c3aed")
-  image_url       String?
-  image_key       String?
-  updated_at      DateTime        @updatedAt
-  inventory       ShopInventory[]
-  redemptions     ShopRedemption[]
-  black_market_crate BlackMarketCrate? @relation(fields: [black_market_crate_id], references: [id], onDelete: Restrict)
+  discord_price         Int?
+  twitch_price          Int?
+  active                Boolean           @default(false)
+  add_to_inventory      Boolean           @default(false)
+  streamerbot_action    String            @default("shop.redeemed")
+  card_color            String            @default("#7c3aed")
+  image_url             String?
+  image_key             String?
+  updated_at            DateTime          @updatedAt
+  inventory             ShopInventory[]
+  redemptions           ShopRedemption[]
+  black_market_crate    BlackMarketCrate? @relation(fields: [black_market_crate_id], references: [id], onDelete: Restrict)
 
   @@index([black_market_crate_id, product_type])
 }
@@ -325,49 +324,50 @@ model ShopRedemption {
 }
 
 model ShopDeliveryEvent {
-  id           String   @id @default(cuid())
-  event_id     String   @unique
+  id           String    @id @default(cuid())
+  event_id     String    @unique
   product_id   String
   account_id   String
   action_key   String
   payload      Json
-  attempts     Int      @default(0)
+  attempts     Int       @default(0)
   last_error   String?
   delivered_at DateTime?
   cancelled_at DateTime?
-  created_at   DateTime @default(now())
+  created_at   DateTime  @default(now())
 
   @@index([delivered_at, cancelled_at, created_at])
   @@index([product_id, created_at])
 }
 
 model BlackMarketCrate {
-  id                String   @id
+  id                String    @id
   name              String
   preview_image_url String?
-  texture_url       String?
-  active            Boolean  @default(true)
-  requires_key      Boolean  @default(false)
-  open_count        Int      @default(0)
+  opening_video_gold_url   String?
+  opening_video_normal_url String?
+  active            Boolean   @default(true)
+  requires_key      Boolean   @default(false)
+  open_count        Int       @default(0)
   starts_at         DateTime?
   ends_at           DateTime
-  created_at        DateTime @default(now())
+  created_at        DateTime  @default(now())
 
-  inventories BlackMarketCrateInventory[]
+  inventories     BlackMarketCrateInventory[]
   key_inventories BlackMarketKeyInventory[]
-  items       BlackMarketCrateItem[]
-  shop_products ShopProduct[]
+  items           BlackMarketCrateItem[]
+  shop_products   ShopProduct[]
 }
 
 model BlackMarketCrateItem {
-  id             String  @id @default(cuid())
-  crate_id       String
-  item_id        String
-  drop_chance    Decimal @default(0) @db.Decimal(5, 2)
-  golden_eggs    Int?
+  id          String  @id @default(cuid())
+  crate_id    String
+  item_id     String
+  drop_chance Decimal @default(0) @db.Decimal(5, 2)
+  golden_eggs Int?
 
   crate BlackMarketCrate @relation(fields: [crate_id], references: [id], onDelete: Cascade)
-  item  BlackMarketItem @relation(fields: [item_id], references: [id], onDelete: Cascade)
+  item  BlackMarketItem  @relation(fields: [item_id], references: [id], onDelete: Cascade)
 
   @@index([crate_id, item_id])
 }
@@ -377,7 +377,7 @@ model BlackMarketCrateInventory {
   crate_id   String
   quantity   Int    @default(0)
 
-  account WebAccount @relation(fields: [account_id], references: [id], onDelete: Cascade)
+  account WebAccount       @relation(fields: [account_id], references: [id], onDelete: Cascade)
   crate   BlackMarketCrate @relation(fields: [crate_id], references: [id], onDelete: Cascade)
 
   @@id([account_id, crate_id])
@@ -388,7 +388,7 @@ model BlackMarketKeyInventory {
   crate_id   String
   quantity   Int    @default(0)
 
-  account WebAccount @relation(fields: [account_id], references: [id], onDelete: Cascade)
+  account WebAccount       @relation(fields: [account_id], references: [id], onDelete: Cascade)
   crate   BlackMarketCrate @relation(fields: [crate_id], references: [id], onDelete: Cascade)
 
   @@id([account_id, crate_id])
@@ -396,18 +396,24 @@ model BlackMarketKeyInventory {
 }
 
 model BlackMarketItem {
-  id         String              @id
-  name       String
-  group      String              @default("chat")
-  item_type  BlackMarketItemType @default(progressive)
-  expiry     BlackMarketItemExpiry @default(permanent)
-  image_url  String?
-  max_level  Int                 @default(6)
-  created_at DateTime            @default(now())
+  id                    String                @id
+  name                  String
+  group                 String                @default("chat")
+  item_type             BlackMarketItemType   @default(progressive)
+  expiry                BlackMarketItemExpiry @default(permanent)
+  image_url             String?
+  use_input_label       String?
+  max_level             Int                   @default(6)
+  shop_enabled          Boolean               @default(false)
+  shop_discord_price    Int?
+  shop_twitch_price     Int?
+  created_at            DateTime              @default(now())
 
   levels   BlackMarketItemLevel[]
   owned_by BlackMarketInventory[]
   crates   BlackMarketCrateItem[]
+
+  @@index([shop_enabled])
 }
 
 model BlackMarketItemLevel {
@@ -416,6 +422,7 @@ model BlackMarketItemLevel {
   level        Int
   upgrade_cost Int?
   image_url    String
+  description  String @default("")
 
   item BlackMarketItem @relation(fields: [item_id], references: [id], onDelete: Cascade)
 
@@ -423,16 +430,17 @@ model BlackMarketItemLevel {
 }
 
 model BlackMarketInventory {
-  id            String   @id @default(cuid())
+  id            String    @id @default(cuid())
   account_id    String
   item_id       String
   group         String
-  current_level Int      @default(1)
-  is_equipped   Boolean  @default(false)
+  current_level Int       @default(1)
+  is_equipped   Boolean   @default(false)
+  use_input     String?
   expires_at    DateTime?
-  created_at    DateTime @default(now())
+  created_at    DateTime  @default(now())
 
-  account WebAccount @relation(fields: [account_id], references: [id], onDelete: Cascade)
+  account WebAccount      @relation(fields: [account_id], references: [id], onDelete: Cascade)
   item    BlackMarketItem @relation(fields: [item_id], references: [id], onDelete: Cascade)
 
   @@unique([account_id, item_id])
@@ -441,40 +449,40 @@ model BlackMarketInventory {
 }
 
 model SpotifyOAuthState {
-  nonce      String      @id
+  nonce      String     @id
   account_id String
   expires_at DateTime
-  created_at DateTime    @default(now())
-  account    WebAccount  @relation(fields: [account_id], references: [id], onDelete: Cascade)
+  created_at DateTime   @default(now())
+  account    WebAccount @relation(fields: [account_id], references: [id], onDelete: Cascade)
 
   @@index([expires_at])
 }
 
 model TwitchEntity {
-  id        Int     @id @default(autoincrement())
-  twitch_id String  @unique
-  name      String
+  id         Int      @id @default(autoincrement())
+  twitch_id  String   @unique
+  name       String
   created_at DateTime @default(now())
 
   stats TwitchStatisticEvent[]
 }
 
 model TwitchStatistic {
-  id       Int      @id @default(autoincrement())
-  name     String   
+  id   Int    @id @default(autoincrement())
+  name String
 
-  events   TwitchStatisticEvent[]
+  events TwitchStatisticEvent[]
 }
 
 model TwitchStatisticEvent {
-  id           Int          @id @default(autoincrement())
+  id             Int      @id @default(autoincrement())
   twitchEntityId Int
-  statisticId  Int
-  value        Int
-  created_at   DateTime     @default(now())
-  season       String?
+  statisticId    Int
+  value          Int
+  created_at     DateTime @default(now())
+  season         String?
 
-  twitchEntity TwitchEntity  @relation(fields: [twitchEntityId], references: [id])
+  twitchEntity TwitchEntity    @relation(fields: [twitchEntityId], references: [id])
   statistic    TwitchStatistic @relation(fields: [statisticId], references: [id])
 
   @@index([twitchEntityId])
@@ -486,29 +494,29 @@ model DiscordEntity {
   id         Int      @id @default(autoincrement())
   discord_id String   @unique
   name       String
-  points     Int      @default(0) 
+  points     Int      @default(0)
   created_at DateTime @default(now())
 
   stats DiscordStatisticEvent[]
 }
 
 model DiscordStatistic {
-  id       Int      @id @default(autoincrement())
-  name     String   
+  id   Int    @id @default(autoincrement())
+  name String
 
-  events   DiscordStatisticEvent[]
+  events DiscordStatisticEvent[]
 }
 
 model DiscordStatisticEvent {
-  id             Int           @id @default(autoincrement())
+  id              Int      @id @default(autoincrement())
   discordEntityId Int
-  statisticId    Int
-  value          Int
-  created_at     DateTime      @default(now())
-  season         String?
+  statisticId     Int
+  value           Int
+  created_at      DateTime @default(now())
+  season          String?
 
-  discordEntity  DiscordEntity  @relation(fields: [discordEntityId], references: [id])
-  statistic      DiscordStatistic @relation(fields: [statisticId], references: [id])
+  discordEntity DiscordEntity    @relation(fields: [discordEntityId], references: [id])
+  statistic     DiscordStatistic @relation(fields: [statisticId], references: [id])
 
   @@index([discordEntityId])
   @@index([statisticId])
@@ -529,11 +537,11 @@ model StreamerBotChatMetricEvent {
 }
 
 model StreamerBotTwitchFollowEvent {
-  id               String   @id @default(cuid())
-  source_event_id  String   @unique
-  twitch_user_id   String
-  display_name     String
-  created_at       DateTime @default(now())
+  id              String   @id @default(cuid())
+  source_event_id String   @unique
+  twitch_user_id  String
+  display_name    String
+  created_at      DateTime @default(now())
 
   @@index([twitch_user_id, created_at])
 }

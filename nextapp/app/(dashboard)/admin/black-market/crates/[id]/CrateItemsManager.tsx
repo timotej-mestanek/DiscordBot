@@ -5,7 +5,7 @@ import { useState } from "react";
 import {
   addItemToCrate,
   removeItemFromCrate,
-  updateCrateItemChance,
+  updateCrateItemChances,
 } from "@/lib/black-market/admin-actions";
 
 type ItemType = "normal" | "progressive" | "golden_eggs";
@@ -92,17 +92,47 @@ export default function CrateItemsManager({
     }
   }
 
+  async function saveAll(formData: FormData) {
+    await mutate("save-all", () =>
+      updateCrateItemChances(
+        crateId,
+        items.map((item) => ({
+          crateItemId: item.crateItemId,
+          dropChance: Number(formData.get(`dropChance-${item.crateItemId}`)),
+          goldenEggs: item.itemType === "golden_eggs"
+            ? Number(formData.get(`goldenEggs-${item.crateItemId}`))
+            : null,
+        })),
+      ),
+    );
+  }
+
   return (
     <div className="space-y-8">
-      <section className="overflow-x-auto rounded-xl border border-zinc-800 bg-zinc-900/60">
-        <div className="border-b border-zinc-800 px-5 py-4">
-          <h2 className="font-semibold">Items in this crate</h2>
-          <p className="mt-1 text-sm text-zinc-400">
-            Each reward uses its individual drop chance. Unused chance means no reward.
-          </p>
-          <p className={`mt-2 text-sm font-semibold ${totalChance > 100 ? "text-red-300" : "text-emerald-300"}`}>
-            Total: {totalChance.toFixed(2)}% · No reward: {Math.max(0, 100 - totalChance).toFixed(2)}%
-          </p>
+      <form
+        onSubmit={(event) => {
+          event.preventDefault();
+          void saveAll(new FormData(event.currentTarget));
+        }}
+        className="overflow-x-auto rounded-xl border border-zinc-800 bg-zinc-900/60"
+      >
+        <div className="flex flex-wrap items-start justify-between gap-4 border-b border-zinc-800 px-5 py-4">
+          <div>
+            <h2 className="font-semibold">Items in this crate</h2>
+            <p className="mt-1 text-sm text-zinc-400">
+              Each reward uses its individual drop chance. Unused chance means no reward.
+            </p>
+            <p className={`mt-2 text-sm font-semibold ${totalChance > 100 ? "text-red-300" : "text-emerald-300"}`}>
+              Total: {totalChance.toFixed(2)}% · No reward: {Math.max(0, 100 - totalChance).toFixed(2)}%
+            </p>
+          </div>
+          <button
+            type="submit"
+            disabled={Boolean(busy) || items.length === 0}
+            className="rounded-lg bg-violet-600 px-4 py-2 text-sm font-semibold hover:bg-violet-500 disabled:opacity-50"
+          >
+            {busy === "save-all" ? "Saving…" : "Save changes"}
+          </button>
         </div>
         <table className="w-full min-w-[700px] text-left text-sm">
           <thead className="border-b border-zinc-800 text-xs uppercase tracking-wide text-zinc-500">
@@ -115,7 +145,6 @@ export default function CrateItemsManager({
           </thead>
           <tbody className="divide-y divide-zinc-800">
             {items.map((item) => {
-              const formId = `crate-item-${item.crateItemId}`;
               return (
                 <tr key={item.crateItemId}>
                   <td className="px-4 py-3 font-medium text-white">
@@ -125,54 +154,35 @@ export default function CrateItemsManager({
                     )}
                   </td>
                   <td className="px-4 py-3">
-                    <form
-                      id={formId}
-                      action={(formData) => {
-                        const dropChance = Number(formData.get("dropChance"));
-                        const goldenEggs = item.itemType === "golden_eggs"
-                          ? Number(formData.get("goldenEggs"))
-                          : null;
-                        void mutate(`save-${item.crateItemId}`, () =>
-                          updateCrateItemChance(
-                            crateId,
-                            item.crateItemId,
-                            dropChance,
-                            goldenEggs,
-                          ),
-                        );
-                      }}
-                      className="flex items-center gap-2"
-                    >
+                    <div className="flex items-center gap-2">
                       <label className="flex items-center gap-2">
                         <input
-                          key={`${item.crateItemId}-${item.dropChance}`}
-                          name="dropChance"
                           type="number"
                           min={0}
                           max={100}
                           step={0.01}
                           required
+                          name={`dropChance-${item.crateItemId}`}
                           defaultValue={item.dropChance}
                           aria-label={`Drop chance for ${item.name}`}
                           className={`${fieldClass} w-28`}
                         />
                         <span className="text-zinc-400">%</span>
                       </label>
-                    </form>
+                    </div>
                   </td>
                   <td className="px-4 py-3">
                     {item.itemType === "golden_eggs" ? (
                       <label className="flex items-center gap-2">
                         <span className="sr-only">Egg amount</span>
                         <input
-                          key={`${item.crateItemId}-eggs-${item.goldenEggs}`}
-                          form={formId}
-                          name="goldenEggs"
                           type="number"
                           min={1}
                           max={1_000_000_000}
                           required
+                          name={`goldenEggs-${item.crateItemId}`}
                           defaultValue={item.goldenEggs ?? 1}
+                          aria-label={`Egg amount for ${item.name}`}
                           className={`${fieldClass} w-28`}
                         />
                         <span className="text-amber-300">🥚</span>
@@ -182,7 +192,7 @@ export default function CrateItemsManager({
                   <td className="px-4 py-3 text-right">
                     <button
                       type="button"
-                      disabled={busy === `remove-${item.crateItemId}`}
+                      disabled={Boolean(busy)}
                       onClick={() => void mutate(
                         `remove-${item.crateItemId}`,
                         () => removeItemFromCrate(crateId, item.crateItemId),
@@ -190,14 +200,6 @@ export default function CrateItemsManager({
                       className="rounded-lg border border-red-900 px-3 py-2 text-xs text-red-300 hover:bg-red-950/50 disabled:opacity-50"
                     >
                       Remove
-                    </button>
-                    <button
-                      type="submit"
-                      form={formId}
-                      disabled={busy === `save-${item.crateItemId}`}
-                      className="ml-2 rounded-lg border border-zinc-700 px-3 py-2 text-xs text-zinc-200 hover:border-violet-600 disabled:opacity-50"
-                    >
-                      Save
                     </button>
                   </td>
                 </tr>
@@ -212,7 +214,7 @@ export default function CrateItemsManager({
             )}
           </tbody>
         </table>
-      </section>
+      </form>
 
       <section className="rounded-xl border border-zinc-800 bg-zinc-900/60 p-5">
         <h2 className="font-semibold">Add items</h2>
@@ -264,7 +266,7 @@ export default function CrateItemsManager({
           )}
           <button
             type="submit"
-            disabled={availableItems.length === 0 || busy.startsWith("add-")}
+            disabled={availableItems.length === 0 || Boolean(busy)}
             className="rounded-lg bg-violet-600 px-4 py-2.5 text-sm font-semibold hover:bg-violet-500 disabled:opacity-50"
           >
             Add item

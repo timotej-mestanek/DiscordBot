@@ -4,7 +4,10 @@ import { revalidatePath } from "next/cache";
 import { getCurrentAccount } from "@/lib/auth/session";
 import { prisma } from "@/lib/prisma";
 import type { Prisma } from "@prisma/client";
-import { isBlackMarketItemImageUrl } from "@/lib/r2";
+import {
+  isBlackMarketCrateAssetUrl,
+  isBlackMarketItemImageUrl,
+} from "@/lib/r2";
 
 export type AdminActionResult<T = undefined> =
   | { type: "success"; data?: T }
@@ -36,7 +39,8 @@ type CrateInput = {
   startsAt: string | null;
   endsAt: string;
   previewImageUrl: string | null;
-  textureUrl: string | null;
+  openingVideoGoldUrl: string | null;
+  openingVideoNormalUrl: string | null;
 };
 
 type ItemInput = {
@@ -44,9 +48,13 @@ type ItemInput = {
   name: string;
   group: string;
   itemType: "normal" | "progressive" | "golden_eggs";
+  useInputLabel: string | null;
   expiry: "permanent" | "seven_days" | "thirty_days" | "event_end";
   imageUrl: string;
   maxLevel: number;
+  shopEnabled: boolean;
+  shopDiscordPrice: number | null;
+  shopTwitchPrice: number | null;
   crateAssignments: CrateAssignmentInput[];
 };
 
@@ -61,6 +69,7 @@ type ItemLevelInput = {
   level: number;
   upgradeCost: number | null;
   imageUrl: string;
+  description: string;
 };
 
 const slugPattern = /^[a-z0-9]+(?:-[a-z0-9]+)*$/u;
@@ -96,16 +105,6 @@ function isValidDate(value: unknown): value is string | null {
   );
 }
 
-function isOptionalUrl(value: unknown): value is string | null {
-  if (value === null) return true;
-  if (typeof value !== "string") return false;
-  try {
-    return new URL(value).protocol === "https:";
-  } catch {
-    return false;
-  }
-}
-
 function revalidateCrates() {
   revalidatePath(adminPath);
   revalidatePath(`${adminPath}/crates`);
@@ -130,8 +129,14 @@ function validCrateInput(input: unknown): input is CrateInput {
     typeof input.endsAt === "string" &&
     isValidDate(input.startsAt) &&
     isValidDate(input.endsAt) &&
-    isOptionalUrl(input.previewImageUrl) &&
-    isOptionalUrl(input.textureUrl) &&
+    (input.previewImageUrl === null ||
+      isBlackMarketCrateAssetUrl(input.previewImageUrl, "preview", input.id)) &&
+    (input.openingVideoGoldUrl === null ||
+      isBlackMarketCrateAssetUrl(input.openingVideoGoldUrl, "video", input.id, "gold")) &&
+    (input.openingVideoNormalUrl === null ||
+      isBlackMarketCrateAssetUrl(input.openingVideoNormalUrl, "video", input.id, "normal")) &&
+    ((input.openingVideoGoldUrl === null) ===
+      (input.openingVideoNormalUrl === null)) &&
     (!input.startsAt ||
       !input.endsAt ||
       new Date(input.startsAt).getTime() <= new Date(input.endsAt).getTime())
@@ -188,6 +193,27 @@ function validItemInput(input: unknown): input is ItemInput {
         input.expiry === "thirty_days" ||
         input.expiry === "event_end"
       : input.expiry === "permanent") &&
+    (input.itemType === "golden_eggs"
+      ? input.useInputLabel === null
+      : input.useInputLabel === null ||
+        (typeof input.useInputLabel === "string" &&
+          input.useInputLabel.trim().length > 0 &&
+          input.useInputLabel.length <= 100)) &&
+    typeof input.shopEnabled === "boolean" &&
+    (input.shopDiscordPrice === null ||
+      (typeof input.shopDiscordPrice === "number" &&
+        Number.isSafeInteger(input.shopDiscordPrice) &&
+        input.shopDiscordPrice > 0)) &&
+    (input.shopTwitchPrice === null ||
+      (typeof input.shopTwitchPrice === "number" &&
+        Number.isSafeInteger(input.shopTwitchPrice) &&
+        input.shopTwitchPrice > 0)) &&
+    (input.shopEnabled
+      ? input.itemType !== "golden_eggs" &&
+        (input.expiry !== "event_end" || input.useInputLabel === null) &&
+        (input.shopDiscordPrice !== null || input.shopTwitchPrice !== null)
+      : input.shopDiscordPrice === null &&
+        input.shopTwitchPrice === null) &&
     isBlackMarketItemImageUrl(input.imageUrl) &&
     typeof input.maxLevel === "number" &&
     Number.isSafeInteger(input.maxLevel) &&
@@ -287,7 +313,8 @@ export async function createCrate(
         starts_at: input.startsAt ? new Date(input.startsAt) : null,
         ends_at: new Date(input.endsAt),
         preview_image_url: input.previewImageUrl,
-        texture_url: input.textureUrl,
+        opening_video_gold_url: input.openingVideoGoldUrl,
+        opening_video_normal_url: input.openingVideoNormalUrl,
       },
     });
     revalidateCrates();
@@ -328,7 +355,8 @@ export async function updateCrate(
         starts_at: input.startsAt ? new Date(input.startsAt) : null,
         ends_at: new Date(input.endsAt),
         preview_image_url: input.previewImageUrl,
-        texture_url: input.textureUrl,
+        opening_video_gold_url: input.openingVideoGoldUrl,
+        opening_video_normal_url: input.openingVideoNormalUrl,
       },
     });
     if (saved.count !== 1) return { type: "error", code: "NOT_FOUND" };
@@ -379,7 +407,11 @@ export async function createItem(input: ItemInput): Promise<AdminActionResult> {
           item_type: input.itemType,
           expiry: input.expiry,
           image_url: input.imageUrl,
+          use_input_label: input.useInputLabel?.trim() ?? null,
           max_level: input.maxLevel,
+          shop_enabled: input.shopEnabled,
+          shop_discord_price: input.shopDiscordPrice,
+          shop_twitch_price: input.shopTwitchPrice,
           ...(input.itemType === "progressive"
             ? {
                 levels: {
@@ -445,9 +477,20 @@ export async function updateItem(
   try {
     const existing = await prisma.blackMarketItem.findUnique({
       where: { id: itemId },
-      select: { item_type: true },
+      select: {
+        item_type: true,
+        use_input_label: true,
+        _count: { select: { levels: true } },
+      },
     });
     if (!existing) return { type: "error", code: "NOT_FOUND" };
+    if (
+      existing.item_type === "progressive" &&
+      input.itemType === "normal" &&
+      existing._count.levels > 0
+    ) {
+      return { type: "error", code: "VALIDATION_ERROR" };
+    }
     if (existing.item_type !== input.itemType) {
       return { type: "error", code: "VALIDATION_ERROR" };
     }
@@ -462,8 +505,12 @@ export async function updateItem(
           name: input.name.trim(),
           group: input.group,
           image_url: input.imageUrl,
+          use_input_label: input.useInputLabel?.trim() ?? null,
           max_level: input.maxLevel,
           expiry: input.expiry,
+          shop_enabled: input.shopEnabled,
+          shop_discord_price: input.shopDiscordPrice,
+          shop_twitch_price: input.shopTwitchPrice,
         },
       });
       if (existing.item_type === "progressive") {
@@ -476,6 +523,12 @@ export async function updateItem(
             image_url: input.imageUrl,
           },
           update: { image_url: input.imageUrl },
+        });
+      }
+      if (existing.use_input_label !== (input.useInputLabel?.trim() ?? null)) {
+        await transaction.blackMarketInventory.updateMany({
+          where: { item_id: itemId },
+          data: { use_input: null },
         });
       }
       return updated;
@@ -548,7 +601,9 @@ export async function upsertItemLevel(
         !Number.isSafeInteger(input.upgradeCost) ||
         input.upgradeCost <= 0 ||
         input.upgradeCost > 1_000_000_000) ||
-    !isBlackMarketItemImageUrl(input.imageUrl)
+    !isBlackMarketItemImageUrl(input.imageUrl) ||
+    typeof input.description !== "string" ||
+    input.description.length > 500
   ) {
     return { type: "error", code: "VALIDATION_ERROR" };
   }
@@ -572,8 +627,13 @@ export async function upsertItemLevel(
           level: input.level,
           upgrade_cost: input.upgradeCost,
           image_url: input.imageUrl,
+          description: input.description.trim(),
         },
-        update: { upgrade_cost: input.upgradeCost, image_url: input.imageUrl },
+        update: {
+          upgrade_cost: input.upgradeCost,
+          image_url: input.imageUrl,
+          description: input.description.trim(),
+        },
       });
       if (input.level === 1) {
         await transaction.blackMarketItem.update({
@@ -762,6 +822,103 @@ export async function updateCrateItemChance(
       return { type: "error", code: "CONFLICT" };
     }
     console.error("Black Market crate item chance update failed:", error);
+    return { type: "error", code: "INTERNAL_ERROR" };
+  }
+}
+
+export async function updateCrateItemChances(
+  crateId: string,
+  updates: Array<{
+    crateItemId: string;
+    dropChance: number;
+    goldenEggs: number | null;
+  }>,
+): Promise<AdminActionResult> {
+  if (!(await isAdmin())) return { type: "error", code: "FORBIDDEN" };
+  if (
+    !isValidSlug(crateId) ||
+    !Array.isArray(updates) ||
+    !updates.every((update) =>
+      isRecord(update) &&
+      typeof update.crateItemId === "string" &&
+      update.crateItemId.length > 0 &&
+      update.crateItemId.length <= 100 &&
+      isValidDropChance(update.dropChance) &&
+      (update.goldenEggs === null ||
+        (typeof update.goldenEggs === "number" &&
+          Number.isSafeInteger(update.goldenEggs) &&
+          update.goldenEggs > 0 &&
+          update.goldenEggs <= 1_000_000_000)),
+    ) ||
+    new Set(updates.map((update) =>
+      isRecord(update) ? update.crateItemId : null,
+    )).size !== updates.length
+  ) {
+    return { type: "error", code: "VALIDATION_ERROR" };
+  }
+  try {
+    await prisma.$transaction(async (transaction) => {
+      const crates = await transaction.$queryRaw<Array<{ id: string }>>`
+        SELECT "id" FROM "BlackMarketCrate" WHERE "id" = ${crateId} FOR UPDATE
+      `;
+      if (crates.length !== 1) throw new Error("CRATE_NOT_FOUND");
+      const currentItems = await transaction.blackMarketCrateItem.findMany({
+        where: { crate_id: crateId },
+        select: { id: true, item: { select: { item_type: true } } },
+      });
+      if (
+        currentItems.length !== updates.length ||
+        currentItems.some((entry) =>
+          !updates.some((update) => update.crateItemId === entry.id),
+        )
+      ) {
+        throw new Error("CRATE_ITEM_NOT_FOUND");
+      }
+
+      const updatesById = new Map(
+        updates.map((update) => [update.crateItemId, update]),
+      );
+      const totalChance = currentItems.reduce((total, entry) => {
+        const update = updatesById.get(entry.id)!;
+        if (
+          (entry.item.item_type === "golden_eggs") !==
+          (update.goldenEggs !== null)
+        ) {
+          throw new Error("INVALID_EGG_REWARD");
+        }
+        return total + Math.round(update.dropChance * DROP_CHANCE_SCALE);
+      }, 0);
+      if (totalChance > 100 * DROP_CHANCE_SCALE) {
+        throw new Error("DROP_CHANCE_EXCEEDED");
+      }
+
+      for (const entry of currentItems) {
+        const update = updatesById.get(entry.id)!;
+        await transaction.blackMarketCrateItem.update({
+          where: { id: entry.id },
+          data: {
+            drop_chance: update.dropChance,
+            golden_eggs: update.goldenEggs,
+          },
+        });
+      }
+    });
+    revalidatePath(`${adminPath}/crates/${crateId}`);
+    return { type: "success" };
+  } catch (error) {
+    if (
+      error instanceof Error &&
+      ["CRATE_NOT_FOUND", "CRATE_ITEM_NOT_FOUND"].includes(error.message)
+    ) {
+      return { type: "error", code: "NOT_FOUND" };
+    }
+    if (
+      error instanceof Error &&
+      ["DROP_CHANCE_EXCEEDED", "INVALID_EGG_REWARD"].includes(error.message)
+    ) {
+      return { type: "error", code: "VALIDATION_ERROR" };
+    }
+    console.error("Black Market crate item bulk update failed:", error);
     return { type: "error", code: "INTERNAL_ERROR" };
   }
 }

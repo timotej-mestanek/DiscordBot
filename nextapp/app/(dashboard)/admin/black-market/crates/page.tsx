@@ -25,7 +25,7 @@ export default async function BlackMarketCratesPage() {
               <th className="px-4 py-3">Preview</th>
               <th className="px-4 py-3">ID / name</th>
               <th className="px-4 py-3">Access</th>
-              <th className="px-4 py-3">Model</th>
+              <th className="px-4 py-3">Opening videos</th>
               <th className="px-4 py-3">Starts / ends</th>
               <th className="px-4 py-3">Items</th>
               <th className="px-4 py-3 text-right">Actions</th>
@@ -58,11 +58,13 @@ export default async function BlackMarketCratesPage() {
                 </td>
                 <td className="px-4 py-3">
                   <span className={`rounded-full border px-2.5 py-1 text-xs font-semibold ${
-                    crate.texture_url
+                    crate.opening_video_gold_url || crate.opening_video_normal_url
                       ? "border-violet-800 bg-violet-950/50 text-violet-200"
                       : "border-zinc-700 bg-zinc-950 text-zinc-400"
                   }`}>
-                    {crate.texture_url ? "3D" : "2D only"}
+                    {crate.opening_video_gold_url && crate.opening_video_normal_url ? "Gold + Normal" :
+                      crate.opening_video_gold_url ? "Gold only" :
+                        crate.opening_video_normal_url ? "Normal only" : "No video"}
                   </span>
                 </td>
                 <td className="px-4 py-3 text-zinc-300">
@@ -89,7 +91,8 @@ export default async function BlackMarketCratesPage() {
                         startsAt: crate.starts_at?.toISOString() ?? null,
                         endsAt: crate.ends_at?.toISOString() ?? null,
                         previewImageUrl: crate.preview_image_url,
-                        textureUrl: crate.texture_url,
+                        openingVideoGoldUrl: crate.opening_video_gold_url,
+                        openingVideoNormalUrl: crate.opening_video_normal_url,
                         inventoryCount: crate._count.inventories,
                         itemCount: crate._count.items,
                       }}

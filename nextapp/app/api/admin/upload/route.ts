@@ -3,10 +3,10 @@ import { getCurrentAccount } from "@/lib/auth/session";
 import { isSameOriginRequest } from "@/lib/auth/admin";
 import {
   blackMarketAssetMaxSize,
-  blackMarketModelMaxSize,
+  blackMarketVideoMaxSize,
   R2ConfigurationError,
   uploadBlackMarketAsset,
-  uploadBlackMarketModel,
+  uploadBlackMarketOpeningVideo,
 } from "@/lib/r2";
 
 export const runtime = "nodejs";
@@ -15,8 +15,8 @@ const uploadTypes = new Set(["crate-preview", "crate-texture", "item-level"]);
 
 function isUploadType(
   value: string,
-): value is "crate-preview" | "crate-texture" | "item-level" | "crate-model" {
-  if (value === "crate-model") return true;
+): value is "crate-preview" | "crate-texture" | "item-level" | "crate-opening-video" {
+  if (value === "crate-opening-video") return true;
   return uploadTypes.has(value);
 }
 
@@ -39,9 +39,9 @@ export async function POST(request: Request) {
   const contentLength = Number(request.headers.get("content-length"));
   if (
     Number.isFinite(contentLength) &&
-    contentLength > blackMarketModelMaxSize + 64 * 1024
+    contentLength > blackMarketVideoMaxSize + 64 * 1024
   ) {
-    return NextResponse.json({ error: "Uploads must be no larger than 15 MB." }, { status: 413 });
+    return NextResponse.json({ error: "Uploads must be no larger than 100 MB." }, { status: 413 });
   }
 
   let formData: FormData;
@@ -57,22 +57,28 @@ export async function POST(request: Request) {
     !isUploadType(type) ||
     !(file instanceof File)
   ) {
-    return NextResponse.json({ error: "Select an image and a valid upload type." }, { status: 400 });
+    return NextResponse.json({ error: "Select a file and a valid upload type." }, { status: 400 });
   }
   if (file.size === 0) {
     return NextResponse.json({ error: "Select a non-empty file." }, { status: 400 });
   }
-  if (type === "crate-model") {
+  if (type === "crate-opening-video") {
     const crateId = formData.get("crateId");
-    if (!isCrateId(crateId) || !file.name.toLowerCase().endsWith(".glb")) {
-      return NextResponse.json({ error: "Select a .glb model and a valid crate ID." }, { status: 400 });
+    const variant = formData.get("variant");
+    if (
+      !isCrateId(crateId) ||
+      (variant !== "gold" && variant !== "normal") ||
+      !file.name.toLowerCase().endsWith(".webm")
+    ) {
+      return NextResponse.json({ error: "Select a .webm video, variant, and valid crate ID." }, { status: 400 });
     }
-    if (file.size > blackMarketModelMaxSize) {
-      return NextResponse.json({ error: "3D models must be no larger than 15 MB." }, { status: 413 });
+    if (file.size > blackMarketVideoMaxSize) {
+      return NextResponse.json({ error: "Opening videos must be no larger than 100 MB." }, { status: 413 });
     }
     try {
-      const uploaded = await uploadBlackMarketModel({
+      const uploaded = await uploadBlackMarketOpeningVideo({
         crateId,
+        variant,
         bytes: Buffer.from(await file.arrayBuffer()),
       });
       return NextResponse.json({ url: uploaded.url });
@@ -80,11 +86,11 @@ export async function POST(request: Request) {
       if (error instanceof R2ConfigurationError) {
         return NextResponse.json({ error: error.message }, { status: 503 });
       }
-      if (error instanceof Error && error.message.startsWith("Upload a valid glTF")) {
+      if (error instanceof Error && error.message.startsWith("Upload a valid WebM")) {
         return NextResponse.json({ error: error.message }, { status: 400 });
       }
-      console.error("Black Market 3D model upload failed:", error);
-      return NextResponse.json({ error: "Could not upload the model to R2." }, { status: 502 });
+      console.error("Black Market opening video upload failed:", error);
+      return NextResponse.json({ error: "Could not store the video." }, { status: 502 });
     }
   }
   if (file.size > blackMarketAssetMaxSize) {
@@ -106,6 +112,6 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: error.message }, { status: 400 });
     }
     console.error("Black Market image upload failed:", error);
-    return NextResponse.json({ error: "Could not upload the image to R2." }, { status: 502 });
+    return NextResponse.json({ error: "Could not store the image." }, { status: 502 });
   }
 }

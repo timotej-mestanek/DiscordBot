@@ -2,8 +2,7 @@ import { getCurrentAccount } from "@/lib/auth/session";
 import { getAccountPointBalances } from "@/lib/points";
 import { prisma } from "@/lib/prisma";
 import AppHeader from "@/app/AppHeader";
-import PointBalanceSummary from "@/app/PointBalanceSummary";
-import ShopProductCard from "@/app/shop/ShopProductCard";
+import ShopCatalog from "@/app/shop/ShopCatalog";
 
 export default async function BlackMarketPage({
   searchParams,
@@ -14,7 +13,8 @@ export default async function BlackMarketPage({
   const params = await searchParams;
   const adminView = account?.role === "admin" && params.view === "admin";
   const identities = account?.identities ?? [];
-  const [balances, products] = await Promise.all([
+  const now = new Date();
+  const [balances, products, season] = await Promise.all([
     account ? getAccountPointBalances(identities) : Promise.resolve(null),
     prisma.shopProduct.findMany({
       where: {
@@ -27,6 +27,7 @@ export default async function BlackMarketPage({
           select: {
             id: true,
             name: true,
+            preview_image_url: true,
             active: true,
             starts_at: true,
             ends_at: true,
@@ -34,8 +35,24 @@ export default async function BlackMarketPage({
         },
       },
     }),
+    prisma.blackMarketCrate.findFirst({
+      where: {
+        active: true,
+        ends_at: { gt: now },
+        OR: [{ starts_at: null }, { starts_at: { lte: now } }],
+      },
+      orderBy: { ends_at: "desc" },
+      select: { ends_at: true },
+    }),
   ]);
-  const now = new Date();
+  const shopItems = await prisma.blackMarketItem.findMany({
+    where: {
+      shop_enabled: true,
+      item_type: { in: ["normal", "progressive"] },
+    },
+    orderBy: { name: "asc" },
+    include: { levels: { where: { level: 1 }, select: { image_url: true } } },
+  });
   const availableProducts = products.filter((product) => {
     const crate = product.black_market_crate;
     return Boolean(
@@ -45,6 +62,7 @@ export default async function BlackMarketPage({
         crate.ends_at > now,
     );
   });
+  const availableShopItems = season && season.ends_at > now ? shopItems : [];
 
   return (
     <main className="app-page min-h-screen bg-zinc-950 text-white">
@@ -57,78 +75,77 @@ export default async function BlackMarketPage({
       />
       <div className="mx-auto max-w-7xl px-4 py-6 sm:px-6 md:py-8">
         <header className="mb-5">
-          <p className="text-xs font-bold uppercase tracking-[0.25em] text-violet-300">
-            Crates · keys · drops
-          </p>
-          <h1 className="mt-2 text-3xl font-black tracking-tight">
+          <h1 className="text-3xl font-black tracking-tight">
             Blackmarket Shop
           </h1>
-          <p className="mt-2 max-w-2xl text-sm leading-6 text-zinc-400">
-            Browse crates and keys. Purchased crates are stored in your Inventory warehouse.
-          </p>
         </header>
 
-        {balances && (
-          <PointBalanceSummary
-            className="mb-5 rounded-xl border border-zinc-800 bg-zinc-900/70 p-2"
-            balances={{
-              discord: balances.discord,
-              twitchCustom: balances.twitchCustom,
-            }}
+        {availableProducts.length > 0 || availableShopItems.length > 0 ? (
+          <ShopCatalog
+            layout="black-market"
+            products={[
+              ...availableProducts.map((product) => ({
+                id: product.id,
+                name: product.name,
+                description: product.description,
+                cardColor: product.card_color,
+                imageUrl:
+                  product.product_type === "black_market_crate"
+                    ? product.black_market_crate?.preview_image_url ?? product.image_url
+                    : product.image_url,
+                discordPrice: product.discord_price,
+                twitchPrice: product.twitch_price,
+                active: product.active,
+                productType: product.product_type,
+                blackMarketCrate: product.black_market_crate
+                  ? {
+                      id: product.black_market_crate.id,
+                      name: product.black_market_crate.name,
+                    }
+                  : null,
+                addToInventory: product.add_to_inventory,
+              })),
+              ...availableShopItems.map((item) => ({
+                id: item.id,
+                name: item.name,
+                description: "",
+                cardColor: "#7c3aed",
+                imageUrl: item.image_url ?? item.levels[0]?.image_url ?? null,
+                discordPrice: item.shop_discord_price,
+                twitchPrice: item.shop_twitch_price,
+                active: true,
+                productType: "black_market_item" as const,
+                blackMarketCrate: null,
+                addToInventory: false,
+                blackMarketItemExpiry: item.expiry,
+              })),
+            ].sort((left, right) => left.name.localeCompare(right.name))}
+            balances={
+              balances
+                ? {
+                    discord: balances.discord,
+                    twitch: balances.twitchCustom,
+                  }
+                : null
+            }
+            linked={
+              account
+                ? {
+                    discord: identities.some(
+                      (identity) => identity.provider === "discord",
+                    ),
+                    twitch: identities.some(
+                      (identity) => identity.provider === "twitch",
+                    ),
+                  }
+                : null
+            }
+            quantities={{}}
+            isLoggedIn={Boolean(account)}
           />
-        )}
-
-        {availableProducts.length > 0 ? (
-          <section className="grid auto-rows-fr gap-3 sm:grid-cols-2 xl:grid-cols-3">
-            {availableProducts.map((product) => (
-              <ShopProductCard
-                key={product.id}
-                product={{
-                  id: product.id,
-                  name: product.name,
-                  description: product.description,
-                  cardColor: product.card_color,
-                  imageUrl: product.image_url,
-                  discordPrice: product.discord_price,
-                  twitchPrice: product.twitch_price,
-                  active: product.active,
-                  productType: product.product_type,
-                  blackMarketCrate: product.black_market_crate
-                    ? {
-                        id: product.black_market_crate.id,
-                        name: product.black_market_crate.name,
-                      }
-                    : null,
-                  addToInventory: product.add_to_inventory,
-                }}
-                balances={
-                  balances
-                    ? {
-                        discord: balances.discord,
-                        twitch: balances.twitchCustom,
-                      }
-                    : null
-                }
-                linked={
-                  account
-                    ? {
-                        discord: identities.some(
-                          (identity) => identity.provider === "discord",
-                        ),
-                        twitch: identities.some(
-                          (identity) => identity.provider === "twitch",
-                        ),
-                      }
-                    : null
-                }
-                quantity={0}
-                isLoggedIn={Boolean(account)}
-              />
-            ))}
-          </section>
         ) : (
           <p className="rounded-xl border border-zinc-800 bg-zinc-900 p-5 text-sm text-zinc-400">
-            No Blackmarket crates or keys are currently available.
+            No Blackmarket products are currently available.
           </p>
         )}
       </div>

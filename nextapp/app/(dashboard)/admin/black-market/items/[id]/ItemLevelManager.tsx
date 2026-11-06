@@ -9,7 +9,12 @@ import {
   upsertItemLevel,
 } from "@/lib/black-market/admin-actions";
 
-type ItemLevel = { level: number; upgradeCost: number | null; imageUrl: string };
+type ItemLevel = {
+  level: number;
+  upgradeCost: number | null;
+  imageUrl: string;
+  description: string;
+};
 
 export default function ItemLevelManager({
   itemId,
@@ -33,6 +38,7 @@ export default function ItemLevelManager({
     1;
   const [level, setLevel] = useState(initialLevel);
   const [imageUrl, setImageUrl] = useState(editLevel?.imageUrl ?? "");
+  const [description, setDescription] = useState(editLevel?.description ?? "");
 
   async function save(formData: FormData) {
     setBusy(true);
@@ -44,6 +50,7 @@ export default function ItemLevelManager({
       level: savedLevel,
       upgradeCost: savedLevel === 1 ? null : Number(costInput),
       imageUrl,
+      description,
     }).catch((saveError: unknown) => {
       console.error("Black Market item level save failed:", saveError);
       return null;
@@ -53,7 +60,7 @@ export default function ItemLevelManager({
     } else if (result.type === "error") {
       const messages: Record<string, string> = {
         FORBIDDEN: "You do not have permission to change levels.",
-        VALIDATION_ERROR: "Check the selected level, upgrade cost, and image.",
+        VALIDATION_ERROR: "Check the selected level, upgrade cost, image, and description.",
         NOT_FOUND: "This item no longer exists. Refresh and try again.",
         CONFLICT: "That item level already exists.",
         CONFIRMATION_REQUIRED: "Confirm the deletion to continue.",
@@ -158,6 +165,16 @@ export default function ItemLevelManager({
               </label>
             )}
             <ImageUpload type="item-level" label="Level image" value={imageUrl} onChange={setImageUrl} />
+            <label className="space-y-2 text-sm text-zinc-300">
+              <span className="block">Description (optional)</span>
+              <textarea
+                value={description}
+                onChange={(event) => setDescription(event.currentTarget.value)}
+                maxLength={500}
+                rows={3}
+                className="w-full resize-y rounded-lg border border-zinc-700 bg-zinc-950 px-3 py-2 text-white"
+              />
+            </label>
             {error && <p role="alert" className="text-sm text-red-300">{error}</p>}
             <div className="flex flex-wrap justify-end gap-2 border-t border-zinc-800 pt-4">
               {editLevel && (

@@ -87,8 +87,12 @@ export default async function BlackMarketItemsPage() {
                         group: item.group,
                         itemType: item.item_type,
                         imageUrl: item.image_url ?? item.levels[0]?.image_url ?? "",
+                        useInputLabel: item.use_input_label,
                         maxLevel: item.max_level,
                         expiry: item.expiry,
+                        shopEnabled: item.shop_enabled,
+                        shopDiscordPrice: item.shop_discord_price,
+                        shopTwitchPrice: item.shop_twitch_price,
                         ownedCount: item._count.owned_by,
                       }}
                     />

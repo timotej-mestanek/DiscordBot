@@ -5,6 +5,7 @@ export const ERROR_MESSAGES: Record<string, string> = {
   CRATE_INACTIVE: "This crate is not currently available.",
   NO_ITEMS_IN_CRATE: "This crate doesn't contain any items yet.",
   NOT_OWNED: "You don't own this item.",
+  INVALID_INPUT: "Enter the text requested for this item.",
   MAX_LEVEL: "This item is already at its maximum level.",
   NOT_ENOUGH_EGGS: "You don't have enough golden eggs.",
   LEVEL_DATA_MISSING: "Upgrade data for this item is missing.",

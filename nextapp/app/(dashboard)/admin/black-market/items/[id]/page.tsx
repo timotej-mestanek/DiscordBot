@@ -39,15 +39,17 @@ export default async function BlackMarketItemLevelsPage({
             level: level.level,
             upgradeCost: level.upgrade_cost,
             imageUrl: level.image_url,
+            description: level.description,
           }))}
         />
       </div>
       <div className="overflow-x-auto rounded-xl border border-zinc-800 bg-zinc-900/60">
-        <table className="w-full min-w-[600px] text-left text-sm">
+        <table className="w-full min-w-[800px] text-left text-sm">
           <thead className="border-b border-zinc-800 text-xs uppercase tracking-wide text-zinc-500">
             <tr>
               <th className="px-4 py-3">Level</th>
               <th className="px-4 py-3">Upgrade cost</th>
+              <th className="px-4 py-3">Description</th>
               <th className="px-4 py-3">Image</th>
               <th className="px-4 py-3 text-right">Actions</th>
             </tr>
@@ -58,6 +60,9 @@ export default async function BlackMarketItemLevelsPage({
                 <td className="px-4 py-3 font-semibold text-white">{level.level}</td>
                 <td className="px-4 py-3 text-zinc-300">
                   {level.level === 1 ? "Base level" : level.upgrade_cost?.toLocaleString() ?? "—"}
+                </td>
+                <td className="max-w-md whitespace-pre-wrap px-4 py-3 text-zinc-300">
+                  {level.description || "—"}
                 </td>
                 <td className="px-4 py-3">
                   <Image
@@ -71,6 +76,7 @@ export default async function BlackMarketItemLevelsPage({
                 </td>
                 <td className="px-4 py-3 text-right">
                   <ItemLevelManager
+                    key={`${level.id}:${level.description}`}
                     itemId={item.id}
                     maxLevel={item.max_level}
                     levels={[]}
@@ -78,6 +84,7 @@ export default async function BlackMarketItemLevelsPage({
                       level: level.level,
                       upgradeCost: level.upgrade_cost,
                       imageUrl: level.image_url,
+                      description: level.description,
                     }}
                   />
                 </td>
@@ -85,7 +92,7 @@ export default async function BlackMarketItemLevelsPage({
             ))}
             {item.levels.length === 0 && (
               <tr>
-                <td colSpan={4} className="px-4 py-12 text-center text-zinc-500">
+                <td colSpan={5} className="px-4 py-12 text-center text-zinc-500">
                   No levels yet. Add level 1 before placing this item in a crate.
                 </td>
               </tr>

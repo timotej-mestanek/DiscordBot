@@ -3,8 +3,7 @@ import { getCurrentAccount } from "@/lib/auth/session";
 import { isSameOriginRequest } from "@/lib/auth/admin";
 import { prisma } from "@/lib/prisma";
 import {
-  deleteR2Object,
-  ensureR2Configured,
+  deleteStoredUpload,
   isShopIconKeyForProduct,
   R2ConfigurationError,
   shopIconMaxSize,
@@ -90,7 +89,7 @@ export async function POST(request: Request) {
       data: { image_key: uploaded.key, image_url: uploaded.url },
     });
     if (saved.count !== 1) {
-      await deleteR2Object(uploaded.key);
+      await deleteStoredUpload(uploaded.key);
       return NextResponse.json(
         { error: "The product image changed during upload. Refresh and try again." },
         { status: 409 },
@@ -100,17 +99,17 @@ export async function POST(request: Request) {
     let warning: string | undefined;
     if (oldProduct.image_key) {
       try {
-        await deleteR2Object(oldProduct.image_key);
+        await deleteStoredUpload(oldProduct.image_key);
       } catch (deleteError) {
-        console.error("Could not remove the replaced shop image from R2:", deleteError);
-        warning = "The new image was saved, but the previous file could not be removed from R2.";
+        console.error("Could not remove the replaced shop image:", deleteError);
+        warning = "The new image was saved, but the previous file could not be removed.";
       }
     }
     return NextResponse.json({ ok: true, imageUrl: uploaded.url, imageKey: uploaded.key, warning });
   } catch (error) {
     if (uploadedKey) {
       try {
-        await deleteR2Object(uploadedKey);
+        await deleteStoredUpload(uploadedKey);
       } catch (cleanupError) {
         console.error("Could not clean up an unsuccessful shop image upload:", cleanupError);
       }
@@ -122,7 +121,7 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: error.message }, { status: 400 });
     }
     console.error("Shop image upload failed:", error);
-    return NextResponse.json({ error: "Could not upload the shop image to R2." }, { status: 502 });
+    return NextResponse.json({ error: "Could not store the shop image." }, { status: 502 });
   }
 }
 
@@ -147,7 +146,6 @@ export async function DELETE(request: Request) {
 
   let product;
   try {
-    ensureR2Configured();
     product = await prisma.shopProduct.findUnique({
       where: { id: body.productId },
       select: { id: true, image_key: true },
@@ -192,15 +190,15 @@ export async function DELETE(request: Request) {
   }
 
   try {
-    await deleteR2Object(product.image_key);
+    await deleteStoredUpload(product.image_key);
     return NextResponse.json({ ok: true });
   } catch (error) {
-    console.error("Could not remove shop image from R2:", error);
+    console.error("Could not remove shop image:", error);
     return NextResponse.json(
       {
         ok: false,
         imageRemoved: true,
-        error: "The image was removed from the product, but its file could not be deleted from R2.",
+        error: "The image was removed from the product, but its file could not be deleted from storage.",
       },
       { status: 502 },
     );

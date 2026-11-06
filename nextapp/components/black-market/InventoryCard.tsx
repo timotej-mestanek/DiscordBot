@@ -1,16 +1,15 @@
 import Image from "next/image";
+import Link from "next/link";
 import type { BlackMarketInventoryItem } from "./types";
 
 export default function InventoryCard({
   item,
   pending,
   onEquip,
-  onUpgrade,
 }: {
   item: BlackMarketInventoryItem;
   pending: boolean;
   onEquip: () => void;
-  onUpgrade: () => void;
 }) {
   const currentLevel = item.levels.find(
     (level) => level.level === item.currentLevel,
@@ -18,8 +17,8 @@ export default function InventoryCard({
   const imageUrl = currentLevel?.imageUrl ?? item.imageUrl;
 
   return (
-    <article className="flex h-full flex-col overflow-hidden rounded-2xl border border-zinc-800 bg-zinc-950/90 shadow-xl shadow-black/20">
-      <div className="relative aspect-square overflow-hidden border-b border-white/10 bg-zinc-900">
+    <article className="flex h-full flex-col overflow-hidden rounded-xl bg-zinc-950/80">
+      <div className="relative aspect-[4/3] overflow-hidden bg-zinc-900">
         {imageUrl ? (
           <Image
             src={imageUrl}
@@ -35,42 +34,56 @@ export default function InventoryCard({
           </div>
         )}
       </div>
-      <div className="flex flex-1 flex-col p-4">
+      <div className="flex flex-1 flex-col p-2.5">
         <div className="flex items-start justify-between gap-2">
-          <h4 className="font-bold leading-tight">{item.name}</h4>
-          <span className="shrink-0 rounded-full border border-violet-800 bg-violet-950/70 px-2 py-1 text-[10px] font-bold text-violet-200">
+          <h4 className="text-sm font-bold leading-tight">{item.name}</h4>
+          <span className="shrink-0 rounded-full bg-violet-950/70 px-1.5 py-0.5 text-[9px] font-bold text-violet-200">
             {item.itemType === "progressive"
               ? `Lv ${item.currentLevel} / ${item.maxLevel}`
               : "Normal"}
           </span>
         </div>
         {item.isEquipped && (
-          <span className="mt-2 w-fit rounded-full border border-emerald-700/70 bg-emerald-950/60 px-2 py-1 text-[10px] font-bold uppercase text-emerald-200">
+          <span className="mt-1.5 w-fit rounded-full bg-emerald-950/60 px-1.5 py-0.5 text-[9px] font-bold uppercase text-emerald-200">
             Equipped
           </span>
+        )}
+        {item.useInputLabel && item.useInput && (
+          <p className="mt-1.5 break-words text-xs text-zinc-400">
+            {item.useInputLabel}: {item.useInput}
+          </p>
         )}
         {item.expiresAt && (
           <span className="mt-2 text-xs text-amber-300">
             Expires {new Date(item.expiresAt).toLocaleDateString()}
           </span>
         )}
-        <div className="mt-auto grid gap-2 pt-4">
+        <div className="mt-auto grid gap-1.5 pt-2.5">
           <button
             type="button"
             disabled={pending || item.isEquipped}
             onClick={onEquip}
-            className="rounded-lg border border-zinc-700 px-3 py-2 text-xs font-semibold hover:bg-zinc-800 disabled:cursor-not-allowed disabled:opacity-50"
+            className="rounded-full bg-zinc-800 px-2 py-1.5 text-[11px] font-semibold hover:bg-zinc-700 disabled:cursor-not-allowed disabled:opacity-50"
           >
-            {item.isEquipped ? "Equipped" : pending ? "Equipping…" : "Equip"}
+            {item.isEquipped ? "In use" : pending ? "Using…" : "Use"}
           </button>
-          {item.itemType === "progressive" && <button
-            type="button"
-            disabled={pending || item.currentLevel >= item.maxLevel}
-            onClick={onUpgrade}
-            className="rounded-lg bg-violet-600 px-3 py-2 text-xs font-semibold hover:bg-violet-500 disabled:cursor-not-allowed disabled:opacity-50"
-          >
-            {item.currentLevel >= item.maxLevel ? "MAX" : "Upgrade"}
-          </button>}
+          {item.itemType === "progressive" &&
+            (item.currentLevel >= item.maxLevel ? (
+              <button
+                type="button"
+                disabled
+                className="rounded-full bg-zinc-800 px-2 py-1.5 text-[11px] font-semibold text-zinc-400"
+              >
+                MAXED UP
+              </button>
+            ) : (
+              <Link
+                href={`/dashboard/inventory/${encodeURIComponent(item.id)}`}
+                className="rounded-full bg-violet-600 px-2 py-1.5 text-center text-[11px] font-semibold hover:bg-violet-500"
+              >
+                Level up
+              </Link>
+            ))}
         </div>
       </div>
     </article>

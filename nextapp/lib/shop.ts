@@ -268,6 +268,148 @@ export async function purchaseShopProduct(input: {
   });
 }
 
+export async function purchaseBlackMarketItem(input: {
+  accountId: string;
+  identities: Identity[];
+  currency: SupportedPointCurrency;
+  itemId: string;
+}) {
+  const identity = input.identities.find((item) => getProvider(item, input.currency));
+  if (!identity) {
+    throw new ShopActionError(
+      `Pro platbu v měně ${input.currency === "discord" ? "Discord" : "Twitch"} nejdřív propoj odpovídající účet.`,
+    );
+  }
+
+  return prisma.$transaction(async (transaction) => {
+    const item = await transaction.blackMarketItem.findUnique({
+      where: { id: input.itemId },
+      select: {
+        id: true,
+        name: true,
+        group: true,
+        item_type: true,
+        expiry: true,
+        shop_enabled: true,
+        shop_discord_price: true,
+        shop_twitch_price: true,
+      },
+    });
+    const now = new Date();
+    const season = await transaction.blackMarketCrate.findFirst({
+      where: {
+        active: true,
+        ends_at: { gt: now },
+        OR: [{ starts_at: null }, { starts_at: { lte: now } }],
+      },
+      orderBy: { ends_at: "desc" },
+      select: { ends_at: true },
+    });
+    if (
+      !item ||
+      item.item_type === "golden_eggs" ||
+      !item.shop_enabled ||
+      !season
+    ) {
+      throw new ShopActionError("Tento Black Market item už není dostupný.");
+    }
+
+    const price =
+      input.currency === "discord"
+        ? item.shop_discord_price
+        : item.shop_twitch_price;
+    if (price === null || price <= 0) {
+      throw new ShopActionError("Tato měna není pro tento item dostupná.");
+    }
+
+    const owned = await transaction.blackMarketInventory.findUnique({
+      where: {
+        account_id_item_id: {
+          account_id: input.accountId,
+          item_id: item.id,
+        },
+      },
+      select: { expires_at: true },
+    });
+    if (owned && (!owned.expires_at || owned.expires_at > now)) {
+      throw new ShopActionError("Tento item už máš ve svém inventáři.");
+    }
+
+    const expiresAt =
+      item.expiry === "seven_days"
+        ? new Date(now.getTime() + 7 * 24 * 60 * 60 * 1000)
+        : item.expiry === "thirty_days"
+          ? new Date(now.getTime() + 30 * 24 * 60 * 60 * 1000)
+          : item.expiry === "event_end"
+            ? season.ends_at
+            : null;
+    const autoEquipped = item.expiry === "event_end";
+
+    await changePointBalance(
+      transaction,
+      input.currency,
+      identity.provider_user_id,
+      -price,
+      `Black Market: ${item.name}`,
+      input.accountId,
+    );
+    if (autoEquipped) {
+      await transaction.blackMarketInventory.updateMany({
+        where: {
+          account_id: input.accountId,
+          group: item.group,
+          is_equipped: true,
+        },
+        data: { is_equipped: false },
+      });
+    }
+
+    const inventoryData = {
+      group: item.group,
+      current_level: 1,
+      is_equipped: autoEquipped,
+      use_input: null,
+      expires_at: expiresAt,
+    };
+    if (owned) {
+      await transaction.blackMarketInventory.update({
+        where: {
+          account_id_item_id: {
+            account_id: input.accountId,
+            item_id: item.id,
+          },
+        },
+        data: inventoryData,
+      });
+    } else {
+      await transaction.blackMarketInventory.create({
+        data: {
+          account_id: input.accountId,
+          item_id: item.id,
+          ...inventoryData,
+        },
+      });
+    }
+
+    await transaction.adminAuditLog.create({
+      data: {
+        actor_account_id: input.accountId,
+        target_account_id: input.accountId,
+        action: "black_market.item_purchased",
+        details: {
+          itemId: item.id,
+          currency: input.currency,
+          price,
+          providerUserId: identity.provider_user_id,
+          expiresAt: expiresAt?.toISOString() ?? null,
+          autoEquipped,
+        },
+      },
+    });
+    return { autoEquipped, expiresAt: expiresAt?.toISOString() ?? null };
+  });
+}
+
 export async function redeemShopProduct(input: {
   accountId: string;
   identities: Identity[];

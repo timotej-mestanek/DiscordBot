@@ -19,7 +19,8 @@ export type AdminCrate = {
   startsAt: string | null;
   endsAt: string | null;
   previewImageUrl: string | null;
-  textureUrl: string | null;
+  openingVideoGoldUrl: string | null;
+  openingVideoNormalUrl: string | null;
   inventoryCount: number;
   itemCount: number;
 };
@@ -32,16 +33,17 @@ function localDateTime(value: string | null) {
     .slice(0, 16);
 }
 
-function ModelUpload({
+function OpeningVideoUpload({
   crateId,
+  variant,
   value,
   onChange,
 }: {
   crateId: string;
+  variant: "gold" | "normal";
   value: string;
   onChange: (value: string) => void;
 }) {
-  // Artist exports: Y-up, unit scale, a hinged "lid" node, and <5 MB target (15 MB hard limit).
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
   const inputRef = useRef<HTMLInputElement>(null);
@@ -49,34 +51,35 @@ function ModelUpload({
   async function upload(file?: File) {
     if (!file) return;
     setError("");
-    if (!file.name.toLowerCase().endsWith(".glb")) {
-      setError("Choose a binary glTF (.glb) file.");
+    if (!file.name.toLowerCase().endsWith(".webm")) {
+      setError("Choose a WebM video.");
       return;
     }
-    if (file.size > 15 * 1024 * 1024) {
-      setError("3D models must be no larger than 15 MB.");
+    if (file.size > 100 * 1024 * 1024) {
+      setError("Opening videos must be no larger than 100 MB.");
       return;
     }
     if (!/^[a-z0-9]+(?:-[a-z0-9]+)*$/u.test(crateId)) {
-      setError("Enter a valid crate ID before uploading its model.");
+      setError("Enter a valid crate ID before uploading its video.");
       return;
     }
     setBusy(true);
     const formData = new FormData();
     formData.set("file", file);
-    formData.set("type", "crate-model");
+    formData.set("type", "crate-opening-video");
     formData.set("crateId", crateId);
+    formData.set("variant", variant);
     try {
       const response = await fetch("/api/admin/upload", { method: "POST", body: formData });
       const result: { url?: string; error?: string } = await response.json();
       if (!response.ok || !result.url) {
-        setError(result.error ?? "Could not upload the 3D model.");
+        setError(result.error ?? "Could not upload the opening video.");
         return;
       }
       onChange(result.url);
     } catch (uploadError) {
-      console.error("Black Market crate model upload failed:", uploadError);
-      setError("Could not upload the 3D model.");
+      console.error("Black Market crate video upload failed:", uploadError);
+      setError("Could not upload the opening video.");
     } finally {
       setBusy(false);
       if (inputRef.current) inputRef.current.value = "";
@@ -85,10 +88,10 @@ function ModelUpload({
 
   return (
     <div className="space-y-2">
-      <span className="block text-sm font-medium text-zinc-200">3D Model (.glb)</span>
+      <span className="block text-sm font-medium text-zinc-200">{variant}.webm</span>
       <div className="flex flex-wrap items-center gap-3">
         <span className="min-w-0 flex-1 truncate text-sm text-zinc-400">
-          {value ? "3D model uploaded" : "No model; users see the 2D opening."}
+          {value ? `${variant}.webm uploaded` : `No ${variant} video`}
         </span>
         <button
           type="button"
@@ -96,7 +99,7 @@ function ModelUpload({
           onClick={() => inputRef.current?.click()}
           className="rounded-lg border border-zinc-700 px-3 py-2 text-sm text-zinc-200 hover:border-zinc-500 disabled:opacity-50"
         >
-          {busy ? "Uploading…" : value ? "Replace model" : "Upload .glb"}
+          {busy ? "Uploading…" : value ? "Replace video" : `Upload ${variant}.webm`}
         </button>
         {value && (
           <button type="button" onClick={() => onChange("")} className="rounded-lg border border-zinc-700 px-3 py-2 text-sm text-zinc-300 hover:border-red-800 hover:text-red-300">
@@ -106,13 +109,12 @@ function ModelUpload({
         <input
           ref={inputRef}
           type="file"
-          accept=".glb,model/gltf-binary"
+          accept=".webm,video/webm"
           className="sr-only"
           onChange={(event) => void upload(event.currentTarget.files?.[0])}
         />
       </div>
-      <p className="text-xs text-zinc-500">Binary glTF 2.0, maximum 15 MB; model stored at black-market/crates/{crateId || "{id}"}/model.glb.</p>
-      <p className="text-xs text-zinc-500">Artist guidance: Y-up, unit scale, and a node named &quot;lid&quot; for lid animation; aim for under 5 MB (15 MB hard limit). Crates without a model use the 2D opening.</p>
+      <p className="text-xs text-zinc-500">WebM, maximum 100 MB. Plays once and holds on its final frame until the reward is confirmed.</p>
       {error && <p role="alert" className="text-sm text-red-300">{error}</p>}
     </div>
   );
@@ -150,7 +152,8 @@ export default function CrateManager({
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
   const [previewUrl, setPreviewUrl] = useState(editCrate?.previewImageUrl ?? "");
-  const [textureUrl, setTextureUrl] = useState(editCrate?.textureUrl ?? "");
+  const [openingVideoGoldUrl, setOpeningVideoGoldUrl] = useState(editCrate?.openingVideoGoldUrl ?? "");
+  const [openingVideoNormalUrl, setOpeningVideoNormalUrl] = useState(editCrate?.openingVideoNormalUrl ?? "");
   const [crateId, setCrateId] = useState(editCrate?.id ?? "");
 
   const initialValues = editCrate;
@@ -168,7 +171,8 @@ export default function CrateManager({
         startsAt: initialValues.startsAt,
         endsAt: initialValues.endsAt ?? "",
         previewImageUrl: initialValues.previewImageUrl,
-        textureUrl: initialValues.textureUrl,
+        openingVideoGoldUrl: initialValues.openingVideoGoldUrl,
+        openingVideoNormalUrl: initialValues.openingVideoNormalUrl,
       });
       const message = actionError(result);
       if (message) {
@@ -197,7 +201,8 @@ export default function CrateManager({
       startsAt: dateInput(rawStarts),
       endsAt: dateInput(rawEnds) ?? "",
       previewImageUrl: previewUrl || null,
-      textureUrl: textureUrl || null,
+      openingVideoGoldUrl: openingVideoGoldUrl || null,
+      openingVideoNormalUrl: openingVideoNormalUrl || null,
     };
     try {
       const result = initialValues
@@ -266,9 +271,11 @@ export default function CrateManager({
             crateId={crateId}
             onCrateIdChange={setCrateId}
             previewUrl={previewUrl}
-            textureUrl={textureUrl}
+            openingVideoGoldUrl={openingVideoGoldUrl}
+            openingVideoNormalUrl={openingVideoNormalUrl}
             onPreviewChange={setPreviewUrl}
-            onTextureChange={setTextureUrl}
+            onOpeningVideoGoldChange={setOpeningVideoGoldUrl}
+            onOpeningVideoNormalChange={setOpeningVideoNormalUrl}
             onClose={() => setOpen(false)}
             onSubmit={save}
           />
@@ -322,9 +329,11 @@ export default function CrateManager({
           crateId={crateId}
           onCrateIdChange={setCrateId}
           previewUrl={previewUrl}
-          textureUrl={textureUrl}
+          openingVideoGoldUrl={openingVideoGoldUrl}
+          openingVideoNormalUrl={openingVideoNormalUrl}
           onPreviewChange={setPreviewUrl}
-          onTextureChange={setTextureUrl}
+          onOpeningVideoGoldChange={setOpeningVideoGoldUrl}
+          onOpeningVideoNormalChange={setOpeningVideoNormalUrl}
           onClose={() => setOpen(false)}
           onSubmit={save}
           onDelete={remove}
@@ -341,9 +350,11 @@ function CrateForm({
   crateId,
   onCrateIdChange,
   previewUrl,
-  textureUrl,
+  openingVideoGoldUrl,
+  openingVideoNormalUrl,
   onPreviewChange,
-  onTextureChange,
+  onOpeningVideoGoldChange,
+  onOpeningVideoNormalChange,
   onClose,
   onSubmit,
   onDelete,
@@ -354,9 +365,11 @@ function CrateForm({
   crateId: string;
   onCrateIdChange: (value: string) => void;
   previewUrl: string;
-  textureUrl: string;
+  openingVideoGoldUrl: string;
+  openingVideoNormalUrl: string;
   onPreviewChange: (value: string) => void;
-  onTextureChange: (value: string) => void;
+  onOpeningVideoGoldChange: (value: string) => void;
+  onOpeningVideoNormalChange: (value: string) => void;
   onClose: () => void;
   onSubmit: (formData: FormData) => void;
   onDelete?: () => void;
@@ -389,7 +402,7 @@ function CrateForm({
               pattern="[a-z0-9]+(?:-[a-z0-9]+)*"
               value={crateId}
               onChange={(event) => onCrateIdChange(event.currentTarget.value)}
-              readOnly={!!crate || !!textureUrl}
+              readOnly={!!crate || !!openingVideoGoldUrl || !!openingVideoNormalUrl}
               placeholder="summer-crate"
               className="w-full rounded-lg border border-zinc-700 bg-zinc-950 px-3 py-2 text-white read-only:text-zinc-500"
             />
@@ -433,7 +446,20 @@ function CrateForm({
           Requires a crate-specific key to open
         </label>
         <ImageUpload type="crate-preview" label="Preview image" value={previewUrl} onChange={onPreviewChange} />
-        <ModelUpload crateId={crateId} value={textureUrl} onChange={onTextureChange} />
+        <div className="space-y-4">
+          <OpeningVideoUpload
+            crateId={crateId}
+            variant="gold"
+            value={openingVideoGoldUrl}
+            onChange={onOpeningVideoGoldChange}
+          />
+          <OpeningVideoUpload
+            crateId={crateId}
+            variant="normal"
+            value={openingVideoNormalUrl}
+            onChange={onOpeningVideoNormalChange}
+          />
+        </div>
         {error && <p role="alert" className="text-sm text-red-300">{error}</p>}
         <div className="flex flex-wrap justify-end gap-2 border-t border-zinc-800 pt-4">
           {onDelete && (

@@ -48,3 +48,20 @@ export async function getAdminShopDeliveries() {
     }),
   );
 }
+
+export async function getAdminShopAuditLogs() {
+  return prisma.adminAuditLog.findMany({
+    where: { action: { startsWith: "shop." } },
+    orderBy: { created_at: "desc" },
+    take: 50,
+    select: {
+      id: true,
+      reverted_log_id: true,
+      action: true,
+      details: true,
+      created_at: true,
+      actor: { select: { display_name: true } },
+      target: { select: { display_name: true } },
+    },
+  });
+}
