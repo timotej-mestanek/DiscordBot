@@ -3,10 +3,12 @@ import {
   EMOTE_GROUP,
   getCachedRepresentation,
   getOrBuildRepresentation,
+  emoteCorsOptions,
   jsonResponse,
   matchesIfNoneMatch,
   serializeSortedObject,
   serviceUnavailableResponse,
+  withEmoteCors,
 } from "@/lib/emotes/public-json-cache";
 
 export const runtime = "nodejs";
@@ -17,6 +19,10 @@ const CACHE_TTL_MS = 30_000;
 const CACHE_CONTROL = "public, max-age=0, s-maxage=0, must-revalidate";
 const OVERLAY_GROUP = "overlay";
 
+export function OPTIONS(request: Request): Response {
+  return emoteCorsOptions(request);
+}
+
 export async function GET(request: Request): Promise<Response> {
   const cached = getCachedRepresentation(CACHE_KEY);
   if (
@@ -24,7 +30,10 @@ export async function GET(request: Request): Promise<Response> {
     Date.now() - cached.cachedAt < CACHE_TTL_MS &&
     matchesIfNoneMatch(request.headers.get("if-none-match"), cached.etag)
   ) {
-    return jsonResponse(request, cached, "HIT", CACHE_CONTROL, "Accept-Encoding");
+    return withEmoteCors(
+      jsonResponse(request, cached, "HIT", CACHE_CONTROL, "Accept-Encoding"),
+      request,
+    );
   }
 
   try {
@@ -181,16 +190,19 @@ export async function GET(request: Request): Promise<Response> {
       },
     );
 
-    return jsonResponse(
+    return withEmoteCors(
+      jsonResponse(
+        request,
+        result.representation,
+        result.status,
+        CACHE_CONTROL,
+        "Accept-Encoding",
+      ),
       request,
-      result.representation,
-      result.status,
-      CACHE_CONTROL,
-      "Accept-Encoding",
     );
   } catch (error) {
     console.error("Failed to build emotes map:", error);
-    return serviceUnavailableResponse("Accept-Encoding");
+    return withEmoteCors(serviceUnavailableResponse("Accept-Encoding"), request);
   }
 }
 

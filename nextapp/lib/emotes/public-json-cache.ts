@@ -17,6 +17,37 @@ const refreshTimers = new Map<string, ReturnType<typeof setTimeout>>();
 const generations = new Map<string, number>();
 
 export const EMOTE_GROUP = "emote";
+const ALLOWED_EMOTE_ORIGIN = "http://localhost:5173";
+
+export function withEmoteCors(response: Response, request: Request): Response {
+  const headers = new Headers(response.headers);
+  const vary = new Set(
+    (headers.get("Vary") ?? "")
+      .split(",")
+      .map((value) => value.trim())
+      .filter(Boolean),
+  );
+  vary.add("Origin");
+  headers.set("Vary", [...vary].join(", "));
+
+  if (request.headers.get("origin") === ALLOWED_EMOTE_ORIGIN) {
+    headers.set("Access-Control-Allow-Origin", ALLOWED_EMOTE_ORIGIN);
+    headers.set("Access-Control-Allow-Methods", "GET, OPTIONS");
+    headers.set("Access-Control-Allow-Headers", "If-None-Match");
+    headers.set("Access-Control-Expose-Headers", "ETag");
+  }
+
+  return new Response(response.body, {
+    status: response.status,
+    statusText: response.statusText,
+    headers,
+  });
+}
+
+export function emoteCorsOptions(request: Request): Response {
+  const response = new Response(null, { status: 204 });
+  return withEmoteCors(response, request);
+}
 
 export function getCachedRepresentation(
   key: string,
