@@ -4,6 +4,7 @@ import { revalidatePath } from "next/cache";
 import { getCurrentAccount } from "@/lib/auth/session";
 import { prisma } from "@/lib/prisma";
 import type { Prisma } from "@prisma/client";
+import { invalidateCachedRepresentation } from "@/lib/emotes/public-json-cache";
 import {
   isBlackMarketCrateAssetUrl,
   isBlackMarketItemImageUrl,
@@ -112,6 +113,7 @@ function revalidateCrates() {
 }
 
 function revalidateItems() {
+  invalidateCachedRepresentation("emotes-meta");
   revalidatePath(adminPath);
   revalidatePath(`${adminPath}/items`);
   revalidatePath("/black-market");
