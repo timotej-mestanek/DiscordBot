@@ -2,10 +2,8 @@ import { prisma } from "@/lib/prisma";
 import {
   EMOTE_GROUP,
   emoteCorsOptions,
-  getCachedRepresentation,
   getOrBuildRepresentation,
   jsonResponse,
-  matchesIfNoneMatch,
   serializeSortedObject,
   serviceUnavailableResponse,
   withEmoteCors,
@@ -17,33 +15,19 @@ export const dynamic = "force-dynamic";
 const CACHE_KEY = "emotes-meta";
 const CACHE_TTL_MS = 86_400_000;
 const CACHE_CONTROL = "public, max-age=86400, s-maxage=86400";
-const OVERLAY_GROUP = "overlay";
 
 export function OPTIONS(request: Request): Response {
   return emoteCorsOptions(request);
 }
 
 export async function GET(request: Request): Promise<Response> {
-  const cached = getCachedRepresentation(CACHE_KEY);
-  if (
-    cached &&
-    matchesIfNoneMatch(request.headers.get("if-none-match"), cached.etag)
-  ) {
-    return withEmoteCors(jsonResponse(request, cached, "HIT", CACHE_CONTROL), request);
-  }
-
   try {
     const result = await getOrBuildRepresentation(
       CACHE_KEY,
       CACHE_TTL_MS,
       async () => {
         const items = await prisma.blackMarketItem.findMany({
-          where: {
-            OR: [
-              { group: EMOTE_GROUP },
-              { group: OVERLAY_GROUP, item_type: "progressive" },
-            ],
-          },
+          where: { group: EMOTE_GROUP },
           select: {
             id: true,
             image_url: true,

@@ -32,6 +32,12 @@ enum PointCurrency {
   twitch_custom
 }
 
+enum ItemGroup {
+  emote
+  chat
+  overlay
+}
+
 enum BlackMarketItemType {
   normal
   progressive
@@ -342,17 +348,17 @@ model ShopDeliveryEvent {
 }
 
 model BlackMarketCrate {
-  id                String    @id
-  name              String
-  preview_image_url String?
+  id                       String    @id
+  name                     String
+  preview_image_url        String?
   opening_video_gold_url   String?
   opening_video_normal_url String?
-  active            Boolean   @default(true)
-  requires_key      Boolean   @default(false)
-  open_count        Int       @default(0)
-  starts_at         DateTime?
-  ends_at           DateTime
-  created_at        DateTime  @default(now())
+  active                   Boolean   @default(true)
+  requires_key             Boolean   @default(false)
+  open_count               Int       @default(0)
+  starts_at                DateTime?
+  ends_at                  DateTime
+  created_at               DateTime  @default(now())
 
   inventories     BlackMarketCrateInventory[]
   key_inventories BlackMarketKeyInventory[]
@@ -397,18 +403,19 @@ model BlackMarketKeyInventory {
 }
 
 model BlackMarketItem {
-  id                    String                @id
-  name                  String
-  group                 String                @default("chat")
-  item_type             BlackMarketItemType   @default(progressive)
-  expiry                BlackMarketItemExpiry @default(permanent)
-  image_url             String?
-  use_input_label       String?
-  max_level             Int                   @default(6)
-  shop_enabled          Boolean               @default(false)
-  shop_discord_price    Int?
-  shop_twitch_price     Int?
-  created_at            DateTime              @default(now())
+  id                 String                @id
+  name               String
+  group              ItemGroup             @default(chat)
+  overlay_config     Json?
+  item_type          BlackMarketItemType   @default(progressive)
+  expiry             BlackMarketItemExpiry @default(permanent)
+  image_url          String?
+  use_input_label    String?
+  max_level          Int                   @default(6)
+  shop_enabled       Boolean               @default(false)
+  shop_discord_price Int?
+  shop_twitch_price  Int?
+  created_at         DateTime              @default(now())
 
   levels   BlackMarketItemLevel[]
   owned_by BlackMarketInventory[]

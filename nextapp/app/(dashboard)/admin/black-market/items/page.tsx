@@ -85,6 +85,7 @@ export default async function BlackMarketItemsPage() {
                         id: item.id,
                         name: item.name,
                         group: item.group,
+                        overlayConfig: item.overlay_config,
                         itemType: item.item_type,
                         imageUrl: item.image_url ?? item.levels[0]?.image_url ?? "",
                         useInputLabel: item.use_input_label,

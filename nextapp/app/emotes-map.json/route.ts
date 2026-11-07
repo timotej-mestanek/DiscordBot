@@ -1,11 +1,9 @@
 import { prisma } from "@/lib/prisma";
 import {
   EMOTE_GROUP,
-  getCachedRepresentation,
-  getOrBuildRepresentation,
   emoteCorsOptions,
+  getOrBuildRepresentation,
   jsonResponse,
-  matchesIfNoneMatch,
   serializeSortedObject,
   serviceUnavailableResponse,
   withEmoteCors,
@@ -16,26 +14,13 @@ export const dynamic = "force-dynamic";
 
 const CACHE_KEY = "emotes-map";
 const CACHE_TTL_MS = 30_000;
-const CACHE_CONTROL = "public, max-age=0, s-maxage=0, must-revalidate";
-const OVERLAY_GROUP = "overlay";
+const CACHE_CONTROL = "public, max-age=30, s-maxage=30";
 
 export function OPTIONS(request: Request): Response {
   return emoteCorsOptions(request);
 }
 
 export async function GET(request: Request): Promise<Response> {
-  const cached = getCachedRepresentation(CACHE_KEY);
-  if (
-    cached &&
-    Date.now() - cached.cachedAt < CACHE_TTL_MS &&
-    matchesIfNoneMatch(request.headers.get("if-none-match"), cached.etag)
-  ) {
-    return withEmoteCors(
-      jsonResponse(request, cached, "HIT", CACHE_CONTROL, "Accept-Encoding"),
-      request,
-    );
-  }
-
   try {
     const result = await getOrBuildRepresentation(
       CACHE_KEY,
@@ -44,23 +29,8 @@ export async function GET(request: Request): Promise<Response> {
         const now = new Date();
         const inventories = await prisma.blackMarketInventory.findMany({
           where: {
-            AND: [
-              {
-                OR: [
-                  { item: { group: EMOTE_GROUP } },
-                  {
-                    item: {
-                      group: OVERLAY_GROUP,
-                      item_type: "progressive",
-                    },
-                    is_equipped: true,
-                  },
-                ],
-              },
-              {
-                OR: [{ expires_at: null }, { expires_at: { gt: now } }],
-              },
-            ],
+            item: { group: EMOTE_GROUP },
+            OR: [{ expires_at: null }, { expires_at: { gt: now } }],
           },
           select: {
             account: {
@@ -77,14 +47,11 @@ export async function GET(request: Request): Promise<Response> {
             current_level: true,
             created_at: true,
             id: true,
-            is_equipped: true,
             item: {
               select: {
                 id: true,
                 name: true,
-                group: true,
                 item_type: true,
-                image_url: true,
                 levels: {
                   select: { level: true, image_url: true },
                   orderBy: { level: "asc" },
@@ -127,7 +94,7 @@ export async function GET(request: Request): Promise<Response> {
 
         const emotesByUsername = new Map<
           string,
-          { overlay: string | null; emotes: Array<{ id: string; t: string }> }
+          Array<{ id: string; t: string }>
         >();
         for (const inventory of inventories) {
           const identity = inventory.account.identities[0];
@@ -141,68 +108,48 @@ export async function GET(request: Request): Promise<Response> {
             .toLowerCase();
           if (!username) continue;
 
-          const userEmotes = emotesByUsername.get(username) ?? {
-            overlay: null,
-            emotes: [],
-          };
-
-          if (inventory.item.group === OVERLAY_GROUP) {
+          let emoteId = inventory.item.id;
+          if (inventory.item.item_type === "progressive") {
             const level = getInventoryLevel(inventory);
             if (!level) continue;
-            if (userEmotes.overlay !== null) {
-              console.warn(
-                `Multiple equipped overlays found for ${username}; using the first inventory item.`,
-              );
-              continue;
-            }
-            userEmotes.overlay = `${inventory.item.id}_lvl${level.level}`;
-          } else if (inventory.item.item_type === "progressive") {
-            const level = getInventoryLevel(inventory);
-            if (!level) continue;
-            userEmotes.emotes.push({
-              id: `${inventory.item.id}_lvl${level.level}`,
-              t: inventory.use_input ?? inventory.item.name,
-            });
-          } else {
-            userEmotes.emotes.push({
-              id: inventory.item.id,
-              t: inventory.use_input ?? inventory.item.name,
-            });
+            emoteId = `${inventory.item.id}_lvl${level.level}`;
           }
 
+          const userEmotes = emotesByUsername.get(username) ?? [];
+          userEmotes.push({
+            id: emoteId,
+            t: inventory.use_input ?? inventory.item.name,
+          });
           emotesByUsername.set(username, userEmotes);
         }
 
-        const entries: Array<
-          [string, Array<{ o: string | null } | { id: string; t: string }>]
-        > = [...emotesByUsername.entries()].map(
-          ([username, { overlay, emotes }]) => [
-            username,
-            [
-              { o: overlay },
-              ...emotes.sort((left, right) =>
-                left.id < right.id ? -1 : left.id > right.id ? 1 : 0,
-              ),
-            ],
-          ],
-        );
+        const entries: Array<[string, Array<{ id: string; t: string }>]> = [
+          ...emotesByUsername.entries(),
+        ].map(([username, emotes]) => [
+          username,
+          emotes.sort((left, right) =>
+            left.id < right.id
+              ? -1
+              : left.id > right.id
+                ? 1
+                : left.t < right.t
+                  ? -1
+                  : left.t > right.t
+                    ? 1
+                    : 0,
+          ),
+        ]);
         return serializeSortedObject(entries);
       },
     );
 
     return withEmoteCors(
-      jsonResponse(
-        request,
-        result.representation,
-        result.status,
-        CACHE_CONTROL,
-        "Accept-Encoding",
-      ),
+      jsonResponse(request, result.representation, result.status, CACHE_CONTROL),
       request,
     );
   } catch (error) {
     console.error("Failed to build emotes map:", error);
-    return withEmoteCors(serviceUnavailableResponse("Accept-Encoding"), request);
+    return withEmoteCors(serviceUnavailableResponse(), request);
   }
 }
 

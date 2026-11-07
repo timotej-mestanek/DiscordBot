@@ -3,7 +3,7 @@
 import { revalidatePath } from "next/cache";
 import { getCurrentAccount } from "@/lib/auth/session";
 import { prisma } from "@/lib/prisma";
-import type { Prisma } from "@prisma/client";
+import { Prisma } from "@prisma/client";
 import { invalidateCachedRepresentation } from "@/lib/emotes/public-json-cache";
 import {
   isBlackMarketCrateAssetUrl,
@@ -48,6 +48,7 @@ type ItemInput = {
   id: string;
   name: string;
   group: string;
+  overlay_config?: Prisma.InputJsonObject;
   itemType: "normal" | "progressive" | "golden_eggs";
   useInputLabel: string | null;
   expiry: "permanent" | "seven_days" | "thirty_days" | "event_end";
@@ -85,6 +86,24 @@ function isRecord(value: unknown): value is Record<string, unknown> {
   return typeof value === "object" && value !== null && !Array.isArray(value);
 }
 
+function isJsonValue(value: unknown): value is Prisma.InputJsonValue | null {
+  if (
+    value === null ||
+    typeof value === "string" ||
+    typeof value === "boolean"
+  ) {
+    return true;
+  }
+  if (typeof value === "number") return Number.isFinite(value);
+  if (Array.isArray(value)) return value.every(isJsonValue);
+  if (!isRecord(value)) return false;
+  return Object.values(value).every(isJsonValue);
+}
+
+function isJsonObject(value: unknown): value is Prisma.InputJsonObject {
+  return isRecord(value) && Object.values(value).every(isJsonValue);
+}
+
 function uniqueConstraintTarget(error: unknown): string[] {
   if (!isRecord(error) || !isRecord(error.meta)) return [];
   const target = error.meta.target;
@@ -114,6 +133,8 @@ function revalidateCrates() {
 
 function revalidateItems() {
   invalidateCachedRepresentation("emotes-meta");
+  invalidateCachedRepresentation("overlays-map");
+  invalidateCachedRepresentation("overlays-meta");
   revalidatePath(adminPath);
   revalidatePath(`${adminPath}/items`);
   revalidatePath("/black-market");
@@ -145,7 +166,9 @@ function validCrateInput(input: unknown): input is CrateInput {
   );
 }
 
-function validItemInput(input: unknown): input is ItemInput {
+function validItemInput(
+  input: unknown,
+): input is ItemInput & { group: "emote" | "chat" | "overlay" } {
   if (!isRecord(input) || !Array.isArray(input.crateAssignments)) return false;
   const assignments = input.crateAssignments;
   if (
@@ -184,11 +207,16 @@ function validItemInput(input: unknown): input is ItemInput {
     typeof input.name === "string" &&
     input.name.trim().length > 0 &&
     input.name.trim().length <= 100 &&
-    typeof input.group === "string" &&
-    /^[a-z0-9_-]{1,32}$/u.test(input.group) &&
+    (input.group === "emote" ||
+      input.group === "chat" ||
+      input.group === "overlay") &&
     (input.itemType === "normal" ||
       input.itemType === "progressive" ||
       input.itemType === "golden_eggs") &&
+    (input.overlay_config === undefined ||
+      (input.group === "overlay" &&
+        input.itemType === "progressive" &&
+        isJsonObject(input.overlay_config))) &&
     (input.itemType === "normal"
       ? input.expiry === "permanent" ||
         input.expiry === "seven_days" ||
@@ -406,6 +434,9 @@ export async function createItem(input: ItemInput): Promise<AdminActionResult> {
           id: input.id,
           name: input.name.trim(),
           group: input.group,
+          ...(input.overlay_config !== undefined
+            ? { overlay_config: input.overlay_config }
+            : {}),
           item_type: input.itemType,
           expiry: input.expiry,
           image_url: input.imageUrl,
@@ -506,6 +537,11 @@ export async function updateItem(
         data: {
           name: input.name.trim(),
           group: input.group,
+          ...(input.group === "overlay"
+            ? input.overlay_config !== undefined
+              ? { overlay_config: input.overlay_config }
+              : {}
+            : { overlay_config: Prisma.DbNull }),
           image_url: input.imageUrl,
           use_input_label: input.useInputLabel?.trim() ?? null,
           max_level: input.maxLevel,

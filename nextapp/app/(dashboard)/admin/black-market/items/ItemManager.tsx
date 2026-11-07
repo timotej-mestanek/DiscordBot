@@ -14,6 +14,7 @@ export type AdminItem = {
   id: string;
   name: string;
   group: string;
+  overlayConfig: unknown;
   itemType: "normal" | "progressive" | "golden_eggs";
   imageUrl: string;
   useInputLabel: string | null;
@@ -31,6 +32,38 @@ type CrateSettings = {
   dropChance: string;
   goldenEggs: string;
 };
+
+type JsonValue =
+  | string
+  | number
+  | boolean
+  | null
+  | JsonValue[]
+  | { [key: string]: JsonValue };
+type JsonObject = { [key: string]: JsonValue };
+
+function isJsonValue(value: unknown): value is JsonValue {
+  if (
+    value === null ||
+    typeof value === "string" ||
+    typeof value === "boolean"
+  ) {
+    return true;
+  }
+  if (typeof value === "number") return Number.isFinite(value);
+  if (Array.isArray(value)) return value.every(isJsonValue);
+  if (typeof value !== "object") return false;
+  return Object.values(value).every(isJsonValue);
+}
+
+function isJsonObject(value: unknown): value is JsonObject {
+  return (
+    typeof value === "object" &&
+    value !== null &&
+    !Array.isArray(value) &&
+    Object.values(value).every(isJsonValue)
+  );
+}
 
 function actionError(result: AdminActionResult<unknown>) {
   if (result.type === "success") return "";
@@ -64,6 +97,10 @@ export default function ItemManager({
   const [itemType, setItemType] = useState<"normal" | "progressive" | "golden_eggs">(
     item?.itemType ?? "progressive",
   );
+  const [group, setGroup] = useState(item?.group ?? "chat");
+  const [overlayConfigText, setOverlayConfigText] = useState(
+    JSON.stringify(item?.overlayConfig ?? { elements: [] }, null, 2),
+  );
   const [shopEnabled, setShopEnabled] = useState(item?.shopEnabled ?? false);
   const [imageUrl, setImageUrl] = useState(item?.imageUrl ?? "");
   const [crateSettings, setCrateSettings] = useState<Record<string, CrateSettings>>(
@@ -78,6 +115,20 @@ export default function ItemManager({
       setError("Upload an image before saving the item.");
       return;
     }
+    let overlayConfig: JsonObject | undefined;
+    if (group === "overlay" && itemType === "progressive") {
+      try {
+        const parsed: unknown = JSON.parse(overlayConfigText);
+        if (!isJsonObject(parsed)) {
+          setError("Overlay configuration must be a JSON object.");
+          return;
+        }
+        overlayConfig = parsed;
+      } catch {
+        setError("Overlay configuration must contain valid JSON.");
+        return;
+      }
+    }
     setBusy(true);
     setError("");
     const sellInShop = shopEnabled && itemType !== "golden_eggs";
@@ -86,6 +137,7 @@ export default function ItemManager({
       name: String(formData.get("name") ?? "").trim(),
       group: String(formData.get("group") ?? "").trim().toLowerCase(),
       itemType,
+      ...(overlayConfig ? { overlay_config: overlayConfig } : {}),
       useInputLabel: itemType === "golden_eggs"
         ? null
         : String(formData.get("useInputLabel") ?? "").trim() || null,
@@ -211,8 +263,17 @@ export default function ItemManager({
               </label>
               <label className="space-y-2 text-sm text-zinc-300">
                 <span className="block">Group</span>
-                <input name="group" required maxLength={32} pattern="[a-zA-Z0-9_-]+" defaultValue={item?.group ?? "chat"} className="w-full rounded-lg border border-zinc-700 bg-zinc-950 px-3 py-2 text-white" />
-                <span className="block text-xs text-zinc-500">For example: chat</span>
+                <select
+                  name="group"
+                  required
+                  value={group}
+                  onChange={(event) => setGroup(event.currentTarget.value)}
+                  className="w-full rounded-lg border border-zinc-700 bg-zinc-950 px-3 py-2 text-white"
+                >
+                  <option value="emote">Emote</option>
+                  <option value="chat">Chat</option>
+                  <option value="overlay">Overlay</option>
+                </select>
               </label>
               {!item ? (
                 <label className="space-y-2 text-sm text-zinc-300">
@@ -260,6 +321,22 @@ export default function ItemManager({
                 <input name="maxLevel" type="number" min={1} max={100} required defaultValue={item?.maxLevel ?? 6} className="w-full rounded-lg border border-zinc-700 bg-zinc-950 px-3 py-2 text-white" />
                 </label>
               ) : <input type="hidden" name="maxLevel" value={1} />}
+              {group === "overlay" && itemType === "progressive" && (
+                <label className="space-y-2 text-sm text-zinc-300 sm:col-span-2">
+                  <span className="block">Overlay configuration (JSON)</span>
+                  <textarea
+                    value={overlayConfigText}
+                    onChange={(event) => setOverlayConfigText(event.currentTarget.value)}
+                    rows={12}
+                    spellCheck={false}
+                    className="w-full rounded-lg border border-zinc-700 bg-zinc-950 px-3 py-2 font-mono text-xs text-white"
+                    placeholder={'{\n  "elements": []\n}'}
+                  />
+                  <span className="block text-xs text-zinc-500">
+                    Define the overlay elements and their minimum levels.
+                  </span>
+                </label>
+              )}
               {itemType === "normal" && (
                 <label className="space-y-2 text-sm text-zinc-300">
                   <span className="block">Ownership duration</span>
