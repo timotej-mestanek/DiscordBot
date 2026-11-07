@@ -11,10 +11,23 @@ type CacheResult = {
   status: "HIT" | "MISS";
 };
 
-const cache = new Map<string, JsonRepresentation>();
-const inFlight = new Map<string, Promise<JsonRepresentation>>();
-const refreshTimers = new Map<string, ReturnType<typeof setTimeout>>();
-const generations = new Map<string, number>();
+type JsonCacheState = {
+  cache: Map<string, JsonRepresentation>;
+  inFlight: Map<string, Promise<JsonRepresentation>>;
+  refreshTimers: Map<string, ReturnType<typeof setTimeout>>;
+  generations: Map<string, number>;
+};
+
+const globalCache = globalThis as typeof globalThis & {
+  __publicJsonCacheState?: JsonCacheState;
+};
+const cacheState = (globalCache.__publicJsonCacheState ??= {
+  cache: new Map(),
+  inFlight: new Map(),
+  refreshTimers: new Map(),
+  generations: new Map(),
+});
+const { cache, inFlight, refreshTimers, generations } = cacheState;
 
 export const EMOTE_GROUP = "emote";
 const ALLOWED_EMOTE_ORIGIN = "http://localhost:5173";
