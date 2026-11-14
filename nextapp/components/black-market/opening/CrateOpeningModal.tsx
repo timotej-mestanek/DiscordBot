@@ -32,8 +32,10 @@ export default function CrateOpeningModal({
   const [videoReady, setVideoReady] = useState(false);
   const [videoFailed, setVideoFailed] = useState(false);
   const [playbackDone, setPlaybackDone] = useState(false);
+  const [revealSkipped, setRevealSkipped] = useState(false);
   const actionStarted = useRef(false);
   const videoRef = useRef<HTMLVideoElement>(null);
+  const revealVisible = result !== null && (playbackDone || revealSkipped);
   const hasOpeningVideos =
     !!crate.openingVideoGoldUrl || !!crate.openingVideoNormalUrl;
   const videoUrl =
@@ -106,6 +108,11 @@ export default function CrateOpeningModal({
     onClose();
   }
 
+  function skipAnimation() {
+    videoRef.current?.pause();
+    setRevealSkipped(true);
+  }
+
   if (!hasOpeningVideos) {
     return (
       <SimpleOpenCrateModal
@@ -147,15 +154,13 @@ export default function CrateOpeningModal({
             <video
               key={videoUrl}
               ref={videoRef}
-              autoPlay
               muted
               playsInline
               preload="auto"
-              poster={crate.previewImageUrl ?? undefined}
               onCanPlay={() => setVideoReady(true)}
               onEnded={() => setPlaybackDone(true)}
               onError={() => setVideoFailed(true)}
-              className="h-full w-full object-contain"
+              className={`h-full w-full object-contain transition-opacity duration-300 ${videoReady ? "opacity-100" : "opacity-0"}`}
               aria-label={`${crate.name} ${result?.videoVariant} opening animation`}
             >
               <source src={videoUrl} type="video/webm" />
@@ -170,27 +175,31 @@ export default function CrateOpeningModal({
             <h1 className="mt-2 text-xl font-black sm:text-2xl">{crate.name}</h1>
           </div>
         </div>
-        {!result && pending && (
-          <p role="status" className="absolute bottom-8 left-1/2 z-10 -translate-x-1/2 rounded-full bg-black/60 px-4 py-2 text-sm text-zinc-200">
-            Drawing crate reward…
-          </p>
+        {!videoFailed && !videoReady && (
+          <div
+            role="status"
+            className="absolute inset-0 z-10 flex flex-col items-center justify-center gap-4 bg-zinc-950 text-zinc-200"
+          >
+            <span className="h-10 w-10 animate-spin rounded-full border-2 border-violet-300 border-t-transparent" />
+            <p className="text-sm">
+              {!result
+                ? pending
+                  ? "Drawing crate reward…"
+                  : "Preparing reveal…"
+                : `Loading ${result.videoVariant}.webm…`}
+            </p>
+          </div>
         )}
-        {result && !videoReady && !videoFailed && (
-          <p role="status" className="absolute bottom-8 left-1/2 z-10 -translate-x-1/2 rounded-full bg-black/60 px-4 py-2 text-sm text-zinc-200">
-            Loading {result.videoVariant}.webm…
-          </p>
+        {result && !revealVisible && !videoFailed && (
+          <button
+            type="button"
+            onClick={skipAnimation}
+            className="absolute bottom-8 left-1/2 z-20 -translate-x-1/2 rounded-full border border-white/30 bg-black/70 px-5 py-3 text-sm font-bold text-white shadow-lg backdrop-blur transition hover:bg-black/90 focus-visible:outline focus-visible:outline-2 focus-visible:outline-violet-300"
+          >
+            Skip animation
+          </button>
         )}
-        {videoReady && !playbackDone && !videoFailed && (
-          <p role="status" className="absolute bottom-8 left-1/2 z-10 -translate-x-1/2 rounded-full bg-black/60 px-4 py-2 text-sm text-zinc-200">
-            Playing crate opening…
-          </p>
-        )}
-        {playbackDone && !result && (
-          <p role="status" className="absolute bottom-8 left-1/2 z-10 -translate-x-1/2 rounded-full bg-black/60 px-4 py-2 text-sm text-zinc-200">
-            {pending ? "Opening crate…" : "Preparing reveal…"}
-          </p>
-        )}
-        {playbackDone && result && <ItemReveal result={result} onClose={close} />}
+        {revealVisible && <ItemReveal result={result} onClose={close} />}
       </section>
     </div>
   );

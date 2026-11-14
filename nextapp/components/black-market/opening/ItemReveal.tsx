@@ -11,7 +11,7 @@ export default function ItemReveal({
   onClose: () => void;
 }) {
   return (
-    <div className="absolute inset-0 z-10 flex items-center justify-center bg-zinc-950/25 p-5">
+    <div className="absolute inset-0 z-10 flex items-center justify-center bg-zinc-950/45 p-5 backdrop-blur-md">
       {result.type === "eggs" ? (
         <section
           aria-live="polite"
