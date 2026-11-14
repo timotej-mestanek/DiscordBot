@@ -76,7 +76,10 @@ export default async function BlackMarketPage({
   const availableShopItems = season && season.ends_at > now ? shopItems : [];
 
   return (
-    <main className="app-page min-h-screen bg-zinc-950 text-white">
+    <main
+      key={adminView ? "admin" : "user"}
+      className="app-page min-h-screen bg-zinc-950 text-white"
+    >
       <AppHeader
         account={account}
         section="shop"

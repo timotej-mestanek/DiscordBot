@@ -35,7 +35,6 @@ export default function WarehouseKeyCard({
         />
       </svg>
       <span className="text-center text-xs font-semibold">{crateName} key</span>
-      <span className="text-[10px] text-amber-200/70">Right-click to use</span>
     </button>
   );
 }

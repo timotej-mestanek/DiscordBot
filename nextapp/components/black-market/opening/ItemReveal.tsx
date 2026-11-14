@@ -15,7 +15,7 @@ export default function ItemReveal({
       {result.type === "eggs" ? (
         <section
           aria-live="polite"
-          className="w-full max-w-sm animate-[item-reveal_500ms_cubic-bezier(.16,1,.3,1)_both] rounded-3xl border border-amber-500/60 bg-zinc-950/95 p-8 text-center shadow-2xl shadow-amber-500/20"
+          className="w-full max-w-sm animate-[item-reveal_500ms_cubic-bezier(.16,1,.3,1)_both] rounded-3xl border border-amber-500/60 bg-zinc-950/95 p-8 text-center shadow-2xl shadow-amber-500/20 motion-reduce:animate-none"
         >
           <p className="text-7xl" aria-hidden="true">🥚</p>
           <h2 className="mt-4 text-4xl font-black text-amber-100">
@@ -48,7 +48,7 @@ export default function ItemReveal({
       ) : result.type === "duplicate" ? (
         <section
           aria-live="polite"
-          className="w-full max-w-sm animate-[item-reveal_500ms_cubic-bezier(.16,1,.3,1)_both] rounded-3xl border border-amber-500/60 bg-zinc-950/95 p-5 text-center shadow-2xl shadow-amber-500/20"
+          className="w-full max-w-sm animate-[item-reveal_500ms_cubic-bezier(.16,1,.3,1)_both] rounded-3xl border border-amber-500/60 bg-zinc-950/95 p-5 text-center shadow-2xl shadow-amber-500/20 motion-reduce:animate-none"
         >
           <div className="relative mx-auto aspect-square w-full max-w-[19rem] overflow-hidden rounded-2xl border border-zinc-700 bg-zinc-900">
             {result.imageUrl ? (
@@ -81,7 +81,7 @@ export default function ItemReveal({
       ) : (
         <section
           aria-live="polite"
-          className="w-full max-w-sm animate-[item-reveal_500ms_cubic-bezier(.16,1,.3,1)_both] rounded-3xl border border-violet-500/50 bg-zinc-950/95 p-5 text-center shadow-2xl shadow-violet-500/20"
+          className="w-full max-w-sm animate-[item-reveal_500ms_cubic-bezier(.16,1,.3,1)_both] rounded-3xl border border-violet-500/50 bg-zinc-950/95 p-5 text-center shadow-2xl shadow-violet-500/20 motion-reduce:animate-none"
         >
           <div className="relative mx-auto aspect-square w-full max-w-[19rem] overflow-hidden rounded-2xl border border-zinc-700 bg-zinc-900">
             {result.imageUrl ? (

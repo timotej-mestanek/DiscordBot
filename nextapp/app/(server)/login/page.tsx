@@ -35,7 +35,10 @@ export default async function LoginPage({
             : null;
 
   return (
-    <main className="app-page min-h-screen bg-zinc-950 text-white">
+    <main
+      key={error ?? "login"}
+      className="app-page min-h-screen bg-zinc-950 text-white"
+    >
       <AppHeader account={null} section="account" />
       <div className="login-page">
         <section className="login-story">

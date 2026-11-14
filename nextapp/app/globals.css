@@ -959,6 +959,7 @@ button:disabled {
 
 .app-page {
   min-height: 100vh;
+  animation: app-page-enter 650ms cubic-bezier(0.22, 1, 0.36, 1) both;
 }
 
 .app-page-title {
@@ -2258,4 +2259,185 @@ body:has(.voting-overlay-canvas) {
   color: #8e8997;
   font-size: 0.62rem;
   font-weight: 550;
+}
+
+.app-navigation-loading {
+  position: fixed;
+  inset: 0;
+  z-index: 9999;
+  display: grid;
+  width: 100vw;
+  height: 100dvh;
+  min-height: 100dvh;
+  place-items: center;
+  background:
+    radial-gradient(ellipse at center, rgb(124 58 237 / 14%), transparent 48%),
+    #09090b;
+  animation: loading-screen-enter 280ms ease-out both;
+}
+
+.app-navigation-loading > div {
+  animation: loading-content-enter 420ms cubic-bezier(0.22, 1, 0.36, 1) both;
+}
+
+.app-navigation-loader {
+  display: grid;
+  width: 4.5rem;
+  height: 4.5rem;
+  place-items: center;
+  border: 1px solid rgb(167 139 250 / 25%);
+  border-radius: 50%;
+  animation: app-loader-spin 2.2s linear infinite;
+}
+
+.app-navigation-loader::before,
+.app-navigation-loader span {
+  grid-area: 1 / 1;
+  border-radius: 50%;
+  content: "";
+}
+
+.app-navigation-loader::before {
+  width: 3rem;
+  height: 3rem;
+  border: 2px solid transparent;
+  border-top-color: #c4b5fd;
+  border-right-color: rgb(167 139 250 / 35%);
+}
+
+.app-navigation-loader span {
+  width: 0.55rem;
+  height: 0.55rem;
+  background: #c4b5fd;
+  box-shadow: 0 0 1.25rem rgb(167 139 250 / 80%);
+}
+
+.black-market-crate-card {
+  transform: translateY(0);
+  transition:
+    transform 180ms ease,
+    background-color 180ms ease,
+    box-shadow 180ms ease;
+}
+
+.black-market-crate-artwork {
+  animation: crate-idle 3s ease-in-out infinite;
+  transition: transform 200ms ease;
+}
+
+.black-market-crate-card:not(:disabled):hover {
+  transform: translateY(-3px);
+  box-shadow: 0 12px 30px rgb(124 58 237 / 14%);
+}
+
+.black-market-crate-card:not(:disabled):hover .black-market-crate-artwork {
+  transform: scale(1.1) rotate(-3deg);
+  animation-play-state: paused;
+}
+
+.crate-opening-dialog {
+  animation: crate-dialog-enter 350ms cubic-bezier(0.16, 1, 0.3, 1) both;
+}
+
+.crate-opening-art {
+  animation: crate-opening 1.25s ease-in-out infinite;
+  filter: drop-shadow(0 0 1.25rem rgb(167 139 250 / 35%));
+}
+
+.crate-opening-glow {
+  animation: crate-glow 1.6s ease-in-out infinite alternate;
+}
+
+@keyframes app-page-enter {
+  from {
+    opacity: 0.45;
+  }
+  to {
+    opacity: 1;
+  }
+}
+
+@keyframes loading-screen-enter {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
+}
+
+@keyframes loading-content-enter {
+  from {
+    opacity: 0;
+    transform: translateY(10px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+@keyframes app-loader-spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+@keyframes crate-idle {
+  50% {
+    transform: translateY(-4px) rotate(1deg);
+  }
+}
+
+@keyframes crate-dialog-enter {
+  from {
+    opacity: 0;
+    transform: translateY(12px) scale(0.97);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+  }
+}
+
+@keyframes crate-opening {
+  0%,
+  100% {
+    transform: translateY(0) rotate(0);
+  }
+  30% {
+    transform: translateY(-5px) rotate(-5deg);
+  }
+  65% {
+    transform: translateY(1px) rotate(5deg);
+  }
+}
+
+@keyframes crate-glow {
+  from {
+    opacity: 0.35;
+    transform: scale(0.85);
+  }
+  to {
+    opacity: 0.8;
+    transform: scale(1.15);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .app-page,
+  .app-navigation-loading,
+  .app-navigation-loading > div,
+  .app-navigation-loader,
+  .black-market-crate-artwork,
+  .crate-opening-dialog,
+  .crate-opening-art,
+  .crate-opening-glow {
+    animation: none;
+  }
+
+  .black-market-crate-card,
+  .black-market-crate-artwork {
+    transition: none;
+  }
 }

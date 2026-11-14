@@ -240,9 +240,19 @@ export default async function DashboardPage({
         })),
       }];
     }) ?? [];
+  const pageKey = [
+    adminView ? "admin" : "user",
+    activeTab,
+    params.linked ?? "",
+    params.merged ?? "",
+    params.error ?? "",
+  ].join(":");
 
   return (
-    <main className="app-page min-h-screen bg-zinc-950 text-white">
+    <main
+      key={pageKey}
+      className="app-page min-h-screen bg-zinc-950 text-white"
+    >
       <AppHeader
         account={account}
         section={activeTab === "inventory" ? "inventory" : "account"}

@@ -98,7 +98,7 @@ export default function SimpleOpenCrateModal({
         role="dialog"
         aria-modal="true"
         aria-labelledby="open-crate-title"
-        className="app-fixed-dialog app-fixed-dialog--large"
+        className="app-fixed-dialog app-fixed-dialog--large crate-opening-dialog"
       >
         <div className="flex items-start justify-between gap-3">
           <div>
@@ -120,8 +120,21 @@ export default function SimpleOpenCrateModal({
         </div>
 
         {isPending ? (
-          <div className="flex flex-col items-center justify-center gap-3 py-12" role="status">
-            <span className="h-8 w-8 animate-spin rounded-full border-2 border-violet-300 border-t-transparent" />
+          <div className="relative flex flex-col items-center justify-center gap-3 py-12" role="status">
+            <span className="crate-opening-glow absolute h-24 w-24 rounded-full bg-violet-500/20 blur-2xl" aria-hidden="true" />
+            <svg
+              viewBox="0 0 48 48"
+              fill="none"
+              aria-hidden="true"
+              className="crate-opening-art relative h-16 w-16 text-violet-200"
+              stroke="currentColor"
+              strokeWidth="2"
+              strokeLinecap="round"
+              strokeLinejoin="round"
+            >
+              <path d="M7 17h34v25H7zM4 10h40v7H4zM24 10v32" />
+              <path d="M24 10H14a5 5 0 1 1 5-5c0 3 5 5 5 5Zm0 0h10a5 5 0 1 0-5-5c0 3-5 5-5 5Z" />
+            </svg>
             <p className="text-sm text-zinc-300">Opening...</p>
           </div>
         ) : shownResult?.type === "item" ? (

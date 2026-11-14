@@ -34,10 +34,10 @@ export default function CrateCard({
               : "This crate is not currently available."
           : undefined
       }
-      className="flex aspect-[4/3] w-full flex-col items-center justify-center gap-2 rounded-xl bg-violet-950/30 p-3 text-violet-200 transition hover:bg-violet-900/40 focus-visible:outline focus-visible:outline-2 focus-visible:outline-violet-300 disabled:cursor-not-allowed disabled:opacity-50"
+      className="black-market-crate-card group flex aspect-[4/3] w-full flex-col items-center justify-center gap-2 rounded-xl bg-violet-950/30 p-3 text-violet-200 hover:bg-violet-900/40 focus-visible:outline focus-visible:outline-2 focus-visible:outline-violet-300 disabled:cursor-not-allowed disabled:opacity-50"
     >
       {crate.previewImageUrl ? (
-        <span className="relative h-16 w-16 shrink-0 overflow-hidden rounded-lg sm:h-20 sm:w-20">
+        <span className="black-market-crate-artwork relative h-16 w-16 shrink-0 overflow-hidden rounded-lg sm:h-20 sm:w-20">
           <Image
             src={crate.previewImageUrl}
             alt=""
@@ -52,7 +52,7 @@ export default function CrateCard({
           viewBox="0 0 48 48"
           fill="none"
           aria-hidden="true"
-          className="h-16 w-16 text-violet-300 sm:h-20 sm:w-20"
+          className="black-market-crate-artwork h-16 w-16 text-violet-300 sm:h-20 sm:w-20"
           stroke="currentColor"
           strokeWidth="2"
           strokeLinecap="round"
@@ -65,9 +65,6 @@ export default function CrateCard({
       <span className="text-center text-xs font-semibold">
         {crate.name}
         {instanceNumber !== undefined && ` #${instanceNumber}`}
-      </span>
-      <span className="text-[10px] text-violet-200/70">
-        {onSelectKey ? "Right-click to select a key" : "Select crate"}
       </span>
     </button>
   );

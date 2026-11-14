@@ -91,7 +91,10 @@ export default async function ShopPage({
   }
 
   return (
-    <main className="app-page min-h-screen bg-zinc-950 text-white">
+    <main
+      key={`${adminView ? "admin" : "user"}:${isPublicPreview ? "preview" : "full"}`}
+      className="app-page min-h-screen bg-zinc-950 text-white"
+    >
       <AppHeader
         account={account}
         section="shop"
