@@ -1,8 +1,9 @@
 import Link from "next/link";
+import LogoutForm from "./LogoutForm";
 
 type AppHeaderProps = {
   account: { display_name: string; role: string } | null;
-  section?: "shop" | "inventory" | "account";
+  section?: "shop" | "inventory" | "account" | "games";
   shopTab?: "default" | "blackmarket";
   adminView?: boolean;
   adminTab?: string;
@@ -103,6 +104,9 @@ export default function AppHeader({
               <MainLink href="/shop" active={section === "shop"}>
                 Shop
               </MainLink>
+              <MainLink href="/games" active={section === "games"}>
+                Games
+              </MainLink>
               {account && (
                 <MainLink
                   href="/dashboard?view=user&tab=inventory"
@@ -134,11 +138,7 @@ export default function AppHeader({
             </Link>
           )}
           {account && (
-            <form action="/api/logout" method="post">
-              <button className="app-signout-button" type="submit">
-                Logout
-              </button>
-            </form>
+            <LogoutForm />
           )}
         </div>
       </div>
