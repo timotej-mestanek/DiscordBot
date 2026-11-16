@@ -14,7 +14,18 @@ export const dynamic = "force-dynamic";
 
 const CACHE_KEY = "emotes-map";
 const CACHE_TTL_MS = 30_000;
-const CACHE_CONTROL = "public, max-age=30, s-maxage=30";
+
+function withMapNoStore(response: Response): Response {
+  const headers = new Headers(response.headers);
+  headers.set("Cache-Control", "no-store");
+  headers.set("CDN-Cache-Control", "no-store");
+  headers.set("Cloudflare-CDN-Cache-Control", "no-store");
+  return new Response(response.body, {
+    status: response.status,
+    statusText: response.statusText,
+    headers,
+  });
+}
 
 export function OPTIONS(request: Request): Response {
   return emoteCorsOptions(request);
@@ -144,12 +155,14 @@ export async function GET(request: Request): Promise<Response> {
     );
 
     return withEmoteCors(
-      jsonResponse(request, result.representation, result.status, CACHE_CONTROL),
+      withMapNoStore(
+        jsonResponse(request, result.representation, result.status, "no-store"),
+      ),
       request,
     );
   } catch (error) {
     console.error("Failed to build emotes map:", error);
-    return withEmoteCors(serviceUnavailableResponse(), request);
+    return withEmoteCors(withMapNoStore(serviceUnavailableResponse()), request);
   }
 }
 

@@ -3,6 +3,8 @@ import Image from "next/image";
 import { prisma } from "@/lib/prisma";
 import CrateManager from "./CrateManager";
 
+export const dynamic = "force-dynamic";
+
 export default async function BlackMarketCratesPage() {
   const crates = await prisma.blackMarketCrate.findMany({
     orderBy: [{ created_at: "desc" }, { name: "asc" }],

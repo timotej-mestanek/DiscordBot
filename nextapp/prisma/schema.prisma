@@ -539,6 +539,8 @@ model StreamerBotChatMetricEvent {
   display_name     String
   profanity_count  Int      @default(0)
   message_count    Int      @default(0)
+  word_count       Int      @default(0)
+  emote_count      Int      @default(0)
   created_at       DateTime @default(now())
 
   @@index([platform, provider_user_id, created_at])

@@ -4,6 +4,8 @@ import Image from "next/image";
 import { prisma } from "@/lib/prisma";
 import ItemLevelManager from "./ItemLevelManager";
 
+export const dynamic = "force-dynamic";
+
 export default async function BlackMarketItemLevelsPage({
   params,
 }: {

@@ -24,6 +24,8 @@
 !/streamerbot_plugin/N4JT-CreateMarker.cs
 !/streamerbot_plugin/N4JT-CreateClip.cs
 !/streamerbot_plugin/N4JT-WSSClient.cs
+!/streamerbot_plugin/N4JT-Chat-Stats.sb
+!/streamerbot_plugin/N4JT-Chat-Stats.cs
 !/streamerbot_plugin/N4JT-Alerts.sb
 !/streamerbot_plugin/N4JT-Alerts-Follow.cs
 !/streamerbot_plugin/N4JT-Alerts-Subscription.cs

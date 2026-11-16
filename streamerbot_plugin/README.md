@@ -21,6 +21,34 @@ points to `/api/integrations/streamerbot/points`. Request failures are written
 to the Streamer.bot log. For a different app domain, change the `Endpoint`
 constant in the source before importing.
 
+## Chat statistics
+
+Import `N4JT-Chat-Stats.sb` in Streamer.bot. It creates a Twitch **Chat Message**
+trigger and a repeating **300-second timer**. The chat trigger counts messages,
+words, matches from a configurable word dataset, and emote occurrences per
+viewer. The timer sends those aggregates to
+`POST /api/integrations/streamerbot/chat-metrics` every five minutes. It stores
+only counts and viewer identifiers, never message text; unsent counts remain in
+a persistent global variable and are retried with an idempotent event ID.
+
+Configure these persistent Streamer.bot string globals:
+
+- `n4jtStreamerBotToken`: the existing `STREAMERBOT_INGEST_TOKEN`.
+- `n4jtChatStatsWordDataset`: copy the contents of
+  `../bot/modules/profanity/vulgarisms.txt`. Both bare terms and
+  `category|weight|term` entries are supported. Terms are matched without case
+  or diacritic sensitivity.
+- `n4jtChatStatsExtraEmotes`: optional JSON array of extra emote triggers, for
+  example `["Kappa","KEKW"]`. The action also refreshes the per-viewer N4JT
+  emote triggers from `https://najtik.stream/emotes-map.json` every 30 seconds.
+  Add names from Twitch, 7TV, BTTV, or another dataset here if they are not in
+  that map.
+
+The action posts `messageCount`, `wordCount`, `profanityCount`, and `emoteCount`
+for each viewer. If your app uses another domain, change `MetricsEndpoint` and
+`EmotesEndpoint` in `N4JT-Chat-Stats.cs` before importing. Apply the app's
+pending Prisma migrations before enabling the action.
+
 ## Twitch moderator commands and clips
 
 Import `N4JT-Moderator-Commands.sb` to add these Twitch chat commands:

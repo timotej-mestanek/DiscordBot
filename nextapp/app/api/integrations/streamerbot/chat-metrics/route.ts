@@ -35,8 +35,13 @@ export async function POST(request: Request) {
   } catch {
     return NextResponse.json({ error: "Neplatná data požadavku." }, { status: 400 });
   }
+  if (!isRecord(body)) {
+    return NextResponse.json({ error: "Neplatné chat statistiky." }, { status: 400 });
+  }
+
+  const wordCount = body.wordCount === undefined ? 0 : body.wordCount;
+  const emoteCount = body.emoteCount === undefined ? 0 : body.emoteCount;
   if (
-    !isRecord(body) ||
     typeof body.eventId !== "string" ||
     body.eventId.trim().length < 1 ||
     body.eventId.length > 200 ||
@@ -48,7 +53,12 @@ export async function POST(request: Request) {
     body.displayName.length > 80 ||
     !validCount(body.profanityCount) ||
     !validCount(body.messageCount) ||
-    (body.profanityCount === 0 && body.messageCount === 0)
+    !validCount(wordCount) ||
+    !validCount(emoteCount) ||
+    (body.profanityCount === 0 &&
+      body.messageCount === 0 &&
+      wordCount === 0 &&
+      emoteCount === 0)
   ) {
     return NextResponse.json({ error: "Neplatné chat statistiky." }, { status: 400 });
   }
@@ -62,6 +72,8 @@ export async function POST(request: Request) {
         display_name: body.displayName.trim(),
         profanity_count: body.profanityCount,
         message_count: body.messageCount,
+        word_count: wordCount,
+        emote_count: emoteCount,
       },
     });
     return NextResponse.json({ ok: true, duplicate: false });

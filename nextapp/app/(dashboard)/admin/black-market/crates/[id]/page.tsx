@@ -3,6 +3,8 @@ import Link from "next/link";
 import { prisma } from "@/lib/prisma";
 import CrateItemsManager from "./CrateItemsManager";
 
+export const dynamic = "force-dynamic";
+
 export default async function BlackMarketCrateItemsPage({
   params,
 }: {

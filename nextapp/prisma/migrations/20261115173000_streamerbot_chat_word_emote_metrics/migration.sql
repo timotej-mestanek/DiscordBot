@@ -1,0 +1,3 @@
+ALTER TABLE "StreamerBotChatMetricEvent"
+ADD COLUMN "word_count" INTEGER NOT NULL DEFAULT 0,
+ADD COLUMN "emote_count" INTEGER NOT NULL DEFAULT 0;

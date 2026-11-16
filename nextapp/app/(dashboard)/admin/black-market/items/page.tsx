@@ -3,6 +3,8 @@ import Link from "next/link";
 import { prisma } from "@/lib/prisma";
 import ItemManager from "./ItemManager";
 
+export const dynamic = "force-dynamic";
+
 export default async function BlackMarketItemsPage() {
   const [items, crates] = await Promise.all([
     prisma.blackMarketItem.findMany({
